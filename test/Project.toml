@@ -7,6 +7,7 @@ LabelledNumbers = "f856a3a6-4152-4ec4-b2a7-02c1a55d7993"
 NDTensors = "23ae76d9-e61a-49c4-8f12-3f1a16adf9cf"
 TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
 GradedUnitRanges = {url = "https://github.com/ITensor/GradedUnitRanges.jl"}
