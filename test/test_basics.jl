@@ -3,8 +3,8 @@ using BlockArrays: blockfirsts, blocklasts, blocklength, blocklengths, blocks
 using Combinatorics: permutations
 using EllipsisNotation: var".."
 using LinearAlgebra: norm, qr
-using NDTensors.TensorAlgebra:
-  TensorAlgebra, blockedperm, blockedperm_indexin, fusedims, splitdims
+using TensorAlgebra: TensorAlgebra, blockedperm, blockedperm_indexin, fusedims, splitdims
+# TODO: Remove dependency on NDTensors, create a GPUTestUtils.jl package.
 using NDTensors: NDTensors
 include(joinpath(pkgdir(NDTensors), "test", "NDTensorsTestUtils", "NDTensorsTestUtils.jl"))
 using .NDTensorsTestUtils: default_rtol

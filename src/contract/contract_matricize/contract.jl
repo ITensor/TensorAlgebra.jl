@@ -1,8 +1,7 @@
-using ..BackendSelection: @Algorithm_str
 using LinearAlgebra: mul!
 
 function contract!(
-  alg::Algorithm"matricize",
+  alg::Matricize,
   a_dest::AbstractArray,
   biperm_dest::BlockedPermutation,
   a1::AbstractArray,

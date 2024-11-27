@@ -1,4 +1,3 @@
-using ..BackendSelection: Algorithm
 using .BaseExtensions: BaseExtensions
 
 function blockedperms(
