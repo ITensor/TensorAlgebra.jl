@@ -3,12 +3,14 @@ BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
+LabelledNumbers = "f856a3a6-4152-4ec4-b2a7-02c1a55d7993"
 NDTensors = "23ae76d9-e61a-49c4-8f12-3f1a16adf9cf"
 TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 
 [sources]
 GradedUnitRanges = {url = "https://github.com/ITensor/GradedUnitRanges.jl"}
+LabelledNumbers = {url = "https://github.com/ITensor/LabelledNumbers.jl"}
 TensorAlgebra = {path = ".."}
 
 [compat]
