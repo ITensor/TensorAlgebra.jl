@@ -29,7 +29,9 @@ using Test: @test_skip
     a_dest, dimnames_dest = contract(a1, (-1, 1, -2), a2, (-1, -2, 2))
     a1_dense = densearray(a1)
     a2_dense = densearray(a2)
-    a_dest_dense, dimnames_dest_dense = contract(a1_dense, (-1, 1, -2), a2_dense, (-1, -2, 2))
+    a_dest_dense, dimnames_dest_dense = contract(
+      a1_dense, (-1, 1, -2), a2_dense, (-1, -2, 2)
+    )
     @test dimnames_dest == dimnames_dest_dense
     @test a_dest ≈ a_dest_dense
   end

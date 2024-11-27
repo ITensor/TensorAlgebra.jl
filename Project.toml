@@ -16,11 +16,17 @@ GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
 [extensions]
 TensorAlgebraGradedUnitRangesExt = "GradedUnitRanges"
 
+[sources]
+GradedUnitRanges = {url = "https://github.com/ITensor/GradedUnitRanges.jl"}
+LabelledNumbers = {url = "https://github.com/ITensor/LabelledNumbers.jl"}
+
 [compat]
 Aqua = "0.8.9"
 ArrayLayouts = "1.10.4"
 BlockArrays = "1.2.0"
 EllipsisNotation = "1.8.0"
+GradedUnitRanges = "0.1.0"
+LabelledNumbers = "0.1.0"
 LinearAlgebra = "1.11.0"
 Test = "1.10"
 TupleTools = "1.6.0"
@@ -28,6 +34,8 @@ julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
+LabelledNumbers = "f856a3a6-4152-4ec4-b2a7-02c1a55d7993"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]

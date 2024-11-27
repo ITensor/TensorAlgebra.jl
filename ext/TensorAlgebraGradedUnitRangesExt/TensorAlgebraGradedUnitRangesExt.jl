@@ -1,8 +1,8 @@
 module TensorAlgebraGradedUnitRangesExt
-using GradedUnitRanges: GradedUnitRange, tensor_product
+using GradedUnitRanges: AbstractGradedUnitRange, tensor_product
 using TensorAlgebra: TensorAlgebra
 
-function TensorAlgebra.:⊗(a1::GradedUnitRange, a2::GradedUnitRange)
+function TensorAlgebra.:⊗(a1::AbstractGradedUnitRange, a2::AbstractGradedUnitRange)
   return tensor_product(a1, a2)
 end
 end
