@@ -2,6 +2,8 @@
 
 abstract type Algorithm end
 
+Algorithm(alg::Algorithm) = alg
+
 struct Matricize <: Algorithm end
 
 default_contract_alg() = Matricize()

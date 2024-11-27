@@ -1,20 +1,20 @@
 @eval module $(gensym())
 using BlockArrays: Block
-using NDTensors.TensorAlgebra: ⊗
-using NDTensors.GradedAxes: GradedAxes, gradedrange, label
+using TensorAlgebra: ⊗
+using GradedUnitRanges: GradedUnitRanges, gradedrange, label
 using Test: @test, @testset
 
 struct U1
   dim::Int
 end
 Base.isless(l1::U1, l2::U1) = isless(l1.dim, l2.dim)
-GradedAxes.fuse_labels(l1::U1, l2::U1) = U1(l1.dim + l2.dim)
+GradedUnitRanges.fuse_labels(l1::U1, l2::U1) = U1(l1.dim + l2.dim)
 
 ## TODO: This should need to get implemented, but `dual`
-## isn't being used right now in `GradedAxes`.
-## GradedAxes.dual(l::U1) = U1(-l.dim)
+## isn't being used right now in `GradedUnitRanges`.
+## GradedUnitRanges.dual(l::U1) = U1(-l.dim)
 
-@testset "TensorAlgebraGradedAxesExt" begin
+@testset "TensorAlgebraGradedUnitRangesExt" begin
   a1 = gradedrange([U1(0) => 2, U1(1) => 3])
   a2 = gradedrange([U1(2) => 3, U1(3) => 4])
   a = a1 ⊗ a2

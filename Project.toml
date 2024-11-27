@@ -3,9 +3,27 @@ uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 version = "0.1.0"
 
+[deps]
+ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
+BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
+EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
+
+[weakdeps]
+GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
+
+[extensions]
+TensorAlgebraGradedUnitRangesExt = "GradedUnitRanges"
+
 [compat]
 Aqua = "0.8.9"
+ArrayLayouts = "1.10.4"
+BlockArrays = "1.2.0"
+EllipsisNotation = "1.8.0"
+LinearAlgebra = "1.11.0"
 Test = "1.10"
+TupleTools = "1.6.0"
 julia = "1.10"
 
 [extras]
