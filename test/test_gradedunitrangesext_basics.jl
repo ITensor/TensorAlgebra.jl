@@ -1,4 +1,3 @@
-@eval module $(gensym())
 using BlockArrays: Block
 using TensorAlgebra: ⊗
 using GradedUnitRanges: GradedUnitRanges, gradedrange, label
@@ -26,5 +25,4 @@ GradedUnitRanges.fuse_labels(l1::U1, l2::U1) = U1(l1.dim + l2.dim)
   @test a[Block(2)] == 7:15
   @test a[Block(3)] == 16:23
   @test a[Block(4)] == 24:35
-end
 end

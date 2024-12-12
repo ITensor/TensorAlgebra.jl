@@ -1,4 +1,3 @@
-@eval module $(gensym())
 using BlockArrays: blockfirsts, blocklasts, blocklength, blocklengths, blocks
 using Combinatorics: permutations
 using EllipsisNotation: var".."
@@ -195,5 +194,4 @@ end
     labels_a, q, (labels_q..., label_qr), r, (label_qr, labels_r...)
   )
   @test a ≈ a′
-end
 end

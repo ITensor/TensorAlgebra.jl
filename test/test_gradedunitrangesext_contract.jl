@@ -1,4 +1,3 @@
-@eval module $(gensym())
 using Test: @test_skip
 # TODO: Add this back once `BlockSparseArrays` is set up.
 @test_skip begin
@@ -35,5 +34,4 @@ using Test: @test_skip
     @test dimnames_dest == dimnames_dest_dense
     @test a_dest ≈ a_dest_dense
   end
-end
 end
