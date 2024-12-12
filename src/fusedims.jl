@@ -29,13 +29,17 @@ end
 ⊗() = Base.OneTo(1)
 
 # Overload this version for most arrays
-function fusedims(a::AbstractArray, axes::AbstractUnitRange...)
-  return fusedims(FusionStyle(a), a, axes...)
+function fusedims(a::AbstractArray, ax::AbstractUnitRange, axes::AbstractUnitRange...)
+  return fusedims(FusionStyle(a), a, ax, axes...)
 end
 
 # Overload this version for fusion tensors, array maps, etc.
-function fusedims(a::AbstractArray, axesblocks::Tuple{Vararg{AbstractUnitRange}}...)
-  return fusedims(a, flatten_tuples(axesblocks)...)
+function fusedims(
+  a::AbstractArray,
+  axb::Tuple{Vararg{AbstractUnitRange}},
+  axesblocks::Tuple{Vararg{AbstractUnitRange}}...,
+)
+  return fusedims(a, flatten_tuples((axb, axesblocks...))...)
 end
 
 # Fix ambiguity issue
