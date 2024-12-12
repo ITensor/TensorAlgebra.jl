@@ -47,6 +47,7 @@ function LinearAlgebra.qr(a::LayoutMatrix, biperm::BlockedPermutation{2})
 end
 
 # TODO: Define in terms of an inner function `_qr` or `tensor_qr`.
+# TODO: this is type piracy
 function LinearAlgebra.qr(
   a::AbstractArray, labels_a::Tuple, labels_q::Tuple, labels_r::Tuple
 )
