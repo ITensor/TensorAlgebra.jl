@@ -65,7 +65,7 @@ end
 
 # TensorAlgebra Interface
 BlockedTuple(tt::Vararg{Tuple}) = BlockedTuple{length.(tt)}(flatten_tuples(tt))
-BlockedTuple(bt::BlockedTuple) = bt
+BlockedTuple(bt::AbstractBlockTuple) = BlockedTuple{blocklengths(bt)}(Tuple(bt))
 
 # Base interface
 Base.Tuple(bt::BlockedTuple) = bt.flat
