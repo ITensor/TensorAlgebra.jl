@@ -51,7 +51,7 @@ end
 
 # BlockArrays interface
 function BlockArrays.blockfirsts(bt::AbstractBlockTuple)
-  return (0, cumsum(blocklengths(bt)[begin:(end - 1)])...) .+ 1
+  return (0, cumsum(Base.front(blocklengths(bt)))...) .+ 1
 end
 
 function BlockArrays.blocklasts(bt::AbstractBlockTuple)
