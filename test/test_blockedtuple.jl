@@ -11,20 +11,22 @@ using TensorAlgebra: BlockedTuple
 
   bt = BlockedTuple{divs}(flat)
 
-  @test @constinferred Tuple(bt) == flat
+  @test (@constinferred Tuple(bt)) == flat
   @test bt == BlockedTuple((true,), ('a', 2), ("b", 3.0))
   @test BlockedTuple(bt) == bt
   @test blocklength(bt) == 3
   @test blocklengths(bt) == (1, 2, 2)
-  @test @constinferred blocks(bt) == ((true,), ('a', 2), ("b", 3.0))
+  @test (@constinferred blocks(bt)) == ((true,), ('a', 2), ("b", 3.0))
 
-  @test @constinferred bt[1] == true
-  @test @constinferred bt[2] == 'a'
-  @test @constinferred bt[Block(1)] == blocks(bt)[1]
-  @test @constinferred bt[Block(2)] == blocks(bt)[2]
-  @test @constinferred bt[Block(1):Block(2)] == blocks(bt)[1:2]
-  @test @constinferred bt[Block(2)[1:2]] == ('a', 2)
-  @test @constinferred bt[2:4] == ('a', 2, "b")
+  @test (@constinferred bt[1]) == true
+  @test (@constinferred bt[2]) == 'a'
+
+  # it is hard to make bt[Block(1)] type stable as compile-time knowledge of 1 is lost in Block
+  @test bt[Block(1)] == blocks(bt)[1]
+  @test bt[Block(2)] == blocks(bt)[2]
+  @test bt[Block(1):Block(2)] == blocks(bt)[1:2]
+  @test bt[Block(2)[1:2]] == ('a', 2)
+  @test bt[2:4] == ('a', 2, "b")
 
   @test firstindex(bt) == 1
   @test lastindex(bt) == 5
@@ -42,11 +44,12 @@ using TensorAlgebra: BlockedTuple
   @test copy(bt) == bt
   @test deepcopy(bt) == bt
 
-  @test @constinferred map(n -> n + 1, bt) == BlockedTuple{blocklengths(bt)}(Tuple(bt) .+ 1)
+  @test (@constinferred map(n -> n + 1, bt)) ==
+    BlockedTuple{blocklengths(bt)}(Tuple(bt) .+ 1)
   @test bt .+ BlockedTuple((1,), (1, 1), (1, 1)) ==
     BlockedTuple{blocklengths(bt)}(Tuple(bt) .+ 1)
   @test_throws DimensionMismatch bt .+ BlockedTuple((1, 1), (1, 1), (1,))
 
   bt = BlockedTuple((1:2, 1:2), (1:3,))
-  @test @constinferred length.(bt) == BlockedTuple((2, 2), (3,))
+  @test length.(bt) == BlockedTuple((2, 2), (3,))
 end
