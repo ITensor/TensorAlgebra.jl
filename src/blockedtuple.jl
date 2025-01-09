@@ -11,6 +11,10 @@ abstract type AbstractBlockTuple end
 # Base interface
 Base.axes(bt::AbstractBlockTuple) = (blockedrange([blocklengths(bt)...]),)
 
+Base.copy(bt::AbstractBlockTuple) = copy.(bt)
+
+Base.deepcopy(bt::AbstractBlockTuple) = deepcopy.(bt)
+
 Base.firstindex(::AbstractBlockTuple) = 1
 
 Base.getindex(bt::AbstractBlockTuple, i::Integer) = Tuple(bt)[i]
@@ -82,10 +86,6 @@ BlockedTuple(bt::AbstractBlockTuple) = BlockedTuple{blocklengths(bt)}(Tuple(bt))
 
 # Base interface
 Base.Tuple(bt::BlockedTuple) = bt.flat
-
-Base.copy(bt::BlockedTuple) = BlockedTuple{blocklengths(bt)}(copy.(Tuple(bt)))
-
-Base.deepcopy(bt::BlockedTuple) = BlockedTuple{blocklengths(bt)}(deepcopy.(Tuple(bt)))
 
 Base.map(f, bt::BlockedTuple) = BlockedTuple{blocklengths(bt)}(map(f, Tuple(bt)))
 
