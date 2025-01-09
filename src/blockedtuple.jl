@@ -30,7 +30,7 @@ end
 function Base.BroadcastStyle(::BlockedTupleBroadcastStyle, ::BlockedTupleBroadcastStyle)
   throw(DimensionMismatch("Incompatible blocks"))
 end
-Base.BroadcastStyle(::T, ::T) where {T<:BlockedTupleBroadcastStyle} = T
+# BroadcastStyle is not called for two identical styles
 function Base.copy(bc::Broadcast.Broadcasted{BlockedTupleBroadcastStyle{Divs}}) where {Divs}
   return BlockedTuple{Divs}(bc.f.((Tuple.(bc.args))...))
 end

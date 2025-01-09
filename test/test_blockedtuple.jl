@@ -24,6 +24,7 @@ using TensorAlgebra: BlockedTuple, flatten_tuples
   @test bt[Block(2)] == blocks(bt)[2]
   @test bt[Block(1):Block(2)] == blocks(bt)[1:2]
   @test bt[Block(2)[1:2]] == ('a', 2)
+  @test bt[2:4] == ('a', 2, 'b')
 
   @test firstindex(bt) == 1
   @test lastindex(bt) == 5
