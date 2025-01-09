@@ -3,19 +3,18 @@
 
 using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
 
-struct BlockedTuple{Divs,Flat}
+struct BlockedTuple{Blocklengths,Flat}
   flat::Flat
 
-  function BlockedTuple{Divs}(flat::Tuple) where {Divs}
-    length(flat) != sum(Divs) && throw(DimensionMismatch("Invalid total length"))
-    return new{Divs,typeof(flat)}(flat)
+  function BlockedTuple{Blocklengths}(flat::Tuple) where {Blocklengths}
+    length(flat) != sum(Blocklengths) && throw(DimensionMismatch("Invalid total length"))
+    return new{Blocklengths,typeof(flat)}(flat)
   end
 end
 
 # TensorAlgebra Interface
 BlockedTuple(tt::Vararg{Tuple}) = BlockedTuple{length.(tt)}(flatten_tuples(tt))
 BlockedTuple(bt::BlockedTuple) = bt
-flatten_tuples(bt::BlockedTuple) = Tuple(bt)
 
 # Base interface
 Base.Tuple(bt::BlockedTuple) = bt.flat
@@ -23,16 +22,18 @@ Base.Tuple(bt::BlockedTuple) = bt.flat
 Base.axes(bt::BlockedTuple) = (blockedrange([blocklengths(bt)...]),)
 
 Base.broadcastable(bt::BlockedTuple) = bt
-struct BlockedTupleBroadcastStyle{Divs} <: Broadcast.BroadcastStyle end
-function Base.BroadcastStyle(::Type{<:BlockedTuple{Divs}}) where {Divs}
-  return BlockedTupleBroadcastStyle{Divs}()
+struct BlockedTupleBroadcastStyle{Blocklengths} <: Broadcast.BroadcastStyle end
+function Base.BroadcastStyle(::Type{<:BlockedTuple{Blocklengths}}) where {Blocklengths}
+  return BlockedTupleBroadcastStyle{Blocklengths}()
 end
 function Base.BroadcastStyle(::BlockedTupleBroadcastStyle, ::BlockedTupleBroadcastStyle)
   throw(DimensionMismatch("Incompatible blocks"))
 end
 # BroadcastStyle is not called for two identical styles
-function Base.copy(bc::Broadcast.Broadcasted{BlockedTupleBroadcastStyle{Divs}}) where {Divs}
-  return BlockedTuple{Divs}(bc.f.((Tuple.(bc.args))...))
+function Base.copy(
+  bc::Broadcast.Broadcasted{BlockedTupleBroadcastStyle{Blocklengths}}
+) where {Blocklengths}
+  return BlockedTuple{Blocklengths}(bc.f.((Tuple.(bc.args))...))
 end
 
 Base.copy(bt::BlockedTuple) = BlockedTuple{blocklengths(bt)}(copy.(Tuple(bt)))
@@ -65,9 +66,9 @@ function BlockArrays.blocklasts(bt::BlockedTuple)
   return cumsum(blocklengths(bt)[begin:end])
 end
 
-BlockArrays.blocklength(::BlockedTuple{Divs}) where {Divs} = length(Divs)
+BlockArrays.blocklength(bt::BlockedTuple) = length(blocklengths(bt))
 
-BlockArrays.blocklengths(::BlockedTuple{Divs}) where {Divs} = Divs
+BlockArrays.blocklengths(::BlockedTuple{Blocklengths}) where {Blocklengths} = Blocklengths
 
 function BlockArrays.blocks(bt::BlockedTuple)
   bf = blockfirsts(bt)

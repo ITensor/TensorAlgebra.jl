@@ -2,7 +2,7 @@ using Test: @test, @test_throws
 
 using BlockArrays: Block, blocklength, blocklengths, blockedrange, blockisequal, blocks
 
-using TensorAlgebra: BlockedTuple, flatten_tuples
+using TensorAlgebra: BlockedTuple
 
 @testset "BlockedTuple" begin
   flat = (1, 'a', 2, 'b', 3)
@@ -11,7 +11,6 @@ using TensorAlgebra: BlockedTuple, flatten_tuples
   bt = BlockedTuple{divs}(flat)
 
   @test Tuple(bt) == flat
-  @test flatten_tuples(bt) == flat
   @test bt == BlockedTuple((1,), ('a', 2), ('b', 3))
   @test BlockedTuple(bt) == bt
   @test blocklength(bt) == 3
