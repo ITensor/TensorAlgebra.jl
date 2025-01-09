@@ -1,6 +1,7 @@
 module TensorAlgebra
 include("blockedpermutation.jl")
 include("BaseExtensions/BaseExtensions.jl")
+include("blockedtuple.jl")
 include("fusedims.jl")
 include("splitdims.jl")
 include("contract/contract.jl")
