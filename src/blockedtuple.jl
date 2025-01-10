@@ -3,6 +3,8 @@
 
 using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
 
+using TypeParameterAccessors: unspecify_type_parameters
+
 #
 # ==================================  AbstractBlockTuple  ==================================
 #
@@ -18,7 +20,12 @@ Base.firstindex(::AbstractBlockTuple) = 1
 Base.getindex(bt::AbstractBlockTuple, i::Integer) = Tuple(bt)[i]
 Base.getindex(bt::AbstractBlockTuple, r::AbstractUnitRange) = Tuple(bt)[r]
 Base.getindex(bt::AbstractBlockTuple, b::Block{1}) = blocks(bt)[Int(b)]
-Base.getindex(bt::AbstractBlockTuple, br::BlockRange{1}) = blocks(bt)[Int.(br)]
+function Base.getindex(bt::AbstractBlockTuple, br::BlockRange{1})
+  r = Int.(br)
+  T = unspecify_type_parameters(typeof(bt))
+  flat = Tuple(bt)[blockfirsts(bt)[first(r)]:blocklasts(bt)[last(r)]]
+  return T{blocklengths(bt)[r]}(flat)
+end
 function Base.getindex(bt::AbstractBlockTuple, bi::BlockIndexRange{1})
   return bt[Block(bi)][only(bi.indices)]
 end
@@ -32,19 +39,21 @@ Base.lastindex(bt::AbstractBlockTuple) = length(bt)
 
 # Broadcast interface
 Base.broadcastable(bt::AbstractBlockTuple) = bt
-struct BlockedTupleBroadcastStyle{BlockLengths} <: Broadcast.BroadcastStyle end
-function Base.BroadcastStyle(type::Type{<:AbstractBlockTuple})
-  return BlockedTupleBroadcastStyle{blocklengths(type)}()
+struct AbstractBlockTupleBroadcastStyle{BlockLengths,BT} <: Broadcast.BroadcastStyle end
+function Base.BroadcastStyle(T::Type{<:AbstractBlockTuple})
+  return AbstractBlockTupleBroadcastStyle{blocklengths(T),unspecify_type_parameters(T)}()
 end
 
 # BroadcastStyle is not called for two identical styles
-function Base.BroadcastStyle(::BlockedTupleBroadcastStyle, ::BlockedTupleBroadcastStyle)
+function Base.BroadcastStyle(
+  ::AbstractBlockTupleBroadcastStyle, ::AbstractBlockTupleBroadcastStyle
+)
   throw(DimensionMismatch("Incompatible blocks"))
 end
 function Base.copy(
-  bc::Broadcast.Broadcasted{BlockedTupleBroadcastStyle{BlockLengths}}
-) where {BlockLengths}
-  return BlockedTuple{BlockLengths}(bc.f.((Tuple.(bc.args))...))
+  bc::Broadcast.Broadcasted{AbstractBlockTupleBroadcastStyle{BlockLengths,BT}}
+) where {BlockLengths,BT}
+  return BT{BlockLengths}(bc.f.((Tuple.(bc.args))...))
 end
 
 # BlockArrays interface

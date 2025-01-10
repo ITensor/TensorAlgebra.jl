@@ -25,7 +25,7 @@ using TensorAlgebra: BlockedTuple, tuplemortar
   # it is hard to make bt[Block(1)] type stable as compile-time knowledge of 1 is lost in Block
   @test bt[Block(1)] == blocks(bt)[1]
   @test bt[Block(2)] == blocks(bt)[2]
-  @test bt[Block(1):Block(2)] == blocks(bt)[1:2]
+  @test bt[Block(1):Block(2)] == tuplemortar((true,), ('a', 2))
   @test bt[Block(2)[1:2]] == ('a', 2)
   @test bt[2:4] == ('a', 2, "b")
 
