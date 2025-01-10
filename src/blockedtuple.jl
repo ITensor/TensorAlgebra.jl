@@ -92,7 +92,7 @@ struct BlockedTuple{BlockLengths,Flat} <: AbstractBlockTuple
 end
 
 # TensorAlgebra Interface
-tuplemortar(tt::Vararg{Tuple}) = BlockedTuple{length.(tt)}(flatten_tuples(tt))
+tuplemortar(tt::Tuple{Vararg{Tuple}}) = BlockedTuple{length.(tt)}(flatten_tuples(tt))
 function BlockedTuple(flat::Tuple, BlockLengths::Tuple{Vararg{Int}})
   return BlockedTuple{BlockLengths}(flat)
 end
