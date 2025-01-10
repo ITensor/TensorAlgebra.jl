@@ -37,6 +37,10 @@ Base.length(bt::AbstractBlockTuple) = length(Tuple(bt))
 
 Base.lastindex(bt::AbstractBlockTuple) = length(bt)
 
+function Base.map(f, bt::AbstractBlockTuple)
+  return unspecify_type_parameters(typeof(bt)){blocklengths(bt)}(map(f, Tuple(bt)))
+end
+
 # Broadcast interface
 Base.broadcastable(bt::AbstractBlockTuple) = bt
 struct AbstractBlockTupleBroadcastStyle{BlockLengths,BT} <: Broadcast.BroadcastStyle end
@@ -96,8 +100,6 @@ BlockedTuple(bt::AbstractBlockTuple) = BlockedTuple{blocklengths(bt)}(Tuple(bt))
 
 # Base interface
 Base.Tuple(bt::BlockedTuple) = bt.flat
-
-Base.map(f, bt::BlockedTuple) = BlockedTuple{blocklengths(bt)}(map(f, Tuple(bt)))
 
 # BlockArrays interface
 function BlockArrays.blocklengths(::Type{<:BlockedTuple{BlockLengths}}) where {BlockLengths}
