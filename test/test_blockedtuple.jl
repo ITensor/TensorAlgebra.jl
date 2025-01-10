@@ -41,7 +41,6 @@ using TensorAlgebra: BlockedTuple
   bt = BlockedTuple((1,), (4, 2), (5, 3))
   @test Tuple(bt) == (1, 4, 2, 5, 3)
   @test blocklengths(bt) == (1, 2, 2)
-  @test copy(bt) == bt
   @test deepcopy(bt) == bt
 
   @test (@constinferred map(n -> n + 1, bt)) ==

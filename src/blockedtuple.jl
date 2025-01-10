@@ -11,8 +11,6 @@ abstract type AbstractBlockTuple end
 # Base interface
 Base.axes(bt::AbstractBlockTuple) = (blockedrange([blocklengths(bt)...]),)
 
-Base.copy(bt::AbstractBlockTuple) = copy.(bt)
-
 Base.deepcopy(bt::AbstractBlockTuple) = deepcopy.(bt)
 
 Base.firstindex(::AbstractBlockTuple) = 1
