@@ -12,21 +12,9 @@ end
 _flatten_tuples() = ()
 flatten_tuples(ts::Tuple) = _flatten_tuples(ts...)
 
-_blocklength(blocklengths::Tuple{Vararg{Int}}) = length(blocklengths)
-function _blockfirsts(blocklengths::Tuple{Vararg{Int}})
-  return ntuple(_blocklength(blocklengths)) do i
-    prev_blocklast =
-      isone(i) ? zero(eltype(blocklengths)) : _blocklasts(blocklengths)[i - 1]
-    return prev_blocklast + 1
-  end
-end
-_blocklasts(blocklengths::Tuple{Vararg{Int}}) = cumsum(blocklengths)
-
 collect_tuple(x) = (x,)
 collect_tuple(x::Ellipsis) = x
 collect_tuple(t::Tuple) = t
-
-const TupleOfTuples{N} = Tuple{Vararg{Tuple{Vararg{Int}},N}}
 
 #
 # ===============================  AbstractBlockPermutation  ===============================
@@ -40,13 +28,16 @@ widened_constructorof(::Type{<:AbstractBlockPermutation}) = BlockedTuple
 # TODO: Optimize with StaticNumbers.jl or generated functions, see:
 # https://discourse.julialang.org/t/avoiding-type-instability-when-slicing-a-tuple/38567
 function blockperm(perm::Tuple{Vararg{Int}}, blocklengths::Tuple{Vararg{Int}})
-  starts = _blockfirsts(blocklengths)
-  stops = _blocklasts(blocklengths)
-  return blockedperm(ntuple(i -> perm[starts[i]:stops[i]], length(blocklengths))...)
+  return blockedperm(BlockedTuple(perm, blocklengths))
+end
+
+function blockperm(perm::Tuple{Vararg{Int}}, BlockLengths::Val)
+  return blockedperm(BlockedTuple(perm, BlockLengths))
 end
 
 function Base.invperm(blockedperm::AbstractBlockPermutation)
-  return blockperm(invperm(Tuple(blockedperm)), blocklengths(blockedperm))
+  # use Val to preserve compile time info
+  return blockperm(invperm(Tuple(blockedperm)), Val(blocklengths(blockedperm)))
 end
 
 #

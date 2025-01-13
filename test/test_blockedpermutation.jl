@@ -1,7 +1,6 @@
 using Test: @test, @test_broken, @testset
 
 using BlockArrays: blockfirsts, blocklasts, blocklength, blocklengths, blocks
-using Combinatorics: permutations
 using EllipsisNotation: var".."
 using TestExtras: @constinferred
 
@@ -15,7 +14,7 @@ using TensorAlgebra:
   trivialperm
 
 @testset "BlockedPermutation" begin
-  p = blockedperm((3, 4, 5), (2, 1))
+  p = @constinferred blockedperm((3, 4, 5), (2, 1))
   @test Tuple(p) === (3, 4, 5, 2, 1)
   @test isperm(p)
   @test length(p) == 5
@@ -24,11 +23,11 @@ using TensorAlgebra:
   @test blocklengths(p) == (3, 2)
   @test blockfirsts(p) == (1, 4)
   @test blocklasts(p) == (3, 5)
-  @test invperm(p) == blockedperm((5, 4, 1), (2, 3))
+  @test (@constinferred invperm(p)) == blockedperm((5, 4, 1), (2, 3))
   @test p isa BlockedPermutation{2}
 
   # Empty block.
-  p = blockedperm((3, 2), (), (1,))
+  p = @constinferred blockedperm((3, 2), (), (1,))
   @test Tuple(p) === (3, 2, 1)
   @test isperm(p)
   @test length(p) == 3
@@ -40,7 +39,7 @@ using TensorAlgebra:
   @test invperm(p) == blockedperm((3, 2), (), (1,))
   @test p isa BlockedPermutation{3}
 
-  p = blockedperm((), ())
+  p = @constinferred blockedperm((), ())
   @test Tuple(p) === ()
   @test blocklength(p) == 2
   @test blocklengths(p) == (0, 0)
@@ -49,7 +48,7 @@ using TensorAlgebra:
   @test blocks(p) == ((), ())
   @test p isa BlockedPermutation{2}
 
-  p = blockedperm()
+  p = @constinferred blockedperm()
   @test Tuple(p) === ()
   @test blocklength(p) == 0
   @test blocklengths(p) == ()
@@ -71,7 +70,7 @@ using TensorAlgebra:
   @test p == blockedperm((3, 1), (2, 4))
 
   # Singleton dimensions.
-  p = blockedperm((2, 3), 1)
+  p = @constinferred blockedperm((2, 3), 1)
   @test p == blockedperm((2, 3), (1,))
 
   # First dimensions are unspecified.
