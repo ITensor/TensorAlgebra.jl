@@ -1,6 +1,6 @@
 using EllipsisNotation: var".."
 using LinearAlgebra: norm, qr
-using TensorAlgebra, TensorAlgebra, fusedims, splitdims
+using TensorAlgebra: TensorAlgebra, fusedims, splitdims
 # TODO: Remove dependency on NDTensors, create a GPUTestUtils.jl package.
 using NDTensors: NDTensors
 include(joinpath(pkgdir(NDTensors), "test", "NDTensorsTestUtils", "NDTensorsTestUtils.jl"))

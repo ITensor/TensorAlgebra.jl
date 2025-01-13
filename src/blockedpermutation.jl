@@ -83,6 +83,10 @@ function blockedperm(permblocks::Union{Tuple{Vararg{Int}},Int,Ellipsis}...; kwar
   return blockedperm(collect_tuple.(permblocks)...; kwargs...)
 end
 
+function blockedperm(bt::AbstractBlockTuple)
+  return blockedperm(Val(length(bt)), blocks(bt)...)
+end
+
 function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
   return maximum(specified_perm)
 end
@@ -164,11 +168,19 @@ Base.Tuple(blockedperm::BlockedTrivialPermutation) = flatten_tuples(blocks(block
 
 BlockArrays.blocks(blockedperm::BlockedTrivialPermutation) = getfield(blockedperm, :blocks)
 
+function BlockArrays.blocklengths(
+  ::Type{<:BlockedTrivialPermutation{<:Any,<:Any,Blocks}}
+) where {Blocks}
+  return fieldcount.(fieldtypes(Blocks))
+end
+
+blockedperm(tp::BlockedTrivialPermutation) = tp
+
 function blockedtrivialperm(blocklengths::Tuple{Vararg{Int}})
   return _BlockedTrivialPermutation(blocklengths)
 end
 
-function trivialperm(blockedperm::AbstractBlockedPermutation)
+function trivialperm(blockedperm::AbstractBlockTuple)
   return blockedtrivialperm(blocklengths(blockedperm))
 end
 Base.invperm(blockedperm::BlockedTrivialPermutation) = blockedperm
