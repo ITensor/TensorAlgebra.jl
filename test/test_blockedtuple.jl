@@ -3,7 +3,7 @@ using Test: @test, @test_throws
 using BlockArrays: Block, blocklength, blocklengths, blockedrange, blockisequal, blocks
 using TestExtras: @constinferred
 
-using TensorAlgebra: BlockedTuple, tuplemortar
+using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
 
 @testset "BlockedTuple" begin
   flat = (true, 'a', 2, "b", 3.0)
@@ -11,6 +11,7 @@ using TensorAlgebra: BlockedTuple, tuplemortar
 
   bt = BlockedTuple{divs}(flat)
   @test bt isa BlockedTuple
+  @test blockeachindex(bt) == (Block(1), Block(2), Block(3))
 
   @test (@constinferred Tuple(bt)) == flat
   @test bt == tuplemortar(((true,), ('a', 2), ("b", 3.0)))
@@ -40,6 +41,7 @@ using TensorAlgebra: BlockedTuple, tuplemortar
   @test blockisequal(only(axes(bt)), blockedrange([1, 2, 2]))
 
   @test_throws DimensionMismatch BlockedTuple{(1, 2, 3)}(flat)
+  @test_throws DimensionMismatch BlockedTuple{(-1, 3, 3)}(flat)
 
   bt = tuplemortar(((1,), (4, 2), (5, 3)))
   @test bt isa BlockedTuple
@@ -55,4 +57,23 @@ using TensorAlgebra: BlockedTuple, tuplemortar
 
   bt = tuplemortar(((1:2, 1:2), (1:3,)))
   @test length.(bt) == tuplemortar(((2, 2), (3,)))
+
+  # empty blocks
+  bt = tuplemortar(((1,), (), (5, 3)))
+  @test bt isa BlockedTuple
+  @test Tuple(bt) == (1, 5, 3)
+  @test blocklengths(bt) == (1, 0, 2)
+  @test (@constinferred blocks(bt)) == ((1,), (), (5, 3))
+
+  bt = tuplemortar(((), ()))
+  @test bt isa BlockedTuple
+  @test Tuple(bt) == ()
+  @test blocklengths(bt) == (0, 0)
+  @test (@constinferred blocks(bt)) == ((), ())
+
+  bt = tuplemortar(())
+  @test bt isa BlockedTuple
+  @test Tuple(bt) == ()
+  @test blocklengths(bt) == ()
+  @test (@constinferred blocks(bt)) == ()
 end

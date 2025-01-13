@@ -29,11 +29,11 @@ collect_tuple(t::Tuple) = t
 const TupleOfTuples{N} = Tuple{Vararg{Tuple{Vararg{Int}},N}}
 
 #
-# ==============================  AbstractBlockedPermutation  ==============================
+# ===============================  AbstractBlockPermutation  ===============================
 #
-abstract type AbstractBlockedPermutation{BlockLength,Length} <: AbstractBlockTuple end
+abstract type AbstractBlockPermutation <: AbstractBlockTuple end
 
-widened_constructorof(::Type{<:AbstractBlockedPermutation}) = BlockedTuple
+widened_constructorof(::Type{<:AbstractBlockPermutation}) = BlockedTuple
 
 # Block a permutation based on the specified lengths.
 # blockperm((4, 3, 2, 1), (2, 2)) == blockedperm((4, 3), (2, 1))
@@ -45,13 +45,8 @@ function blockperm(perm::Tuple{Vararg{Int}}, blocklengths::Tuple{Vararg{Int}})
   return blockedperm(ntuple(i -> perm[starts[i]:stops[i]], length(blocklengths))...)
 end
 
-function Base.invperm(blockedperm::AbstractBlockedPermutation)
+function Base.invperm(blockedperm::AbstractBlockPermutation)
   return blockperm(invperm(Tuple(blockedperm)), blocklengths(blockedperm))
-end
-
-# Like `BlockRange`.
-function blockeachindex(blockedperm::AbstractBlockedPermutation)
-  return ntuple(i -> Block(i), blocklength(blockedperm))
 end
 
 #
@@ -61,7 +56,7 @@ end
 # Bipartition a vector according to the
 # bipartitioned permutation.
 # Like `Base.permute!` block out-of-place and blocked.
-function blockpermute(v, blockedperm::AbstractBlockedPermutation)
+function blockpermute(v, blockedperm::AbstractBlockPermutation)
   return map(blockperm -> map(i -> v[i], blockperm), blocks(blockedperm))
 end
 
@@ -70,8 +65,8 @@ function blockedperm(permblocks::Tuple{Vararg{Int}}...; length::Union{Val,Nothin
   return blockedperm(length, permblocks...)
 end
 
-function blockedperm(length::Nothing, permblocks::Tuple{Vararg{Int}}...)
-  return blockedperm(Val(sum(Base.length, permblocks; init=zero(Bool))), permblocks...)
+function blockedperm(::Nothing, permblocks::Tuple{Vararg{Int}}...)
+  return blockedperm(Val(sum(length, permblocks; init=zero(Bool))), permblocks...)
 end
 
 # blockedperm((3, 2), 1) == blockedperm((3, 2), (1,))
@@ -91,7 +86,7 @@ function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
   return maximum(specified_perm)
 end
 
-function _blockedperm_length(vallength::Val, specified_perm::Tuple{Vararg{Int}})
+function _blockedperm_length(vallength::Val, ::Tuple{Vararg{Int}})
   return value(vallength)
 end
 
@@ -119,29 +114,37 @@ end
 #
 # ==================================  BlockedPermutation  ==================================
 #
-struct BlockedPermutation{BlockLength,Length,Blocks<:TupleOfTuples{BlockLength}} <:
-       AbstractBlockedPermutation{BlockLength,Length}
-  blocks::Blocks
-  global function _BlockedPermutation(blocks::TupleOfTuples)
-    len = sum(length, blocks; init=zero(Bool))
-    blocklength = length(blocks)
-    return new{blocklength,len,typeof(blocks)}(blocks)
+
+# for dispatch reason, it is convenient to have BlockLength as the first parameter
+struct BlockedPermutation{BlockLength,BlockLengths,Flat} <: AbstractBlockPermutation
+  flat::Flat
+
+  function BlockedPermutation{BlockLength,BlockLengths}(
+    flat::Tuple
+  ) where {BlockLength,BlockLengths}
+    length(flat) != sum(BlockLengths; init=0) &&
+      throw(DimensionMismatch("Invalid total length"))
+    length(BlockLengths) != BlockLength &&
+      throw(DimensionMismatch("Invalid total blocklength"))
+    any(BlockLengths .< 0) && throw(DimensionMismatch("Invalid block length"))
+    return new{BlockLength,BlockLengths,typeof(flat)}(flat)
   end
 end
 
-Base.Tuple(blockedperm::BlockedPermutation) = flatten_tuples(blocks(blockedperm))
+# Base interface
+Base.Tuple(blockedperm::BlockedPermutation) = getfield(blockedperm, :flat)
 
-BlockArrays.blocks(blockedperm::BlockedPermutation) = getfield(blockedperm, :blocks)
-
+# BlockArrays interface
 function BlockArrays.blocklengths(
-  ::Type{<:BlockedPermutation{<:Any,<:Any,Blocks}}
-) where {Blocks}
-  return fieldcount.(fieldtypes(Blocks))
+  ::Type{<:BlockedPermutation{<:Any,BlockLengths}}
+) where {BlockLengths}
+  return BlockLengths
 end
 
-function blockedperm(length::Val, permblocks::Tuple{Vararg{Int}}...)
-  @assert value(length) == sum(Base.length, permblocks; init=zero(Bool))
-  blockedperm = _BlockedPermutation(permblocks)
+function blockedperm(::Val, permblocks::Tuple{Vararg{Int}}...)
+  blockedperm = BlockedPermutation{length(permblocks),length.(permblocks)}(
+    flatten_tuples(permblocks)
+  )
   @assert isperm(blockedperm)
   return blockedperm
 end
@@ -151,31 +154,21 @@ end
 #
 trivialperm(length::Union{Integer,Val}) = ntuple(identity, length)
 
-struct BlockedTrivialPermutation{BlockLength,Length,Blocks<:TupleOfTuples{BlockLength}} <:
-       AbstractBlockedPermutation{BlockLength,Length}
-  blocks::Blocks
-  global function _BlockedTrivialPermutation(blocklengths::Tuple{Vararg{Int}})
-    len = sum(blocklengths; init=zero(Bool))
-    blocklength = length(blocklengths)
-    permblocks = blocks(blockperm(trivialperm(len), blocklengths))
-    return new{blocklength,len,typeof(permblocks)}(permblocks)
-  end
-end
+struct BlockedTrivialPermutation{BlockLengths} <: AbstractBlockPermutation end
 
-Base.Tuple(blockedperm::BlockedTrivialPermutation) = flatten_tuples(blocks(blockedperm))
+Base.Tuple(blockedperm::BlockedTrivialPermutation) = trivialperm(length(blockedperm))
 
-BlockArrays.blocks(blockedperm::BlockedTrivialPermutation) = getfield(blockedperm, :blocks)
-
+# BlockArrays interface
 function BlockArrays.blocklengths(
-  ::Type{<:BlockedTrivialPermutation{<:Any,<:Any,Blocks}}
-) where {Blocks}
-  return fieldcount.(fieldtypes(Blocks))
+  ::Type{<:BlockedTrivialPermutation{BlockLengths}}
+) where {BlockLengths}
+  return BlockLengths
 end
 
 blockedperm(tp::BlockedTrivialPermutation) = tp
 
 function blockedtrivialperm(blocklengths::Tuple{Vararg{Int}})
-  return _BlockedTrivialPermutation(blocklengths)
+  return BlockedTrivialPermutation{blocklengths}()
 end
 
 function trivialperm(blockedperm::AbstractBlockTuple)

@@ -8,10 +8,16 @@ using TypeParameterAccessors: unspecify_type_parameters
 #
 # ==================================  AbstractBlockTuple  ==================================
 #
+# AbstractBlockTuple makes no assumption on type parameters and storage type
 abstract type AbstractBlockTuple end
 
 constructorof(type::Type{<:AbstractBlockTuple}) = unspecify_type_parameters(type)
 widened_constructorof(type::Type{<:AbstractBlockTuple}) = constructorof(type)
+
+# Like `BlockRange`.
+function blockeachindex(bt::AbstractBlockTuple)
+  return ntuple(i -> Block(i), blocklength(bt))
+end
 
 # Base interface
 Base.axes(bt::AbstractBlockTuple) = (blockedrange([blocklengths(bt)...]),)
@@ -35,7 +41,7 @@ end
 Base.iterate(bt::AbstractBlockTuple) = iterate(Tuple(bt))
 Base.iterate(bt::AbstractBlockTuple, i::Int) = iterate(Tuple(bt), i)
 
-Base.length(bt::AbstractBlockTuple) = length(Tuple(bt))
+Base.length(bt::AbstractBlockTuple) = sum(blocklengths(bt); init=0)
 
 Base.lastindex(bt::AbstractBlockTuple) = length(bt)
 
@@ -66,11 +72,12 @@ end
 
 # BlockArrays interface
 function BlockArrays.blockfirsts(bt::AbstractBlockTuple)
+  blocklength(bt) == 0 && return ()
   return (0, cumsum(Base.front(blocklengths(bt)))...) .+ 1
 end
 
 function BlockArrays.blocklasts(bt::AbstractBlockTuple)
-  return cumsum(blocklengths(bt)[begin:end])
+  return cumsum(blocklengths(bt))
 end
 
 BlockArrays.blocklength(bt::AbstractBlockTuple) = length(blocklengths(bt))
@@ -90,7 +97,8 @@ struct BlockedTuple{BlockLengths,Flat} <: AbstractBlockTuple
   flat::Flat
 
   function BlockedTuple{BlockLengths}(flat::Tuple) where {BlockLengths}
-    length(flat) != sum(BlockLengths) && throw(DimensionMismatch("Invalid total length"))
+    length(flat) != sum(BlockLengths; init=0) &&
+      throw(DimensionMismatch("Invalid total length"))
     any(BlockLengths .< 0) && throw(DimensionMismatch("Invalid block length"))
     return new{BlockLengths,typeof(flat)}(flat)
   end

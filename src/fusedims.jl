@@ -51,13 +51,13 @@ function fusedims(a::AbstractArray, permblocks...)
 end
 
 function fuseaxes(
-  axes::Tuple{Vararg{AbstractUnitRange}}, blockedperm::AbstractBlockedPermutation
+  axes::Tuple{Vararg{AbstractUnitRange}}, blockedperm::AbstractBlockPermutation
 )
   axesblocks = blockpermute(axes, blockedperm)
   return map(block -> ⊗(block...), axesblocks)
 end
 
-function fuseaxes(a::AbstractArray, blockedperm::AbstractBlockedPermutation)
+function fuseaxes(a::AbstractArray, blockedperm::AbstractBlockPermutation)
   return fuseaxes(axes(a), blockedperm)
 end
 

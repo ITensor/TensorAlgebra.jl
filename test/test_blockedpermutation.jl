@@ -6,7 +6,13 @@ using EllipsisNotation: var".."
 using TestExtras: @constinferred
 
 using TensorAlgebra:
-  BlockedTrivialPermutation, BlockedTuple, blockedperm, blockedperm_indexin, trivialperm
+  BlockedPermutation,
+  BlockedTrivialPermutation,
+  BlockedTuple,
+  blockedperm,
+  blockedperm_indexin,
+  blockedtrivialperm,
+  trivialperm
 
 @testset "BlockedPermutation" begin
   p = blockedperm((3, 4, 5), (2, 1))
@@ -19,6 +25,7 @@ using TensorAlgebra:
   @test blockfirsts(p) == (1, 4)
   @test blocklasts(p) == (3, 5)
   @test invperm(p) == blockedperm((5, 4, 1), (2, 3))
+  @test p isa BlockedPermutation{2}
 
   # Empty block.
   p = blockedperm((3, 2), (), (1,))
@@ -31,7 +38,27 @@ using TensorAlgebra:
   @test blockfirsts(p) == (1, 3, 3)
   @test blocklasts(p) == (2, 2, 3)
   @test invperm(p) == blockedperm((3, 2), (), (1,))
+  @test p isa BlockedPermutation{3}
 
+  p = blockedperm((), ())
+  @test Tuple(p) === ()
+  @test blocklength(p) == 2
+  @test blocklengths(p) == (0, 0)
+  @test isperm(p)
+  @test length(p) == 0
+  @test blocks(p) == ((), ())
+  @test p isa BlockedPermutation{2}
+
+  p = blockedperm()
+  @test Tuple(p) === ()
+  @test blocklength(p) == 0
+  @test blocklengths(p) == ()
+  @test isperm(p)
+  @test length(p) == 0
+  @test blocks(p) == ()
+  @test p isa BlockedPermutation{0}
+
+  p = blockedperm((3, 2), (), (1,))
   bt = BlockedTuple{(2, 0, 1)}((3, 2, 1))
   @test (@constinferred BlockedTuple(p)) == bt
   @test (@constinferred map(identity, p)) == bt
@@ -74,13 +101,13 @@ using TensorAlgebra:
 end
 
 @testset "BlockedTrivialPermutation" begin
-  p = blockedperm((3, 2), (), (1,))
-  tp = trivialperm(p)
+  tp = blockedtrivialperm((2, 0, 1))
 
   @test tp isa BlockedTrivialPermutation
   @test Tuple(tp) == (1, 2, 3)
   @test blocklength(tp) == 3
   @test blocklengths(tp) == (2, 0, 1)
+  @test trivialperm(blockedperm((3, 2), (), (1,))) == tp
 
   bt = BlockedTuple{(2, 0, 1)}((1, 2, 3))
   @test (@constinferred BlockedTuple(tp)) == bt
