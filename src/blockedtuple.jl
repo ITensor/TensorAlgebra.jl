@@ -41,9 +41,9 @@ end
 Base.iterate(bt::AbstractBlockTuple) = iterate(Tuple(bt))
 Base.iterate(bt::AbstractBlockTuple, i::Int) = iterate(Tuple(bt), i)
 
-Base.length(bt::AbstractBlockTuple) = sum(blocklengths(bt); init=0)
-
 Base.lastindex(bt::AbstractBlockTuple) = length(bt)
+
+Base.length(bt::AbstractBlockTuple) = sum(blocklengths(bt); init=0)
 
 function Base.map(f, bt::AbstractBlockTuple)
   BL = blocklengths(bt)
