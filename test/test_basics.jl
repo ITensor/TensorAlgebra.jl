@@ -1,71 +1,13 @@
-using BlockArrays: blockfirsts, blocklasts, blocklength, blocklengths, blocks
-using Combinatorics: permutations
 using EllipsisNotation: var".."
 using LinearAlgebra: norm, qr
-using TensorAlgebra: TensorAlgebra, blockedperm, blockedperm_indexin, fusedims, splitdims
+using TensorAlgebra, TensorAlgebra, fusedims, splitdims
 # TODO: Remove dependency on NDTensors, create a GPUTestUtils.jl package.
 using NDTensors: NDTensors
 include(joinpath(pkgdir(NDTensors), "test", "NDTensorsTestUtils", "NDTensorsTestUtils.jl"))
 using .NDTensorsTestUtils: default_rtol
 using Test: @test, @test_broken, @testset
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
-@testset "BlockedPermutation" begin
-  p = blockedperm((3, 4, 5), (2, 1))
-  @test Tuple(p) === (3, 4, 5, 2, 1)
-  @test isperm(p)
-  @test length(p) == 5
-  @test blocks(p) == ((3, 4, 5), (2, 1))
-  @test blocklength(p) == 2
-  @test blocklengths(p) == (3, 2)
-  @test blockfirsts(p) == (1, 4)
-  @test blocklasts(p) == (3, 5)
-  @test invperm(p) == blockedperm((5, 4, 1), (2, 3))
 
-  # Empty block.
-  p = blockedperm((3, 2), (), (1,))
-  @test Tuple(p) === (3, 2, 1)
-  @test isperm(p)
-  @test length(p) == 3
-  @test blocks(p) == ((3, 2), (), (1,))
-  @test blocklength(p) == 3
-  @test blocklengths(p) == (2, 0, 1)
-  @test blockfirsts(p) == (1, 3, 3)
-  @test blocklasts(p) == (2, 2, 3)
-  @test invperm(p) == blockedperm((3, 2), (), (1,))
-
-  # Split collection into `BlockedPermutation`.
-  p = blockedperm_indexin(("a", "b", "c", "d"), ("c", "a"), ("b", "d"))
-  @test p == blockedperm((3, 1), (2, 4))
-
-  # Singleton dimensions.
-  p = blockedperm((2, 3), 1)
-  @test p == blockedperm((2, 3), (1,))
-
-  # First dimensions are unspecified.
-  p = blockedperm(.., (4, 3))
-  @test p == blockedperm(1, 2, (4, 3))
-  # Specify length
-  p = blockedperm(.., (4, 3); length=Val(6))
-  @test p == blockedperm(1, 2, 5, 6, (4, 3))
-
-  # Last dimensions are unspecified.
-  p = blockedperm((4, 3), ..)
-  @test p == blockedperm((4, 3), 1, 2)
-  # Specify length
-  p = blockedperm((4, 3), ..; length=Val(6))
-  @test p == blockedperm((4, 3), 1, 2, 5, 6)
-
-  # Middle dimensions are unspecified.
-  p = blockedperm((4, 3), .., 1)
-  @test p == blockedperm((4, 3), 2, 1)
-  # Specify length
-  p = blockedperm((4, 3), .., 1; length=Val(6))
-  @test p == blockedperm((4, 3), 2, 5, 6, 1)
-
-  # No dimensions are unspecified.
-  p = blockedperm((3, 2), .., 1)
-  @test p == blockedperm((3, 2), 1)
-end
 @testset "TensorAlgebra" begin
   @testset "fusedims (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
