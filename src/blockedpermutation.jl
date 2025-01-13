@@ -131,8 +131,6 @@ end
 
 Base.Tuple(blockedperm::BlockedPermutation) = flatten_tuples(blocks(blockedperm))
 
-BlockedTuple(bp::BlockedPermutation) = tuplemortar(blocks(bp))
-
 BlockArrays.blocks(blockedperm::BlockedPermutation) = getfield(blockedperm, :blocks)
 
 function BlockArrays.blocklengths(
