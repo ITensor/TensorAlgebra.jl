@@ -10,6 +10,9 @@ using TypeParameterAccessors: unspecify_type_parameters
 #
 abstract type AbstractBlockTuple end
 
+constructorof(type::Type{<:AbstractBlockTuple}) = unspecify_type_parameters(type)
+widened_constructorof(type::Type{<:AbstractBlockTuple}) = constructorof(type)
+
 # Base interface
 Base.axes(bt::AbstractBlockTuple) = (blockedrange([blocklengths(bt)...]),)
 
@@ -22,9 +25,8 @@ Base.getindex(bt::AbstractBlockTuple, r::AbstractUnitRange) = Tuple(bt)[r]
 Base.getindex(bt::AbstractBlockTuple, b::Block{1}) = blocks(bt)[Int(b)]
 function Base.getindex(bt::AbstractBlockTuple, br::BlockRange{1})
   r = Int.(br)
-  T = unspecify_type_parameters(typeof(bt))
   flat = Tuple(bt)[blockfirsts(bt)[first(r)]:blocklasts(bt)[last(r)]]
-  return T{blocklengths(bt)[r]}(flat)
+  return widened_constructorof(typeof(bt))(flat, blocklengths(bt)[r])
 end
 function Base.getindex(bt::AbstractBlockTuple, bi::BlockIndexRange{1})
   return bt[Block(bi)][only(bi.indices)]
@@ -40,7 +42,7 @@ Base.lastindex(bt::AbstractBlockTuple) = length(bt)
 function Base.map(f, bt::AbstractBlockTuple)
   BL = blocklengths(bt)
   # use Val to preserve compile time knowledge of BL
-  return unspecify_type_parameters(typeof(bt))(map(f, Tuple(bt)), Val(BL))
+  return widened_constructorof(typeof(bt))(map(f, Tuple(bt)), Val(BL))
 end
 
 # Broadcast interface
@@ -59,7 +61,7 @@ end
 function Base.copy(
   bc::Broadcast.Broadcasted{AbstractBlockTupleBroadcastStyle{BlockLengths,BT}}
 ) where {BlockLengths,BT}
-  return BT(bc.f.((Tuple.(bc.args))...), Val(BlockLengths))
+  return widened_constructorof(BT)(bc.f.((Tuple.(bc.args))...), Val(BlockLengths))
 end
 
 # BlockArrays interface
@@ -89,6 +91,7 @@ struct BlockedTuple{BlockLengths,Flat} <: AbstractBlockTuple
 
   function BlockedTuple{BlockLengths}(flat::Tuple) where {BlockLengths}
     length(flat) != sum(BlockLengths) && throw(DimensionMismatch("Invalid total length"))
+    any(BlockLengths .< 0) && throw(DimensionMismatch("Invalid block length"))
     return new{BlockLengths,typeof(flat)}(flat)
   end
 end

@@ -10,6 +10,7 @@ using TensorAlgebra: BlockedTuple, tuplemortar
   divs = (1, 2, 2)
 
   bt = BlockedTuple{divs}(flat)
+  @test bt isa BlockedTuple
 
   @test (@constinferred Tuple(bt)) == flat
   @test bt == tuplemortar(((true,), ('a', 2), ("b", 3.0)))
@@ -21,6 +22,7 @@ using TensorAlgebra: BlockedTuple, tuplemortar
 
   @test (@constinferred bt[1]) == true
   @test (@constinferred bt[2]) == 'a'
+  @test (@constinferred map(identity, bt)) == bt
 
   # it is hard to make bt[Block(1)] type stable as compile-time knowledge of 1 is lost in Block
   @test bt[Block(1)] == blocks(bt)[1]
@@ -40,6 +42,7 @@ using TensorAlgebra: BlockedTuple, tuplemortar
   @test_throws DimensionMismatch BlockedTuple{(1, 2, 3)}(flat)
 
   bt = tuplemortar(((1,), (4, 2), (5, 3)))
+  @test bt isa BlockedTuple
   @test Tuple(bt) == (1, 4, 2, 5, 3)
   @test blocklengths(bt) == (1, 2, 2)
   @test (@constinferred deepcopy(bt)) == bt
