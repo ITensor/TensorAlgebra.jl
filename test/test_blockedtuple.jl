@@ -42,11 +42,11 @@ using TensorAlgebra: BlockedTuple, tuplemortar
   bt = tuplemortar(((1,), (4, 2), (5, 3)))
   @test Tuple(bt) == (1, 4, 2, 5, 3)
   @test blocklengths(bt) == (1, 2, 2)
-  @test deepcopy(bt) == bt
+  @test (@constinferred deepcopy(bt)) == bt
 
   @test (@constinferred map(n -> n + 1, bt)) ==
     BlockedTuple{blocklengths(bt)}(Tuple(bt) .+ 1)
-  @test bt .+ tuplemortar(((1,), (1, 1), (1, 1))) ==
+  @test (@constinferred bt .+ tuplemortar(((1,), (1, 1), (1, 1)))) ==
     BlockedTuple{blocklengths(bt)}(Tuple(bt) .+ 1)
   @test_throws DimensionMismatch bt .+ tuplemortar(((1, 1), (1, 1), (1,)))
 

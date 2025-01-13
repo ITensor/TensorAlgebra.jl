@@ -38,7 +38,9 @@ Base.length(bt::AbstractBlockTuple) = length(Tuple(bt))
 Base.lastindex(bt::AbstractBlockTuple) = length(bt)
 
 function Base.map(f, bt::AbstractBlockTuple)
-  return unspecify_type_parameters(typeof(bt)){blocklengths(bt)}(map(f, Tuple(bt)))
+  BL = blocklengths(bt)
+  # use Val to preserve compile time knowledge of BL
+  return unspecify_type_parameters(typeof(bt))(map(f, Tuple(bt)), Val(BL))
 end
 
 # Broadcast interface
@@ -57,7 +59,7 @@ end
 function Base.copy(
   bc::Broadcast.Broadcasted{AbstractBlockTupleBroadcastStyle{BlockLengths,BT}}
 ) where {BlockLengths,BT}
-  return BT{BlockLengths}(bc.f.((Tuple.(bc.args))...))
+  return BT(bc.f.((Tuple.(bc.args))...), Val(BlockLengths))
 end
 
 # BlockArrays interface
@@ -94,6 +96,10 @@ end
 # TensorAlgebra Interface
 tuplemortar(tt::Tuple{Vararg{Tuple}}) = BlockedTuple{length.(tt)}(flatten_tuples(tt))
 function BlockedTuple(flat::Tuple, BlockLengths::Tuple{Vararg{Int}})
+  return BlockedTuple{BlockLengths}(flat)
+end
+function BlockedTuple(flat::Tuple, ::Val{BlockLengths}) where {BlockLengths}
+  # use Val to preserve compile time knowledge of BL
   return BlockedTuple{BlockLengths}(flat)
 end
 BlockedTuple(bt::AbstractBlockTuple) = BlockedTuple{blocklengths(bt)}(Tuple(bt))
