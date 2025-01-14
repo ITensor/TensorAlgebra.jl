@@ -121,6 +121,17 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         50 * default_rtol(elt_dest)
     end
   end
+  @testset "outer product contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
+    @show elt1, elt2
+    size1 = (2, 2)
+    a1 = randn(elt1, size1)
+    size2 = (2, 2)
+    a2 = randn(elt2, size2)
+    labels1 = (:a, :b)
+    labels2 = (:c, :d)
+    TensorAlgebra.contract(a1, labels1, a2, labels2)
+    # outer(a1, a2)
+  end
 end
 @testset "qr (eltype=$elt)" for elt in elts
   a = randn(elt, 5, 4, 3, 2)
