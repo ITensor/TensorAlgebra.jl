@@ -67,6 +67,22 @@ function output_axes(
   return genperm((axes_dest...,), invperm(Tuple(perm_dest)))
 end
 
+# Outer product.
+function output_axes(
+  ::typeof(contract),
+  biperm_dest::BlockedPermutation{2},
+  a1::AbstractArray,
+  perm1::BlockedPermutation{1},
+  a2::AbstractArray,
+  perm2::BlockedPermutation{1},
+  α::Number=true,
+)
+  @assert istrivialperm(Tuple(perm1))
+  @assert istrivialperm(Tuple(perm2))
+  axes_dest = (axes(a1)..., axes(a2)...)
+  return genperm(axes_dest, invperm(Tuple(biperm_dest)))
+end
+
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
 function allocate_output(

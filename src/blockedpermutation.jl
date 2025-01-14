@@ -3,6 +3,11 @@ using BlockArrays:
 using EllipsisNotation: Ellipsis, var".."
 using TupleTools: TupleTools
 
+trivialperm(len) = ntuple(identity, len)
+function istrivialperm(t::Tuple)
+  return t == trivialperm(length(t))
+end
+
 value(::Val{N}) where {N} = N
 
 _flatten_tuples(t::Tuple) = t

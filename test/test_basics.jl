@@ -121,16 +121,30 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         50 * default_rtol(elt_dest)
     end
   end
-  @testset "outer product contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
-    @show elt1, elt2
-    size1 = (2, 2)
-    a1 = randn(elt1, size1)
-    size2 = (2, 2)
-    a2 = randn(elt2, size2)
-    labels1 = (:a, :b)
-    labels2 = (:c, :d)
-    TensorAlgebra.contract(a1, labels1, a2, labels2)
-    # outer(a1, a2)
+  @testset "outer product contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
+    elt2 in elts
+
+    a1 = randn(elt1, 2, 3)
+    a2 = randn(elt2, 4, 5)
+
+    elt_dest = promote_type(elt1, elt2)
+
+    a_dest, labels = TensorAlgebra.contract(a1, ("i", "j"), a2, ("k", "l"))
+    @test labels == ("i", "j", "k", "l")
+    @test eltype(a_dest) === elt_dest
+    @test a_dest ≈ reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...))
+
+    a_dest = TensorAlgebra.contract(("i", "k", "j", "l"), a1, ("i", "j"), a2, ("k", "l"))
+    @test eltype(a_dest) === elt_dest
+    @test a_dest ≈ permutedims(
+      reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 3, 2, 4)
+    )
+
+    a_dest = zeros(elt_dest, 2, 5, 3, 4)
+    TensorAlgebra.contract!(a_dest, ("i", "l", "j", "k"), a1, ("i", "j"), a2, ("k", "l"))
+    @test a_dest ≈ permutedims(
+      reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 4, 2, 3)
+    )
   end
 end
 @testset "qr (eltype=$elt)" for elt in elts

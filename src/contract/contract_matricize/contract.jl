@@ -54,3 +54,11 @@ function _mul!(
   mul!(a_dest, a1, a2, α, β)
   return a_dest
 end
+
+# Outer product.
+function _mul!(
+  a_dest::AbstractMatrix, a1::AbstractVector, a2::AbstractVector, α::Number, β::Number
+)
+  mul!(a_dest, a1, transpose(a2), α, β)
+  return a_dest
+end
