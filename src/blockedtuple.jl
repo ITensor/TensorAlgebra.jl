@@ -39,6 +39,8 @@ end
 function Base.getindex(bt::AbstractBlockTuple, bi::BlockIndexRange{1})
   return bt[Block(bi)][only(bi.indices)]
 end
+# needed for nested broadcast in Julia < 1.11
+Base.getindex(bt::AbstractBlockTuple, ci::CartesianIndex{1}) = bt[only(Tuple(ci))]
 
 Base.iterate(bt::AbstractBlockTuple) = iterate(Tuple(bt))
 Base.iterate(bt::AbstractBlockTuple, i::Int) = iterate(Tuple(bt), i)
