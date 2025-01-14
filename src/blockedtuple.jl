@@ -55,6 +55,14 @@ function Base.map(f, bt::AbstractBlockTuple)
   return widened_constructorof(typeof(bt))(map(f, Tuple(bt)), Val(BL))
 end
 
+function Base.show(io::IO, bt::AbstractBlockTuple)
+  return print(io, nameof(typeof(bt)), blocks(bt))
+end
+function Base.show(io::IO, ::MIME"text/plain", bt::AbstractBlockTuple)
+  println(io, typeof(bt))
+  return print(io, blocks(bt))
+end
+
 # Broadcast interface
 Base.broadcastable(bt::AbstractBlockTuple) = bt
 struct AbstractBlockTupleBroadcastStyle{BlockLengths,BT} <: Broadcast.BroadcastStyle end
