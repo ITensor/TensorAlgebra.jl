@@ -72,6 +72,8 @@ function Base.copy(
   return widened_constructorof(BT)(bc.f.((Tuple.(bc.args))...), Val(BlockLengths))
 end
 
+Base.ndims(::Type{<:AbstractBlockTuple}) = 1  # needed in nested broadcast
+
 # BlockArrays interface
 BlockArrays.blockfirsts(::AbstractBlockTuple{0}) = ()
 function BlockArrays.blockfirsts(bt::AbstractBlockTuple)

@@ -58,6 +58,7 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
 
   bt = tuplemortar(((1:2, 1:2), (1:3,)))
   @test length.(bt) == tuplemortar(((2, 2), (3,)))
+  @test length.(length.(bt)) == tuplemortar(((1, 1), (1,)))
 
   # empty blocks
   bt = tuplemortar(((1,), (), (5, 3)))
