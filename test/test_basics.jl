@@ -3,10 +3,7 @@ using Combinatorics: permutations
 using EllipsisNotation: var".."
 using LinearAlgebra: norm, qr
 using TensorAlgebra: TensorAlgebra, blockedperm, blockedperm_indexin, fusedims, splitdims
-# TODO: Remove dependency on NDTensors, create a GPUTestUtils.jl package.
-using NDTensors: NDTensors
-include(joinpath(pkgdir(NDTensors), "test", "NDTensorsTestUtils", "NDTensorsTestUtils.jl"))
-using .NDTensorsTestUtils: default_rtol
+default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 using Test: @test, @test_broken, @testset
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 @testset "BlockedPermutation" begin

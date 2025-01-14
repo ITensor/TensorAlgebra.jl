@@ -1,4 +1,7 @@
 module TensorAlgebra
+
+export contract, contract!
+
 include("blockedpermutation.jl")
 include("BaseExtensions/BaseExtensions.jl")
 include("blockedtuple.jl")
@@ -11,4 +14,5 @@ include("contract/allocate_output.jl")
 include("contract/contract_matricize/contract.jl")
 # TODO: Rename to `TensorAlgebraLinearAlgebraExt`.
 include("LinearAlgebraExtensions/LinearAlgebraExtensions.jl")
+
 end
