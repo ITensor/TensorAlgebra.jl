@@ -1,5 +1,6 @@
-# This file defines BlockedTuple, a Tuple of heterogeneous Tuple with a BlockArrays.jl
-# like interface
+# This file defines an abstract type AbstractBlockTuple and a concrete type BlockedTuple.
+# These types allow to store a Tuple of heterogeneous Tuples with a BlockArrays.jl like
+# interface.
 
 using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
 
@@ -8,8 +9,9 @@ using TypeParameterAccessors: unspecify_type_parameters
 #
 # ==================================  AbstractBlockTuple  ==================================
 #
-# AbstractBlockTuple makes no assumption on type parameters and storage type
-abstract type AbstractBlockTuple end
+# AbstractBlockTuple imposes BlockLength as first type parameter for easy dispatch
+# it makes no assumotion on storage type
+abstract type AbstractBlockTuple{BlockLength} end
 
 constructorof(type::Type{<:AbstractBlockTuple}) = unspecify_type_parameters(type)
 widened_constructorof(type::Type{<:AbstractBlockTuple}) = constructorof(type)
@@ -71,8 +73,8 @@ function Base.copy(
 end
 
 # BlockArrays interface
+BlockArrays.blockfirsts(::AbstractBlockTuple{0}) = ()
 function BlockArrays.blockfirsts(bt::AbstractBlockTuple)
-  blocklength(bt) == 0 && return ()
   return (0, cumsum(Base.front(blocklengths(bt)))...) .+ 1
 end
 
@@ -80,7 +82,7 @@ function BlockArrays.blocklasts(bt::AbstractBlockTuple)
   return cumsum(blocklengths(bt))
 end
 
-BlockArrays.blocklength(bt::AbstractBlockTuple) = length(blocklengths(bt))
+BlockArrays.blocklength(::AbstractBlockTuple{BlockLength}) where {BlockLength} = BlockLength
 
 BlockArrays.blocklengths(bt::AbstractBlockTuple) = blocklengths(typeof(bt))
 
@@ -90,35 +92,46 @@ function BlockArrays.blocks(bt::AbstractBlockTuple)
   return ntuple(i -> Tuple(bt)[bf[i]:bl[i]], blocklength(bt))
 end
 
-#
+#    length(BlockLengths) != BlockLength && throw(DimensionMismatch("Invalid blocklength"))
+
 # =====================================  BlockedTuple  =====================================
 #
-struct BlockedTuple{BlockLengths,Flat} <: AbstractBlockTuple
+struct BlockedTuple{BlockLength,BlockLengths,Flat} <: AbstractBlockTuple{BlockLength}
   flat::Flat
 
-  function BlockedTuple{BlockLengths}(flat::Tuple) where {BlockLengths}
+  function BlockedTuple{BlockLength,BlockLengths}(
+    flat::Tuple
+  ) where {BlockLength,BlockLengths}
+    length(BlockLengths) != BlockLength && throw(DimensionMismatch("Invalid blocklength"))
     length(flat) != sum(BlockLengths; init=0) &&
       throw(DimensionMismatch("Invalid total length"))
     any(BlockLengths .< 0) && throw(DimensionMismatch("Invalid block length"))
-    return new{BlockLengths,typeof(flat)}(flat)
+    return new{BlockLength,BlockLengths,typeof(flat)}(flat)
   end
 end
 
 # TensorAlgebra Interface
-tuplemortar(tt::Tuple{Vararg{Tuple}}) = BlockedTuple{length.(tt)}(flatten_tuples(tt))
+function tuplemortar(tt::Tuple{Vararg{Tuple}})
+  return BlockedTuple{length(tt),length.(tt)}(flatten_tuples(tt))
+end
 function BlockedTuple(flat::Tuple, BlockLengths::Tuple{Vararg{Int}})
-  return BlockedTuple{BlockLengths}(flat)
+  return BlockedTuple{length(BlockLengths),BlockLengths}(flat)
 end
 function BlockedTuple(flat::Tuple, ::Val{BlockLengths}) where {BlockLengths}
   # use Val to preserve compile time knowledge of BL
-  return BlockedTuple{BlockLengths}(flat)
+  return BlockedTuple{length(BlockLengths),BlockLengths}(flat)
 end
-BlockedTuple(bt::AbstractBlockTuple) = BlockedTuple{blocklengths(bt)}(Tuple(bt))
+function BlockedTuple(bt::AbstractBlockTuple)
+  bl = blocklengths(bt)
+  return BlockedTuple{length(bl),bl}(Tuple(bt))
+end
 
 # Base interface
 Base.Tuple(bt::BlockedTuple) = bt.flat
 
 # BlockArrays interface
-function BlockArrays.blocklengths(::Type{<:BlockedTuple{BlockLengths}}) where {BlockLengths}
+function BlockArrays.blocklengths(
+  ::Type{<:BlockedTuple{<:Any,BlockLengths}}
+) where {BlockLengths}
   return BlockLengths
 end

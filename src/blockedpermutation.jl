@@ -19,7 +19,7 @@ collect_tuple(t::Tuple) = t
 #
 # ===============================  AbstractBlockPermutation  ===============================
 #
-abstract type AbstractBlockPermutation <: AbstractBlockTuple end
+abstract type AbstractBlockPermutation{BlockLength} <: AbstractBlockTuple{BlockLength} end
 
 widened_constructorof(::Type{<:AbstractBlockPermutation}) = BlockedTuple
 
@@ -107,7 +107,8 @@ end
 #
 
 # for dispatch reason, it is convenient to have BlockLength as the first parameter
-struct BlockedPermutation{BlockLength,BlockLengths,Flat} <: AbstractBlockPermutation
+struct BlockedPermutation{BlockLength,BlockLengths,Flat} <:
+       AbstractBlockPermutation{BlockLength}
   flat::Flat
 
   function BlockedPermutation{BlockLength,BlockLengths}(
@@ -145,13 +146,14 @@ end
 #
 trivialperm(length::Union{Integer,Val}) = ntuple(identity, length)
 
-struct BlockedTrivialPermutation{BlockLengths} <: AbstractBlockPermutation end
+struct BlockedTrivialPermutation{BlockLength,BlockLengths} <:
+       AbstractBlockPermutation{BlockLength} end
 
 Base.Tuple(blockedperm::BlockedTrivialPermutation) = trivialperm(length(blockedperm))
 
 # BlockArrays interface
 function BlockArrays.blocklengths(
-  ::Type{<:BlockedTrivialPermutation{BlockLengths}}
+  ::Type{<:BlockedTrivialPermutation{<:Any,BlockLengths}}
 ) where {BlockLengths}
   return BlockLengths
 end
@@ -159,7 +161,7 @@ end
 blockedperm(tp::BlockedTrivialPermutation) = tp
 
 function blockedtrivialperm(blocklengths::Tuple{Vararg{Int}})
-  return BlockedTrivialPermutation{blocklengths}()
+  return BlockedTrivialPermutation{length(blocklengths),blocklengths}()
 end
 
 function trivialperm(blockedperm::AbstractBlockTuple)

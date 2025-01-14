@@ -26,6 +26,11 @@ using TensorAlgebra:
   @test (@constinferred invperm(p)) == blockedperm((5, 4, 1), (2, 3))
   @test p isa BlockedPermutation{2}
 
+  flat = (3, 4, 5, 2, 1)
+  @test_throws DimensionMismatch BlockedPermutation{2,(1, 2, 2)}(flat)
+  @test_throws DimensionMismatch BlockedPermutation{3,(1, 2, 3)}(flat)
+  @test_throws DimensionMismatch BlockedPermutation{3,(-1, 3, 3)}(flat)
+
   # Empty block.
   p = @constinferred blockedperm((3, 2), (), (1,))
   @test Tuple(p) === (3, 2, 1)
@@ -58,10 +63,10 @@ using TensorAlgebra:
   @test p isa BlockedPermutation{0}
 
   p = blockedperm((3, 2), (), (1,))
-  bt = BlockedTuple{(2, 0, 1)}((3, 2, 1))
+  bt = BlockedTuple{3,(2, 0, 1)}((3, 2, 1))
   @test (@constinferred BlockedTuple(p)) == bt
   @test (@constinferred map(identity, p)) == bt
-  @test (@constinferred p .+ p) == BlockedTuple{(2, 0, 1)}((6, 4, 2))
+  @test (@constinferred p .+ p) == BlockedTuple{3,(2, 0, 1)}((6, 4, 2))
   @test (@constinferred blockedperm(p)) == p
   @test (@constinferred blockedperm(bt)) == p
 
@@ -102,17 +107,17 @@ end
 @testset "BlockedTrivialPermutation" begin
   tp = blockedtrivialperm((2, 0, 1))
 
-  @test tp isa BlockedTrivialPermutation
+  @test tp isa BlockedTrivialPermutation{3}
   @test Tuple(tp) == (1, 2, 3)
   @test blocklength(tp) == 3
   @test blocklengths(tp) == (2, 0, 1)
   @test trivialperm(blockedperm((3, 2), (), (1,))) == tp
 
-  bt = BlockedTuple{(2, 0, 1)}((1, 2, 3))
+  bt = BlockedTuple{3,(2, 0, 1)}((1, 2, 3))
   @test (@constinferred BlockedTuple(tp)) == bt
   @test (@constinferred blocks(tp)) == blocks(bt)
   @test (@constinferred map(identity, tp)) == bt
-  @test (@constinferred tp .+ tp) == BlockedTuple{(2, 0, 1)}((2, 4, 6))
+  @test (@constinferred tp .+ tp) == BlockedTuple{3,(2, 0, 1)}((2, 4, 6))
   @test (@constinferred blockedperm(tp)) == tp
   @test (@constinferred trivialperm(tp)) == tp
   @test (@constinferred trivialperm(bt)) == tp
