@@ -62,3 +62,42 @@ function _mul!(
   mul!(a_dest, a1, transpose(a2), α, β)
   return a_dest
 end
+
+# Array-scalar contraction.
+function _mul!(
+  a_dest::AbstractVector,
+  a1::AbstractVector,
+  a2::AbstractArray{<:Any,0},
+  α::Number,
+  β::Number,
+)
+  α′ = a2[] * α
+  a_dest .= a1 .* α′ .+ a_dest .* β
+  return a_dest
+end
+
+# Scalar-array contraction.
+function _mul!(
+  a_dest::AbstractVector,
+  a1::AbstractArray{<:Any,0},
+  a2::AbstractVector,
+  α::Number,
+  β::Number,
+)
+  # Preserve the ordering in case of non-commutative algebra.
+  a_dest .= a1[] .* a2 .* α .+ a_dest .* β
+  return a_dest
+end
+
+# Scalar-scalar contraction.
+function _mul!(
+  a_dest::AbstractArray{<:Any,0},
+  a1::AbstractArray{<:Any,0},
+  a2::AbstractArray{<:Any,0},
+  α::Number,
+  β::Number,
+)
+  # Preserve the ordering in case of non-commutative algebra.
+  a_dest[] = a1[] * a2[] * α + a_dest[] * β
+  return a_dest
+end
