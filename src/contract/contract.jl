@@ -26,10 +26,10 @@ end
 
 function contract(
   a1::AbstractArray,
-  labels1::Tuple,
+  labels1,
   a2::AbstractArray,
-  labels2::Tuple,
-  α::Number=true;
+  labels2,
+  α::Number=one(Bool);
   alg=default_contract_alg(),
   kwargs...,
 )
@@ -39,10 +39,10 @@ end
 function contract(
   alg::Algorithm,
   a1::AbstractArray,
-  labels1::Tuple,
+  labels1,
   a2::AbstractArray,
-  labels2::Tuple,
-  α::Number=true;
+  labels2,
+  α::Number=one(Bool);
   kwargs...,
 )
   labels_dest = output_labels(contract, alg, a1, labels1, a2, labels2, α; kwargs...)
@@ -50,12 +50,12 @@ function contract(
 end
 
 function contract(
-  labels_dest::Tuple,
+  labels_dest,
   a1::AbstractArray,
-  labels1::Tuple,
+  labels1,
   a2::AbstractArray,
-  labels2::Tuple,
-  α::Number=true;
+  labels2,
+  α::Number=one(Bool);
   alg=default_contract_alg(),
   kwargs...,
 )
@@ -64,13 +64,13 @@ end
 
 function contract!(
   a_dest::AbstractArray,
-  labels_dest::Tuple,
+  labels_dest,
   a1::AbstractArray,
-  labels1::Tuple,
+  labels1,
   a2::AbstractArray,
-  labels2::Tuple,
-  α::Number=true,
-  β::Number=false;
+  labels2,
+  α::Number=one(Bool),
+  β::Number=zero(Bool);
   alg=default_contract_alg(),
   kwargs...,
 )
@@ -80,12 +80,12 @@ end
 
 function contract(
   alg::Algorithm,
-  labels_dest::Tuple,
+  labels_dest,
   a1::AbstractArray,
-  labels1::Tuple,
+  labels1,
   a2::AbstractArray,
-  labels2::Tuple,
-  α::Number=true;
+  labels2,
+  α::Number=one(Bool);
   kwargs...,
 )
   biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
@@ -95,11 +95,11 @@ end
 function contract!(
   alg::Algorithm,
   a_dest::AbstractArray,
-  labels_dest::Tuple,
+  labels_dest,
   a1::AbstractArray,
-  labels1::Tuple,
+  labels1,
   a2::AbstractArray,
-  labels2::Tuple,
+  labels2,
   α::Number,
   β::Number;
   kwargs...,
@@ -119,6 +119,6 @@ function contract(
   kwargs...,
 )
   a_dest = allocate_output(contract, biperm_dest, a1, biperm1, a2, biperm2, α)
-  contract!(alg, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, false; kwargs...)
+  contract!(alg, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, zero(Bool); kwargs...)
   return a_dest
 end
