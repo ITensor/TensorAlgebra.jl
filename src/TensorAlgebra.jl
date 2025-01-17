@@ -12,7 +12,6 @@ include("contract/output_labels.jl")
 include("contract/blockedperms.jl")
 include("contract/allocate_output.jl")
 include("contract/contract_matricize/contract.jl")
-# TODO: Rename to `TensorAlgebraLinearAlgebraExt`.
-include("LinearAlgebraExtensions/LinearAlgebraExtensions.jl")
+include("factorizations.jl")
 
 end
