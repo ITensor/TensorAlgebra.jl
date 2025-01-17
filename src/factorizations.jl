@@ -15,11 +15,11 @@ function qr(a::AbstractArray, biperm::BlockedPermutation{2})
   return q, r
 end
 
-function qr(
-  a::AbstractArray, labels_a, labels_codomain, labels_domain
-)
+function qr(a::AbstractArray, labels_a, labels_codomain, labels_domain)
   # TODO: Generalize to conversion to `Tuple` isn't needed.
-  return qr(a, blockedperm_indexin(Tuple(labels_a), Tuple(labels_codomain), Tuple(labels_domain)))
+  return qr(
+    a, blockedperm_indexin(Tuple(labels_a), Tuple(labels_codomain), Tuple(labels_domain))
+  )
 end
 
 function svd(a::AbstractArray, biperm::BlockedPermutation{2})
@@ -38,8 +38,8 @@ function svd(a::AbstractArray, biperm::BlockedPermutation{2})
   return u, s, v
 end
 
-function svd(
-  a::AbstractArray, labels_a, labels_codomain, labels_domain
-)
-  return svd(a, blockedperm_indexin(Tuple(labels_a), Tuple(labels_codomain), Tuple(labels_domain)))
+function svd(a::AbstractArray, labels_a, labels_codomain, labels_domain)
+  return svd(
+    a, blockedperm_indexin(Tuple(labels_a), Tuple(labels_codomain), Tuple(labels_domain))
+  )
 end
