@@ -86,8 +86,8 @@ function _blockedperm_length(vallength::Val, ::Tuple{Vararg{Int}})
   return value(vallength)
 end
 
-# blockedperm((4, 3), .., 1) == blockedperm((4, 3), 2, 1)
-# blockedperm((4, 3), .., 1; length=Val(5)) == blockedperm((4, 3), 2, 5, 1)
+# blockedperm((4, 3), .., 1) == blockedperm((4, 3), (2,), (1,))
+# blockedperm((4, 3), .., 1; length=Val(5)) == blockedperm((4, 3), (2, 5), (1,))
 function blockedperm(
   permblocks::Union{Tuple{Vararg{Int}},Ellipsis}...; length::Union{Val,Nothing}=nothing
 )
