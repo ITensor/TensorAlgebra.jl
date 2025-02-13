@@ -80,28 +80,28 @@ using TensorAlgebra:
 
   # First dimensions are unspecified.
   p = blockedperm(.., (4, 3))
-  @test p == blockedperm(1, 2, (4, 3))
+  @test p == blockedperm((1, 2), (4, 3))
   # Specify length
-  p = blockedperm(.., (4, 3); length=Val(6))
-  @test p == blockedperm(1, 2, 5, 6, (4, 3))
+  p = @constinferred blockedperm(.., (4, 3); length=Val(6))
+  @test p == blockedperm((1, 2, 5, 6), (4, 3))
 
   # Last dimensions are unspecified.
   p = blockedperm((4, 3), ..)
-  @test p == blockedperm((4, 3), 1, 2)
+  @test p == blockedperm((4, 3), (1, 2))
   # Specify length
-  p = blockedperm((4, 3), ..; length=Val(6))
-  @test p == blockedperm((4, 3), 1, 2, 5, 6)
+  p = @constinferred blockedperm((4, 3), ..; length=Val(6))
+  @test p == blockedperm((4, 3), (1, 2, 5, 6))
 
   # Middle dimensions are unspecified.
   p = blockedperm((4, 3), .., 1)
-  @test p == blockedperm((4, 3), 2, 1)
+  @test p == blockedperm((4, 3), (2,), (1,))
   # Specify length
-  p = blockedperm((4, 3), .., 1; length=Val(6))
-  @test p == blockedperm((4, 3), 2, 5, 6, 1)
+  p = @constinferred blockedperm((4, 3), .., 1; length=Val(6))
+  @test p == blockedperm((4, 3), (2, 5, 6), (1,))
 
   # No dimensions are unspecified.
   p = blockedperm((3, 2), .., 1)
-  @test p == blockedperm((3, 2), 1)
+  @test p == blockedperm((3, 2), (), (1,))
 end
 
 @testset "BlockedTrivialPermutation" begin

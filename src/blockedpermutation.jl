@@ -97,8 +97,12 @@ function blockedperm(
   unspecified_dim = findfirst(x -> x isa Ellipsis, permblocks)
   specified_perm = flatten_tuples(specified_permblocks)
   len = _blockedperm_length(length, specified_perm)
-  unspecified_dims = Tuple(setdiff(Base.OneTo(len), flatten_tuples(specified_permblocks)))
-  permblocks_specified = TupleTools.insertat(permblocks, unspecified_dim, unspecified_dims)
+  unspecified_dims_vec = setdiff(Base.OneTo(len), flatten_tuples(specified_permblocks))
+  UD = len - sum(Base.length.(specified_permblocks))  # preserve type stability when possible
+  unspecified_dims = NTuple{UD}(unspecified_dims_vec)
+  permblocks_specified = TupleTools.insertat(
+    permblocks, unspecified_dim, (unspecified_dims,)
+  )
   return blockedperm(permblocks_specified...)
 end
 
