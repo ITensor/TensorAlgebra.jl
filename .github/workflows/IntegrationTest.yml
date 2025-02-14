@@ -17,7 +17,7 @@ jobs:
     strategy:
        matrix:
          repo:
-           - 'ITensor/NamedDimsArrays.jl'
+           - '(ghuser = "ITensor", repo = "NamedDimsArrays")'
     uses: "ITensor/ITensorActions/.github/workflows/IntegrationTest.yml@main"
     with:
       localregistry: "https://github.com/ITensor/ITensorRegistry.git"
