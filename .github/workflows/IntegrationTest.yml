@@ -16,9 +16,9 @@ jobs:
     name: "IntegrationTest"
     strategy:
        matrix:
-         repo:
-           - 'ITensor/NamedDimsArrays.jl'
+         pkg:
+           - 'NamedDimsArrays'
     uses: "ITensor/ITensorActions/.github/workflows/IntegrationTest.yml@main"
     with:
       localregistry: "https://github.com/ITensor/ITensorRegistry.git"
-      repo: "${{ matrix.repo }}"
+      pkg: "${{ matrix.pkg }}"
