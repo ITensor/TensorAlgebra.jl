@@ -22,16 +22,19 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (24, 5))
     a_fused = fusedims(a, .., (3, 1))
     @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (15, 8))
+    @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (3, 5, 8))
     a_fused = fusedims(a, (3, 1), ..)
     @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
+    @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 3, 5))
     a_fused = fusedims(a, .., (3, 1), 2)
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (4, 3, 1, 2)), (5, 8, 3))
     a_fused = fusedims(a, (3, 1), .., 2)
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 4, 2)), (8, 5, 3))
+    a_fused = fusedims(a, (3, 1), (..,))
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
   end
   @testset "splitdims (eltype=$elt)" for elt in elts
     a = randn(elt, 6, 20)
