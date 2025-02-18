@@ -70,7 +70,9 @@ function blockedperm(permblocks::Union{Tuple{Vararg{Int}},Int}...; kwargs...)
   return blockedperm(collect_tuple.(permblocks)...; kwargs...)
 end
 
-function blockedperm(permblocks::Union{Tuple{Vararg{Int}},Int,Ellipsis}...; kwargs...)
+function blockedperm(
+  permblocks::Union{Tuple{Vararg{Int}},Tuple{Ellipsis},Int,Ellipsis}...; kwargs...
+)
   return blockedperm(collect_tuple.(permblocks)...; kwargs...)
 end
 
@@ -87,23 +89,31 @@ function _blockedperm_length(vallength::Val, ::Tuple{Vararg{Int}})
 end
 
 # blockedperm((4, 3), .., 1) == blockedperm((4, 3), (2,), (1,))
-# blockedperm((4, 3), .., 1; length=Val(5)) == blockedperm((4, 3), (2, 5), (1,))
+# blockedperm((4, 3), .., 1; length=Val(5)) == blockedperm((4, 3), (2,), (5,), (1,))
+# blockedperm((4, 3), (..,), 1) == blockedperm((4, 3), (2,), (1,))
+# blockedperm((4, 3), (..,), 1; length=Val(5)) == blockedperm((4, 3), (2, 5), (1,))
 function blockedperm(
-  permblocks::Union{Tuple{Vararg{Int}},Ellipsis}...; length::Union{Val,Nothing}=nothing
+  permblocks::Union{Tuple{Vararg{Int}},Ellipsis,Tuple{Ellipsis}}...;
+  length::Union{Val,Nothing}=nothing,
 )
   # Check there is only one `Ellipsis`.
-  @assert isone(count(x -> x isa Ellipsis, permblocks))
-  specified_permblocks = filter(x -> !(x isa Ellipsis), permblocks)
-  unspecified_dim = findfirst(x -> x isa Ellipsis, permblocks)
+  @assert isone(count(x -> x isa Union{Ellipsis,Tuple{Ellipsis}}, permblocks))
+  specified_permblocks = filter(x -> !(x isa Union{Ellipsis,Tuple{Ellipsis}}), permblocks)
+  unspecified_dim = findfirst(x -> x isa Union{Ellipsis,Tuple{Ellipsis}}, permblocks)
   specified_perm = flatten_tuples(specified_permblocks)
   len = _blockedperm_length(length, specified_perm)
-  unspecified_dims_vec = setdiff(Base.OneTo(len), flatten_tuples(specified_permblocks))
-  UD = len - sum(Base.length.(specified_permblocks))  # preserve type stability when possible
-  unspecified_dims = NTuple{UD}(unspecified_dims_vec)
-  permblocks_specified = TupleTools.insertat(
-    permblocks, unspecified_dim, (unspecified_dims,)
-  )
+  unspecified_dims_vec = setdiff(Base.OneTo(len), specified_perm)
+  UD = Val(len - sum(Base.length.(specified_permblocks)))  # preserve type stability when possible
+  insert = unspecified_dims(typeof(permblocks[unspecified_dim]), unspecified_dims_vec, UD)
+  permblocks_specified = TupleTools.insertat(permblocks, unspecified_dim, insert)
   return blockedperm(permblocks_specified...)
+end
+
+function unspecified_dims(::Type{Tuple{Ellipsis}}, unspecified_dims_vec, UD::Val)
+  return (NTuple{value(UD),Int}(unspecified_dims_vec),)
+end
+function unspecified_dims(::Type{Ellipsis}, unspecified_dims_vec, UD::Val)
+  return NTuple{value(UD),Tuple{Int}}(Tuple.(unspecified_dims_vec))
 end
 
 # Version of `indexin` that outputs a `blockedperm`.
