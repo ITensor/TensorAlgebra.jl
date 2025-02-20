@@ -1,7 +1,8 @@
 using EllipsisNotation: var".."
 using LinearAlgebra: norm
 using StableRNGs: StableRNG
-using TensorAlgebra: contract, contract!, fusedims, qr, splitdims, svd
+using TensorAlgebra:
+  blockedperm, contract, contract!, fusedims, qr, splitdims, svd, tuplemortar
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @testset
 
@@ -11,6 +12,16 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 @testset "TensorAlgebra" begin
   @testset "fusedims (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
+
+    bt = tuplemortar(((3, 2), (4, 1)))
+    p = blockedperm(bt)
+    a_fused = fusedims(a, p)
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(permutedims(a, (3, 2, 4, 1)), (12, 10))
+    a_fused = fusedims(a, bt)
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(permutedims(a, (3, 2, 4, 1)), (12, 10))
+
     a_fused = fusedims(a, (1, 2), (3, 4))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(a, 6, 20)
@@ -35,7 +46,19 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a_fused = fusedims(a, (3, 1), ..)
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 3, 5))
+
+    a = randn(elt, ())
+    a_fused = fusedims(a)
+    @test a_fused isa Array{elt,0}
+    @test a_fused ≈ a
+    a_fused = fusedims(a, ())
+    @test a_fused isa Array{elt,1}
+    a_fused = fusedims(a, (), ())
+    @test a_fused isa Array{elt,2}
+    a_fused = fusedims(a, tuplemortar(((), ())))
+    @test a_fused isa Array{elt,2}
   end
+
   @testset "splitdims (eltype=$elt)" for elt in elts
     a = randn(elt, 6, 20)
     a_split = splitdims(a, (2, 3), (5, 4))
