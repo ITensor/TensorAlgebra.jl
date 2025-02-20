@@ -49,7 +49,7 @@ end
 function splitdims(
   a::AbstractArray,
   axes_dest::Tuple{Vararg{AbstractUnitRange}},
-  blockedperm::BlockedPermutation,
+  blockedperm::AbstractBlockPermutation,
 )
   # TODO: Pass grouped axes.
   a_dest_perm = splitdims(a, axes_dest...)
@@ -58,9 +58,9 @@ function splitdims(
 end
 
 function splitdims!(
-  a_dest::AbstractArray, a::AbstractArray, blockedperm::BlockedPermutation
+  a_dest::AbstractArray, a::AbstractArray, blockedperm::AbstractBlockPermutation
 )
-  axes_dest = map(i -> axes(a_dest, i), Tuple(blockedperm))
+  axes_dest = map(i -> axes(a_dest, i), blockedperm)
   # TODO: Pass grouped axes.
   a_dest_perm = splitdims(a, axes_dest...)
   _permutedims!(a_dest, a_dest_perm, invperm(Tuple(blockedperm)))

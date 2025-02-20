@@ -11,6 +11,7 @@ combine_fusion_styles(style1::Style, style2::Style) where {Style<:FusionStyle} =
 combine_fusion_styles(style1::FusionStyle, style2::FusionStyle) = ReshapeFusion()
 combine_fusion_styles(styles::FusionStyle...) = foldl(combine_fusion_styles, styles)
 FusionStyle(axis::AbstractUnitRange) = ReshapeFusion()
+FusionStyle(::Tuple{}) = ReshapeFusion()
 function FusionStyle(axes::Tuple{Vararg{AbstractUnitRange}})
   return combine_fusion_styles(FusionStyle.(axes)...)
 end
