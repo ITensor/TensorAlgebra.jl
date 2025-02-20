@@ -70,6 +70,11 @@ using TensorAlgebra:
   @test (@constinferred blockedperm(p)) == p
   @test (@constinferred blockedperm(bt)) == p
 
+  @test_throws ArgumentError blockedperm((1, 3), (2, 4); length=Val(6))
+  @test_throws ArgumentError blockedperm(tuplemortar(((1, 3), (2, 4))); length=Val(5))
+  @test (@constinferred blockedperm(tuplemortar(((1, 3), (2, 4))); length=Val(4))) ==
+    blockedperm((1, 3), (2, 4))
+
   # Split collection into `BlockedPermutation`.
   p = blockedperm_indexin(("a", "b", "c", "d"), ("c", "a"), ("b", "d"))
   @test p == blockedperm((3, 1), (2, 4))
