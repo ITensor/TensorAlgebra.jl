@@ -11,7 +11,8 @@ using TensorAlgebra:
   blockedperm,
   blockedperm_indexin,
   blockedtrivialperm,
-  trivialperm
+  trivialperm,
+  tuplemortar
 
 @testset "BlockedPermutation" begin
   p = @constinferred blockedperm((3, 4, 5), (2, 1))
@@ -63,12 +64,17 @@ using TensorAlgebra:
   @test p isa BlockedPermutation{0}
 
   p = blockedperm((3, 2), (), (1,))
-  bt = BlockedTuple{3,(2, 0, 1)}((3, 2, 1))
+  bt = tuplemortar(((3, 2), (), (1,)))
   @test (@constinferred BlockedTuple(p)) == bt
   @test (@constinferred map(identity, p)) == bt
-  @test (@constinferred p .+ p) == BlockedTuple{3,(2, 0, 1)}((6, 4, 2))
+  @test (@constinferred p .+ p) == tuplemortar(((6, 4), (), (2,)))
   @test (@constinferred blockedperm(p)) == p
   @test (@constinferred blockedperm(bt)) == p
+
+  @test_throws ArgumentError blockedperm((1, 3), (2, 4); length=Val(6))
+  @test_throws ArgumentError blockedperm(tuplemortar(((1, 3), (2, 4))); length=Val(5))
+  @test (@constinferred blockedperm(tuplemortar(((1, 3), (2, 4))); length=Val(4))) ==
+    blockedperm((1, 3), (2, 4))
 
   # Split collection into `BlockedPermutation`.
   p = blockedperm_indexin(("a", "b", "c", "d"), ("c", "a"), ("b", "d"))
@@ -80,28 +86,47 @@ using TensorAlgebra:
 
   # First dimensions are unspecified.
   p = blockedperm(.., (4, 3))
-  @test p == blockedperm(1, 2, (4, 3))
+  @test p == blockedperm((1,), (2,), (4, 3))
   # Specify length
-  p = blockedperm(.., (4, 3); length=Val(6))
-  @test p == blockedperm(1, 2, 5, 6, (4, 3))
+  p = @constinferred blockedperm(.., (4, 3); length=Val(6))
+  @test p == blockedperm((1,), (2,), (5,), (6,), (4, 3))
 
   # Last dimensions are unspecified.
   p = blockedperm((4, 3), ..)
-  @test p == blockedperm((4, 3), 1, 2)
+  @test p == blockedperm((4, 3), (1,), (2,))
   # Specify length
-  p = blockedperm((4, 3), ..; length=Val(6))
-  @test p == blockedperm((4, 3), 1, 2, 5, 6)
+  p = @constinferred blockedperm((4, 3), ..; length=Val(6))
+  @test p == blockedperm((4, 3), (1,), (2,), (5,), (6,))
 
   # Middle dimensions are unspecified.
   p = blockedperm((4, 3), .., 1)
-  @test p == blockedperm((4, 3), 2, 1)
+  @test p == blockedperm((4, 3), (2,), (1,))
   # Specify length
-  p = blockedperm((4, 3), .., 1; length=Val(6))
-  @test p == blockedperm((4, 3), 2, 5, 6, 1)
+  p = @constinferred blockedperm((4, 3), .., 1; length=Val(6))
+  @test p == blockedperm((4, 3), (2,), (5,), (6,), (1,))
 
   # No dimensions are unspecified.
   p = blockedperm((3, 2), .., 1)
-  @test p == blockedperm((3, 2), 1)
+  @test p == blockedperm((3, 2), (1,))
+
+  # same with (..,) instead of ..
+  p = blockedperm((..,), (4, 3))
+  @test p == blockedperm((1, 2), (4, 3))
+  p = @constinferred blockedperm((..,), (4, 3); length=Val(6))
+  @test p == blockedperm((1, 2, 5, 6), (4, 3))
+
+  p = blockedperm((4, 3), (..,))
+  @test p == blockedperm((4, 3), (1, 2))
+  p = @constinferred blockedperm((4, 3), (..,); length=Val(6))
+  @test p == blockedperm((4, 3), (1, 2, 5, 6))
+
+  p = blockedperm((4, 3), (..,), 1)
+  @test p == blockedperm((4, 3), (2,), (1,))
+  p = @constinferred blockedperm((4, 3), (..,), 1; length=Val(6))
+  @test p == blockedperm((4, 3), (2, 5, 6), (1,))
+
+  p = blockedperm((3, 2), (..,), 1)
+  @test p == blockedperm((3, 2), (), (1,))
 end
 
 @testset "BlockedTrivialPermutation" begin
@@ -113,11 +138,11 @@ end
   @test blocklengths(tp) == (2, 0, 1)
   @test trivialperm(blockedperm((3, 2), (), (1,))) == tp
 
-  bt = BlockedTuple{3,(2, 0, 1)}((1, 2, 3))
+  bt = tuplemortar(((1, 2), (), (3,)))
   @test (@constinferred BlockedTuple(tp)) == bt
   @test (@constinferred blocks(tp)) == blocks(bt)
   @test (@constinferred map(identity, tp)) == bt
-  @test (@constinferred tp .+ tp) == BlockedTuple{3,(2, 0, 1)}((2, 4, 6))
+  @test (@constinferred tp .+ tp) == tuplemortar(((2, 4), (), (6,)))
   @test (@constinferred blockedperm(tp)) == tp
   @test (@constinferred trivialperm(tp)) == tp
   @test (@constinferred trivialperm(bt)) == tp
