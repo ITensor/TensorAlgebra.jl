@@ -11,7 +11,8 @@ using TensorAlgebra:
   blockedperm,
   blockedperm_indexin,
   blockedtrivialperm,
-  trivialperm
+  trivialperm,
+  tuplemortar
 
 @testset "BlockedPermutation" begin
   p = @constinferred blockedperm((3, 4, 5), (2, 1))
@@ -63,10 +64,10 @@ using TensorAlgebra:
   @test p isa BlockedPermutation{0}
 
   p = blockedperm((3, 2), (), (1,))
-  bt = BlockedTuple{3,(2, 0, 1)}((3, 2, 1))
+  bt = tuplemortar(((3, 2), (), (1,)))
   @test (@constinferred BlockedTuple(p)) == bt
   @test (@constinferred map(identity, p)) == bt
-  @test (@constinferred p .+ p) == BlockedTuple{3,(2, 0, 1)}((6, 4, 2))
+  @test (@constinferred p .+ p) == tuplemortar(((6, 4), (), (2,)))
   @test (@constinferred blockedperm(p)) == p
   @test (@constinferred blockedperm(bt)) == p
 
@@ -137,11 +138,11 @@ end
   @test blocklengths(tp) == (2, 0, 1)
   @test trivialperm(blockedperm((3, 2), (), (1,))) == tp
 
-  bt = BlockedTuple{3,(2, 0, 1)}((1, 2, 3))
+  bt = tuplemortar(((1, 2), (), (3,)))
   @test (@constinferred BlockedTuple(tp)) == bt
   @test (@constinferred blocks(tp)) == blocks(bt)
   @test (@constinferred map(identity, tp)) == bt
-  @test (@constinferred tp .+ tp) == BlockedTuple{3,(2, 0, 1)}((2, 4, 6))
+  @test (@constinferred tp .+ tp) == tuplemortar(((2, 4), (), (6,)))
   @test (@constinferred blockedperm(tp)) == tp
   @test (@constinferred trivialperm(tp)) == tp
   @test (@constinferred trivialperm(bt)) == tp
