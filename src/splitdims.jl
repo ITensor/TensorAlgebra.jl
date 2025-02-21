@@ -25,9 +25,9 @@ function splitdims(a::AbstractArray{<:Any,N}, abt::BlockedTuple{N,<:Any,Tuple{}}
 end
 
 function splitdims(
-  a::AbstractArray{<:Any,N}, abt::BlockedTuple{N,<:Any,<:Tuple{Vararg{AbstractUnitRange}}}
+  a::AbstractArray{<:Any,N}, bt::BlockedTuple{N,<:Any,<:Tuple{Vararg{AbstractUnitRange}}}
 ) where {N}
-  return splitdims(FusionStyle(a), a, abt)
+  return splitdims(FusionStyle(a), a, bt)
 end
 
 # splitdims(randn(4, 4), 1:2, 1:2, 1:2, 1:2)
