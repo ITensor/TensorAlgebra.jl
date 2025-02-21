@@ -61,6 +61,15 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
   @testset "splitdims (eltype=$elt)" for elt in elts
     a = randn(elt, 6, 20)
+
+    a_split = splitdims(a, tuplemortar(((1:2, 1:3), (1:5, 1:4))))
+    @test a_split isa Array{elt,4}
+    @test a_split ≈ reshape(a, (2, 3, 5, 4))
+
+    a_split = splitdims(a, tuplemortar(((2, 3), (5, 4))))
+    @test a_split isa Array{elt,4}
+    @test a_split ≈ reshape(a, (2, 3, 5, 4))
+
     a_split = splitdims(a, (2, 3), (5, 4))
     @test eltype(a_split) === elt
     @test a_split ≈ reshape(a, (2, 3, 5, 4))
@@ -85,6 +94,10 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a_split = splitdims(a, 1 => (1:2, 1:3))
     @test eltype(a_split) === elt
     @test a_split ≈ reshape(a, (2, 3, 20))
+
+    a_split = splitdims(a)
+    @test a_split isa Array{elt,2}
+    @test a_split ≈ a
   end
   using TensorOperations: TensorOperations
   @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
