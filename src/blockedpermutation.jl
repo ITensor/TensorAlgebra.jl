@@ -74,8 +74,8 @@ function blockedperm(permblocks::Union{Tuple{Vararg{Int}},Int,Ellipsis}...; kwar
   return blockedperm(collect_tuple.(permblocks)...; kwargs...)
 end
 
-function blockedperm(bt::AbstractBlockTuple)
-  return blockedperm(Val(length(bt)), blocks(bt)...)
+function blockedperm(bt::AbstractBlockTuple; length::Union{Val,Nothing}=nothing)
+  return blockedperm(Val(Base.length(bt)), blocks(bt)...)
 end
 
 function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
