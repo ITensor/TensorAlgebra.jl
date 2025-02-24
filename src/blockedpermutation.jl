@@ -112,17 +112,19 @@ function blockedperm(
   specified_perm = flatten_tuples(specified_permblocks)
   len = _blockedperm_length(length, specified_perm)
   unspecified_dims_vec = setdiff(Base.OneTo(len), specified_perm)
-  UD = Val(len - sum(Base.length.(specified_permblocks)))  # preserve type stability when possible
-  insert = unspecified_dims(typeof(permblocks[unspecified_dim]), unspecified_dims_vec, UD)
+  ndims_unspecified = Val(len - sum(Base.length.(specified_permblocks)))  # preserve type stability when possible
+  insert = unspecified_dims(
+    permblocks[unspecified_dim], unspecified_dims_vec, ndims_unspecified
+  )
   permblocks_specified = TupleTools.insertat(permblocks, unspecified_dim, insert)
   return blockedperm(permblocks_specified...)
 end
 
-function unspecified_dims(::Type{Tuple{Ellipsis}}, unspecified_dims_vec, UD::Val)
-  return (NTuple{value(UD),Int}(unspecified_dims_vec),)
+function unspecified_dims(::Tuple{Ellipsis}, unspecified_dims_vec, ndims_unspecified::Val)
+  return (ntuple(i -> unspecified_dims_vec[i], ndims_unspecified),)
 end
-function unspecified_dims(::Type{Ellipsis}, unspecified_dims_vec, UD::Val)
-  return NTuple{value(UD),Tuple{Int}}(Tuple.(unspecified_dims_vec))
+function unspecified_dims(::Ellipsis, unspecified_dims_vec, ndims_unspecified::Val)
+  return ntuple(i -> (unspecified_dims_vec[i],), ndims_unspecified)
 end
 
 # Version of `indexin` that outputs a `blockedperm`.
