@@ -11,6 +11,7 @@ using TensorAlgebra:
   blockedperm,
   blockedperm_indexin,
   blockedtrivialperm,
+  blockedpermvcat,
   permmortar,
   trivialperm,
   tuplemortar
@@ -25,21 +26,23 @@ using TensorAlgebra:
   @test blocklengths(p) == (3, 2)
   @test blockfirsts(p) == (1, 4)
   @test blocklasts(p) == (3, 5)
-  @test (@constinferred invperm(p)) == blockedperm((5, 4, 1), (2, 3))
+  @test p == (@constinferred blockedpermvcat((3, 4, 5), (2, 1)))
+  @test p == blockedperm((3, 4, 5, 2, 1), (3, 2))
+  @test p == (@constinferred blockedperm((3, 4, 5, 2, 1), Val((3, 2))))
+  @test (@constinferred invperm(p)) == blockedpermvcat((5, 4, 1), (2, 3))
   @test p isa BlockedPermutation{2}
-  @test p == (@constinferred blockedperm((3, 4, 5), (2, 1)))
 
   flat = (3, 4, 5, 2, 1)
   @test_throws DimensionMismatch BlockedPermutation{2,(1, 2, 2)}(flat)
   @test_throws DimensionMismatch BlockedPermutation{3,(1, 2, 3)}(flat)
   @test_throws DimensionMismatch BlockedPermutation{3,(-1, 3, 3)}(flat)
-  @test_throws AssertionError blockedperm((3, 5), (2, 1))
-  @test_throws AssertionError blockedperm((0, 1), (2, 3))
-  @test_throws AssertionError blockedperm((0,))
-  @test_throws AssertionError blockedperm((2,))
+  @test_throws AssertionError blockedpermvcat((3, 5), (2, 1))
+  @test_throws AssertionError blockedpermvcat((0, 1), (2, 3))
+  @test_throws AssertionError blockedpermvcat((0,))
+  @test_throws AssertionError blockedpermvcat((2,))
 
   # Empty block.
-  p = @constinferred blockedperm((3, 2), (), (1,))
+  p = @constinferred blockedpermvcat((3, 2), (), (1,))
   @test Tuple(p) === (3, 2, 1)
   @test isperm(p)
   @test length(p) == 3
@@ -48,10 +51,10 @@ using TensorAlgebra:
   @test blocklengths(p) == (2, 0, 1)
   @test blockfirsts(p) == (1, 3, 3)
   @test blocklasts(p) == (2, 2, 3)
-  @test invperm(p) == blockedperm((3, 2), (), (1,))
+  @test invperm(p) == blockedpermvcat((3, 2), (), (1,))
   @test p isa BlockedPermutation{3}
 
-  p = @constinferred blockedperm((), ())
+  p = @constinferred blockedpermvcat((), ())
   @test Tuple(p) === ()
   @test blocklength(p) == 2
   @test blocklengths(p) == (0, 0)
@@ -60,7 +63,7 @@ using TensorAlgebra:
   @test blocks(p) == ((), ())
   @test p isa BlockedPermutation{2}
 
-  p = @constinferred blockedperm()
+  p = @constinferred blockedpermvcat()
   @test Tuple(p) === ()
   @test blocklength(p) == 0
   @test blocklengths(p) == ()
@@ -69,7 +72,7 @@ using TensorAlgebra:
   @test blocks(p) == ()
   @test p isa BlockedPermutation{0}
 
-  p = blockedperm((3, 2), (), (1,))
+  p = blockedpermvcat((3, 2), (), (1,))
   bt = tuplemortar(((3, 2), (), (1,)))
   @test (@constinferred BlockedTuple(p)) == bt
   @test (@constinferred map(identity, p)) == bt
@@ -77,62 +80,59 @@ using TensorAlgebra:
   @test (@constinferred blockedperm(p)) == p
   @test (@constinferred blockedperm(bt)) == p
 
-  @test_throws ArgumentError blockedperm((1, 3), (2, 4); length=Val(6))
-  @test_throws ArgumentError blockedperm(tuplemortar(((1, 3), (2, 4))); length=Val(5))
-  @test (@constinferred blockedperm(tuplemortar(((1, 3), (2, 4))); length=Val(4))) ==
-    blockedperm((1, 3), (2, 4))
+  @test_throws ArgumentError blockedpermvcat((1, 3), (2, 4); length=Val(6))
 
   # Split collection into `BlockedPermutation`.
   p = blockedperm_indexin(("a", "b", "c", "d"), ("c", "a"), ("b", "d"))
-  @test p == blockedperm((3, 1), (2, 4))
+  @test p == blockedpermvcat((3, 1), (2, 4))
 
   # Singleton dimensions.
-  p = @constinferred blockedperm((2, 3), 1)
-  @test p == blockedperm((2, 3), (1,))
+  p = @constinferred blockedpermvcat((2, 3), 1)
+  @test p == blockedpermvcat((2, 3), (1,))
 
   # First dimensions are unspecified.
-  p = blockedperm(.., (4, 3))
-  @test p == blockedperm((1,), (2,), (4, 3))
+  p = blockedpermvcat(.., (4, 3))
+  @test p == blockedpermvcat((1,), (2,), (4, 3))
   # Specify length
-  p = @constinferred blockedperm(.., (4, 3); length=Val(6))
-  @test p == blockedperm((1,), (2,), (5,), (6,), (4, 3))
+  p = @constinferred blockedpermvcat(.., (4, 3); length=Val(6))
+  @test p == blockedpermvcat((1,), (2,), (5,), (6,), (4, 3))
 
   # Last dimensions are unspecified.
-  p = blockedperm((4, 3), ..)
-  @test p == blockedperm((4, 3), (1,), (2,))
+  p = blockedpermvcat((4, 3), ..)
+  @test p == blockedpermvcat((4, 3), (1,), (2,))
   # Specify length
-  p = @constinferred blockedperm((4, 3), ..; length=Val(6))
-  @test p == blockedperm((4, 3), (1,), (2,), (5,), (6,))
+  p = @constinferred blockedpermvcat((4, 3), ..; length=Val(6))
+  @test p == blockedpermvcat((4, 3), (1,), (2,), (5,), (6,))
 
   # Middle dimensions are unspecified.
-  p = blockedperm((4, 3), .., 1)
-  @test p == blockedperm((4, 3), (2,), (1,))
+  p = blockedpermvcat((4, 3), .., 1)
+  @test p == blockedpermvcat((4, 3), (2,), (1,))
   # Specify length
-  p = @constinferred blockedperm((4, 3), .., 1; length=Val(6))
-  @test p == blockedperm((4, 3), (2,), (5,), (6,), (1,))
+  p = @constinferred blockedpermvcat((4, 3), .., 1; length=Val(6))
+  @test p == blockedpermvcat((4, 3), (2,), (5,), (6,), (1,))
 
   # No dimensions are unspecified.
-  p = blockedperm((3, 2), .., 1)
-  @test p == blockedperm((3, 2), (1,))
+  p = blockedpermvcat((3, 2), .., 1)
+  @test p == blockedpermvcat((3, 2), (1,))
 
   # same with (..,) instead of ..
-  p = blockedperm((..,), (4, 3))
-  @test p == blockedperm((1, 2), (4, 3))
-  p = @constinferred blockedperm((..,), (4, 3); length=Val(6))
-  @test p == blockedperm((1, 2, 5, 6), (4, 3))
+  p = blockedpermvcat((..,), (4, 3))
+  @test p == blockedpermvcat((1, 2), (4, 3))
+  p = @constinferred blockedpermvcat((..,), (4, 3); length=Val(6))
+  @test p == blockedpermvcat((1, 2, 5, 6), (4, 3))
 
-  p = blockedperm((4, 3), (..,))
-  @test p == blockedperm((4, 3), (1, 2))
-  p = @constinferred blockedperm((4, 3), (..,); length=Val(6))
-  @test p == blockedperm((4, 3), (1, 2, 5, 6))
+  p = blockedpermvcat((4, 3), (..,))
+  @test p == blockedpermvcat((4, 3), (1, 2))
+  p = @constinferred blockedpermvcat((4, 3), (..,); length=Val(6))
+  @test p == blockedpermvcat((4, 3), (1, 2, 5, 6))
 
-  p = blockedperm((4, 3), (..,), 1)
-  @test p == blockedperm((4, 3), (2,), (1,))
-  p = @constinferred blockedperm((4, 3), (..,), 1; length=Val(6))
-  @test p == blockedperm((4, 3), (2, 5, 6), (1,))
+  p = blockedpermvcat((4, 3), (..,), 1)
+  @test p == blockedpermvcat((4, 3), (2,), (1,))
+  p = @constinferred blockedpermvcat((4, 3), (..,), 1; length=Val(6))
+  @test p == blockedpermvcat((4, 3), (2, 5, 6), (1,))
 
-  p = blockedperm((3, 2), (..,), 1)
-  @test p == blockedperm((3, 2), (), (1,))
+  p = blockedpermvcat((3, 2), (..,), 1)
+  @test p == blockedpermvcat((3, 2), (), (1,))
 end
 
 @testset "BlockedTrivialPermutation" begin
@@ -142,7 +142,7 @@ end
   @test Tuple(tp) == (1, 2, 3)
   @test blocklength(tp) == 3
   @test blocklengths(tp) == (2, 0, 1)
-  @test trivialperm(blockedperm((3, 2), (), (1,))) == tp
+  @test trivialperm(blockedpermvcat((3, 2), (), (1,))) == tp
 
   bt = tuplemortar(((1, 2), (), (3,)))
   @test (@constinferred BlockedTuple(tp)) == bt

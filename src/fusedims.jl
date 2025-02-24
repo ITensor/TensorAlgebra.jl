@@ -45,9 +45,8 @@ end
 # Fix ambiguity issue
 fusedims(a::AbstractArray{<:Any,0}, ::Vararg{Tuple{}}) = a
 
-# TODO: Is this needed? Maybe delete.
 function fusedims(a::AbstractArray, permblocks...)
-  return fusedims(a, blockedperm(permblocks...; length=Val(ndims(a))))
+  return fusedims(a, blockedpermvcat(permblocks...; length=Val(ndims(a))))
 end
 
 function fuseaxes(
