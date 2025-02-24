@@ -77,10 +77,16 @@ function blockedperm(
 end
 
 # keep len kwarg to be consistent with other method signatures
-function blockedperm(bt::AbstractBlockTuple; length::Union{Val,Nothing}=nothing)
-  !(length ∈ (nothing, Val(Base.length(bt)))) &&
-    throw(ArgumentError("Invalid total length"))
-  return blockedperm(Val(Base.length(bt)), blocks(bt)...)
+function blockedperm(bt::AbstractBlockTuple; length=nothing)
+  return _blockedperm(length, bt)
+end
+
+function _blockedperm(::Nothing, bt::AbstractBlockTuple)
+  return _blockedperm(Val(length(bt)), bt)
+end
+
+function _blockedperm(vallength::Val, bt::AbstractBlockTuple)
+  return blockedperm(vallength, blocks(bt)...)
 end
 
 function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
