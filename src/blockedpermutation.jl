@@ -89,6 +89,12 @@ function _blockedperm(vallength::Val, bt::AbstractBlockTuple)
   return blockedperm(vallength, blocks(bt)...)
 end
 
+function blockedperm(len::Val, permblocks::Tuple{Vararg{Int}}...)
+  value(len) != sum(length.(permblocks); init=0) &&
+    throw(ArgumentError("Invalid total length"))
+  return permmortar(Tuple(permblocks))
+end
+
 function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
   return maximum(specified_perm)
 end
@@ -163,11 +169,10 @@ function BlockArrays.blocklengths(
   return BlockLengths
 end
 
-function blockedperm(len::Val, permblocks::Tuple{Vararg{Int}}...)
+function permmortar(permblocks::Tuple{Vararg{Tuple{Vararg{Int}}}})
   blockedperm = BlockedPermutation{length(permblocks),length.(permblocks)}(
     flatten_tuples(permblocks)
   )
-  value(len) != length(blockedperm) && throw(ArgumentError("Invalid total length"))
   @assert isperm(blockedperm)
   return blockedperm
 end

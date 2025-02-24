@@ -11,11 +11,12 @@ using TensorAlgebra:
   blockedperm,
   blockedperm_indexin,
   blockedtrivialperm,
+  permmortar,
   trivialperm,
   tuplemortar
 
 @testset "BlockedPermutation" begin
-  p = @constinferred blockedperm((3, 4, 5), (2, 1))
+  p = @constinferred permmortar(((3, 4, 5), (2, 1)))
   @test Tuple(p) === (3, 4, 5, 2, 1)
   @test isperm(p)
   @test length(p) == 5
@@ -26,11 +27,16 @@ using TensorAlgebra:
   @test blocklasts(p) == (3, 5)
   @test (@constinferred invperm(p)) == blockedperm((5, 4, 1), (2, 3))
   @test p isa BlockedPermutation{2}
+  @test p == (@constinferred blockedperm((3, 4, 5), (2, 1)))
 
   flat = (3, 4, 5, 2, 1)
   @test_throws DimensionMismatch BlockedPermutation{2,(1, 2, 2)}(flat)
   @test_throws DimensionMismatch BlockedPermutation{3,(1, 2, 3)}(flat)
   @test_throws DimensionMismatch BlockedPermutation{3,(-1, 3, 3)}(flat)
+  @test_throws AssertionError blockedperm((3, 5), (2, 1))
+  @test_throws AssertionError blockedperm((0, 1), (2, 3))
+  @test_throws AssertionError blockedperm((0,))
+  @test_throws AssertionError blockedperm((2,))
 
   # Empty block.
   p = @constinferred blockedperm((3, 2), (), (1,))
