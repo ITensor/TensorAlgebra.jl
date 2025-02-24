@@ -1,4 +1,4 @@
-using BlockArrays: Block, blockedrange, blocksize
+using BlockArrays: Block, BlockArray, BlockedArray, blockedrange, blocksize
 using BlockSparseArrays: BlockSparseArray
 using SparseArraysBase: densearray
 using TensorAlgebra: contract
