@@ -13,11 +13,11 @@ default_contract_alg() = Matricize()
 function contract!(
   alg::Algorithm,
   a_dest::AbstractArray,
-  biperm_dest::BlockedPermutation,
+  biperm_dest::AbstractBlockPermutation{2},
   a1::AbstractArray,
-  biperm1::BlockedPermutation,
+  biperm1::AbstractBlockPermutation{2},
   a2::AbstractArray,
-  biperm2::BlockedPermutation,
+  biperm2::AbstractBlockPermutation{2},
   α::Number,
   β::Number,
 )
@@ -110,11 +110,11 @@ end
 
 function contract(
   alg::Algorithm,
-  biperm_dest::BlockedPermutation,
+  biperm_dest::AbstractBlockPermutation{2},
   a1::AbstractArray,
-  biperm1::BlockedPermutation,
+  biperm1::AbstractBlockPermutation{2},
   a2::AbstractArray,
-  biperm2::BlockedPermutation,
+  biperm2::AbstractBlockPermutation{2},
   α::Number;
   kwargs...,
 )

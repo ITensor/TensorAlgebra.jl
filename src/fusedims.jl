@@ -11,6 +11,7 @@ combine_fusion_styles(style1::Style, style2::Style) where {Style<:FusionStyle} =
 combine_fusion_styles(style1::FusionStyle, style2::FusionStyle) = ReshapeFusion()
 combine_fusion_styles(styles::FusionStyle...) = foldl(combine_fusion_styles, styles)
 FusionStyle(axis::AbstractUnitRange) = ReshapeFusion()
+FusionStyle(::Tuple{}) = ReshapeFusion()
 function FusionStyle(axes::Tuple{Vararg{AbstractUnitRange}})
   return combine_fusion_styles(FusionStyle.(axes)...)
 end
@@ -33,21 +34,12 @@ function fusedims(a::AbstractArray, ax::AbstractUnitRange, axes::AbstractUnitRan
   return fusedims(FusionStyle(a), a, ax, axes...)
 end
 
-# Overload this version for fusion tensors, array maps, etc.
 function fusedims(
   a::AbstractArray,
   axb::Tuple{Vararg{AbstractUnitRange}},
   axesblocks::Tuple{Vararg{AbstractUnitRange}}...,
 )
   return fusedims(a, flatten_tuples((axb, axesblocks...))...)
-end
-
-# Fix ambiguity issue
-fusedims(a::AbstractArray{<:Any,0}, ::Vararg{Tuple{}}) = a
-
-# TODO: Is this needed? Maybe delete.
-function fusedims(a::AbstractArray, permblocks...)
-  return fusedims(a, blockedperm(permblocks...; length=Val(ndims(a))))
 end
 
 function fuseaxes(
@@ -67,7 +59,18 @@ function fusedims(a::AbstractArray, blockedperm::BlockedTrivialPermutation)
   return fusedims(a, axes_fused)
 end
 
-function fusedims(a::AbstractArray, blockedperm::BlockedPermutation)
+# deal with zero-dim case
+fusedims(a::AbstractArray{<:Any,0}, t::Tuple{}...) = reshape(a, ntuple(_ -> 1, length(t)))
+
+function fusedims(a::AbstractArray, blockedperm::AbstractBlockPermutation)
+  # TBD define permutedims(::AbstractArray, ::AbstractBlockPermutation)
+  # TBD remove call to BlockedTrivialPermutation?
   a_perm = _permutedims(a, Tuple(blockedperm))
   return fusedims(a_perm, trivialperm(blockedperm))
+end
+
+#  fusedims(ones((2,2,2,2)), (3, 1, 2), (4,))
+#  fusedims(ones((2,2,2,2)), (3, 1, 2), 4)
+function fusedims(a::AbstractArray, permblocks...)
+  return fusedims(a, blockedperm(permblocks...; length=Val(ndims(a))))
 end
