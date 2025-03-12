@@ -65,7 +65,7 @@ function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=true, kw
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_L = (axes_codomain..., axes(L, 2))
+  axes_L = (axes_codomain..., axes(L, ndims(L)))
   axes_Q = (axes(Q, 1), axes_domain...)
   return splitdims(L, axes_L), splitdims(Q, axes_Q)
 end
