@@ -1,45 +1,71 @@
-using ArrayLayouts: LayoutMatrix
-using LinearAlgebra: LinearAlgebra, Diagonal
+using MatrixAlgebraKit: qr_full, qr_compact, svd_full, svd_compact, svd_trunc
 
-function qr(a::AbstractArray, biperm::BlockedPermutation{2})
-  a_matricized = fusedims(a, biperm)
-  # TODO: Make this more generic, allow choosing thin or full,
-  # make sure this works on GPU.
-  q_fact, r_matricized = LinearAlgebra.qr(a_matricized)
-  q_matricized = typeof(a_matricized)(q_fact)
-  axes_codomain, axes_domain = blockpermute(axes(a), biperm)
-  axes_q = (axes_codomain..., axes(q_matricized, 2))
-  axes_r = (axes(r_matricized, 1), axes_domain...)
-  q = splitdims(q_matricized, axes_q)
-  r = splitdims(r_matricized, axes_r)
-  return q, r
+# TODO: consider in-place version
+# TODO: figure out kwargs and document
+#
+"""
+    qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=true, kwargs...) -> Q, R
+    qr(A::AbstractArray, biperm::BlockedPermutation{2}; full=true, kwargs...) -> Q, R
+Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+"""
+function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+  return qr(A, biperm)
+end
+function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=true, kwargs...)
+  # tensor to matrix
+  A_mat = fusedims(A, biperm)
+
+  # factorization
+  Q, R = full ? qr_full(A_mat; kwargs...) : qr_compact(A_mat; kwargs...)
+
+  # matrix to tensor
+  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+  axes_Q = (axes_codomain..., axes(Q, 2))
+  axes_R = (axes(R, 1), axes_domain...)
+  return splitdims(Q, axes_Q), splitdims(R, axes_R)
 end
 
-function qr(a::AbstractArray, labels_a, labels_codomain, labels_domain)
-  # TODO: Generalize to conversion to `Tuple` isn't needed.
-  return qr(
-    a, blockedperm_indexin(Tuple(labels_a), Tuple(labels_codomain), Tuple(labels_domain))
-  )
+# TODO: separate out the algorithm selection step from the implementation
+"""
+    svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
+    svd(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> U, S, Vᴴ
+Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+## Keyword arguments
+- `full::Bool=false`: select between a "thick" or a "thin" decomposition, where both `U` and `Vᴴ`
+  are unitary or isometric.
+- `trunc`: Truncation keywords for `svd_trunc`. Not compatible with `full=true`.
+- Other keywords are passed on directly to MatrixAlgebraKit
+"""
+function svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+  return svd(A, biperm; kwargs...)
 end
+function svd(
+  A::AbstractArray,
+  biperm::BlockedPermutation{2};
+  full::Bool=false,
+  trunc=nothing,
+  kwargs...,
+)
+  # tensor to matrix
+  A_mat = fusedims(A, biperm)
 
-function svd(a::AbstractArray, biperm::BlockedPermutation{2})
-  a_matricized = fusedims(a, biperm)
-  usv_matricized = LinearAlgebra.svd(a_matricized)
-  u_matricized = usv_matricized.U
-  s_diag = usv_matricized.S
-  v_matricized = usv_matricized.Vt
-  axes_codomain, axes_domain = blockpermute(axes(a), biperm)
-  axes_u = (axes_codomain..., axes(u_matricized, 2))
-  axes_v = (axes(v_matricized, 1), axes_domain...)
-  u = splitdims(u_matricized, axes_u)
-  # TODO: Use `DiagonalArrays.diagonal` to make it more general.
-  s = Diagonal(s_diag)
-  v = splitdims(v_matricized, axes_v)
-  return u, s, v
-end
+  # factorization
+  if !isnothing(trunc)
+    @assert !full "Specified both full and truncation, currently not supported"
+    U, S, Vᴴ = svd_trunc(A_mat; trunc, kwargs...)
+  else
+    U, S, Vᴴ = full ? svd_full(A_mat; kwargs...) : svd_compact(A_mat; kwargs...)
+  end
 
-function svd(a::AbstractArray, labels_a, labels_codomain, labels_domain)
-  return svd(
-    a, blockedperm_indexin(Tuple(labels_a), Tuple(labels_codomain), Tuple(labels_domain))
-  )
+  # matrix to tensor
+  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+  axes_U = (axes_codomain..., axes(U, 2))
+  axes_Vᴴ = (axes(Vᴴ, 1), axes_domain...)
+  return splitdims(U, axes_U), S, splitdims(Vᴴ, axes_Vᴴ)
 end
