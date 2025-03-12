@@ -36,6 +36,36 @@ end
   @test size(Q, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
 end
 
+# LQ Decomposition
+# ----------------
+@testset "Full LQ ($T)" for T in elts
+  A = randn(T, 2, 3, 4, 5)
+  labels_A = (:a, :b, :c, :d)
+  labels_Q = (:d, :c)
+  labels_L = (:b, :a)
+
+  Acopy = deepcopy(A)
+  L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full=true)
+  @test A == Acopy # should not have altered initial array
+  A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
+  @test A ≈ A′
+  @test size(Q, 1) == size(Q, 2) * size(Q, 3) # Q is unitary
+end
+
+@testset "Compact LQ ($T)" for T in elts
+  A = randn(T, 2, 3, 4, 5)
+  labels_A = (:a, :b, :c, :d)
+  labels_Q = (:d, :c)
+  labels_L = (:b, :a)
+
+  Acopy = deepcopy(A)
+  L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full=true)
+  @test A == Acopy # should not have altered initial array
+  A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
+  @test A ≈ A′
+  @test size(Q, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4)) # Q is unitary
+end
+
 # Eigenvalue Decomposition
 # ------------------------
 @testset "Eigenvalue decomposition ($T)" for T in elts
