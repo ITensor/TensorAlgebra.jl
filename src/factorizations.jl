@@ -1,15 +1,18 @@
 using MatrixAlgebraKit:
   eig_full,
-  eigh_full,
   eig_trunc,
+  eig_vals,
+  eigh_full,
   eigh_trunc,
+  eigh_vals,
   lq_full,
   lq_compact,
   qr_full,
   qr_compact,
   svd_full,
   svd_compact,
-  svd_trunc
+  svd_trunc,
+  svd_vals
 using LinearAlgebra: LinearAlgebra
 
 # TODO: consider in-place version
@@ -130,7 +133,9 @@ function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwa
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return eigvals(A, biperm; kwargs...)
 end
-function eigvals(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function eigvals(
+  A::AbstractArray, biperm::BlockedPermutation{2}; ishermitian=nothing, kwargs...
+)
   A_mat = fusedims(A, biperm)
   ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
   return (ishermitian ? eigh_vals : eig_vals)(A_mat; kwargs...)
