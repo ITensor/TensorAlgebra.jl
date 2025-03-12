@@ -1,6 +1,6 @@
 using Test: @test, @testset, @inferred
 using TestExtras: @constinferred
-using TensorAlgebra: contract, qr, svd, TensorAlgebra
+using TensorAlgebra: contract, qr, svd, TensorAlgebra, eig
 using MatrixAlgebraKit: truncrank
 using LinearAlgebra: norm
 
@@ -34,6 +34,44 @@ end
   A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
   @test A ≈ A′
   @test size(Q, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+end
+
+# Eigenvalue Decomposition
+# ------------------------
+@testset "Eigenvalue decomposition ($T)" for T in elts
+  A = randn(T, 4, 3, 4, 3) # needs to be square
+  labels_A = (:a, :b, :c, :d)
+  labels_V = (:b, :a)
+  labels_V′ = (:d, :c)
+
+  Acopy = deepcopy(A)
+  # type-unstable if `ishermitian` not set
+  D, V = @constinferred eig(A, labels_A, labels_V, labels_V′; ishermitian=false)
+  @test A == Acopy # should not have altered initial array
+  @test eltype(D) == eltype(V) && eltype(D) <: Complex
+
+  AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
+  VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
+  @test AV ≈ VD
+end
+
+@testset "Hermitian eigenvalue decomposition ($T)" for T in elts
+  A = randn(T, 12, 12)
+  A = reshape(A + A', 4, 3, 4, 3)
+  labels_A = (:a, :b, :c, :d)
+  labels_V = (:b, :a)
+  labels_V′ = (:d, :c)
+
+  Acopy = deepcopy(A)
+  # type-unstable if `ishermitian` not set
+  D, V = @constinferred eig(A, labels_A, labels_V, labels_V′; ishermitian=true)
+  @test A == Acopy # should not have altered initial array
+  @test eltype(D) <: Real
+  @test eltype(V) == eltype(A)
+
+  AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
+  VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
+  @test AV ≈ VD
 end
 
 # Singular Value Decomposition
