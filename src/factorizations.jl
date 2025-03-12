@@ -1,5 +1,16 @@
 using MatrixAlgebraKit:
-  lq_full, lq_compact, qr_full, qr_compact, svd_full, svd_compact, svd_trunc
+  eig_full,
+  eigh_full,
+  eig_trunc,
+  eigh_trunc,
+  lq_full,
+  lq_compact,
+  qr_full,
+  qr_compact,
+  svd_full,
+  svd_compact,
+  svd_trunc
+using LinearAlgebra: LinearAlgebra
 
 # TODO: consider in-place version
 # TODO: figure out kwargs and document
