@@ -2,6 +2,7 @@ using Test: @test, @testset, @inferred
 using TestExtras: @constinferred
 using TensorAlgebra: contract, qr, svd, TensorAlgebra
 using MatrixAlgebraKit: truncrank
+using LinearAlgebra: norm
 
 elts = (Float64, ComplexF64)
 
