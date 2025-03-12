@@ -1,7 +1,9 @@
 using TensorAlgebra: TensorAlgebra
 using Documenter: Documenter, DocMeta, deploydocs, makedocs
 
-DocMeta.setdocmeta!(TensorAlgebra, :DocTestSetup, :(using TensorAlgebra); recursive=true)
+DocMeta.setdocmeta!(
+  TensorAlgebra, :DocTestSetup, :(using TensorAlgebra); recursive=true
+)
 
 include("make_index.jl")
 
@@ -14,7 +16,7 @@ makedocs(;
     edit_link="main",
     assets=String[],
   ),
-  pages=["Home" => "index.md"],
+  pages=["Home" => "index.md", "Reference" => "reference.md"],
 )
 
 deploydocs(;
