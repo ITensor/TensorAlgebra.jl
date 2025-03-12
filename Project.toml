@@ -16,6 +16,7 @@ GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
 
 [extensions]
 TensorAlgebraGradedUnitRangesExt = "GradedUnitRanges"
+TensorAlgebraTensorOperationsExt = "TensorOperations"
 
 [compat]
 ArrayLayouts = "1.10.4"
@@ -23,6 +24,7 @@ BlockArrays = "1.2.0"
 EllipsisNotation = "1.8.0"
 GradedUnitRanges = "0.1.0"
 LinearAlgebra = "1.10"
+TensorOperations = "5"
 TupleTools = "1.6.0"
 TypeParameterAccessors = "0.2.1, 0.3"
 julia = "1.10"
