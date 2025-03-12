@@ -112,6 +112,30 @@ function eig(
   return D, splitdims(V, axes_V)
 end
 
+"""
+    eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
+    eigvals(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> D
+
+Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`. The output is a vector of eigenvalues.
+
+## Keyword arguments
+
+- `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
+    computation. If `false`, the output `eltype` will always be `<:Complex`.
+- Other keywords are passed on directly to MatrixAlgebraKit
+"""
+function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+  return eigvals(A, biperm; kwargs...)
+end
+function eigvals(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+  A_mat = fusedims(A, biperm)
+  ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
+  return (ishermitian ? eigh_vals : eig_vals)(A_mat; kwargs...)
+end
+
 # TODO: separate out the algorithm selection step from the implementation
 """
     svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
@@ -155,4 +179,21 @@ function svd(
   axes_U = (axes_codomain..., axes(U, 2))
   axes_Vᴴ = (axes(Vᴴ, 1), axes_domain...)
   return splitdims(U, axes_U), S, splitdims(Vᴴ, axes_Vᴴ)
+end
+
+"""
+    svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> S
+    svdvals(A::AbstractArray, biperm::BlockedPermutation{2}) -> S
+
+Compute the singular values of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`. The output is a vector of singular values.
+"""
+function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
+  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+  return svdvals(A, biperm)
+end
+function svdvals(A::AbstractArray, biperm::BlockedPermutation{2})
+  A_mat = fusedims(A, biperm)
+  return svd_vals(A_mat)
 end
