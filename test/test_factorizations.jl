@@ -1,8 +1,8 @@
 using Test: @test, @testset, @inferred
 using TestExtras: @constinferred
-using TensorAlgebra: contract, qr, svd, TensorAlgebra, eig
+using TensorAlgebra: contract, qr, svd, svdvals, TensorAlgebra, eig, eigvals
 using MatrixAlgebraKit: truncrank
-using LinearAlgebra: norm
+using LinearAlgebra: norm, diag
 
 elts = (Float64, ComplexF64)
 
@@ -53,6 +53,10 @@ end
   AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
   VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
   @test AV ≈ VD
+
+  Dvals = @constinferred eigvals(A, labels_A, labels_V, labels_V′; ishermitian=false)
+  @test Dvals ≈ diag(D)
+  @test eltype(Dvals) <: Complex
 end
 
 @testset "Hermitian eigenvalue decomposition ($T)" for T in elts
@@ -72,6 +76,11 @@ end
   AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
   VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
   @test AV ≈ VD
+
+  # TODO: broken type stability
+  Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian=true)
+  @test Dvals ≈ diag(D)
+  @test eltype(Dvals) <: Real
 end
 
 # Singular Value Decomposition
@@ -106,6 +115,9 @@ end
   @test A ≈ A′
   k = min(size(S)...)
   @test size(U, 3) == k == size(Vᴴ, 1)
+
+  Svals = @constinferred svdvals(A, labels_A, labels_U, labels_Vᴴ)
+  @test Svals ≈ diag(S)
 end
 
 @testset "Truncated SVD ($T)" for T in elts
