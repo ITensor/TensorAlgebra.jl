@@ -1,18 +1,18 @@
 using MatrixAlgebraKit:
-  eig_full,
-  eig_trunc,
-  eig_vals,
-  eigh_full,
-  eigh_trunc,
-  eigh_vals,
-  lq_full,
-  lq_compact,
-  qr_full,
-  qr_compact,
-  svd_full,
-  svd_compact,
-  svd_trunc,
-  svd_vals
+  eig_full!,
+  eig_trunc!,
+  eig_vals!,
+  eigh_full!,
+  eigh_trunc!,
+  eigh_vals!,
+  lq_full!,
+  lq_compact!,
+  qr_full!,
+  qr_compact!,
+  svd_full!,
+  svd_compact!,
+  svd_trunc!,
+  svd_vals!
 using LinearAlgebra: LinearAlgebra
 
 # TODO: consider in-place version
@@ -35,7 +35,7 @@ function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
   A_mat = fusedims(A, biperm)
 
   # factorization
-  Q, R = full ? qr_full(A_mat; kwargs...) : qr_compact(A_mat; kwargs...)
+  Q, R = full ? qr_full!(A_mat; kwargs...) : qr_compact!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -61,7 +61,7 @@ function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
   A_mat = fusedims(A, biperm)
 
   # factorization
-  L, Q = full ? lq_full(A_mat; kwargs...) : lq_compact(A_mat; kwargs...)
+  L, Q = full ? lq_full!(A_mat; kwargs...) : lq_compact!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -104,9 +104,9 @@ function eigen(
 
   # factorization
   if !isnothing(trunc)
-    D, V = (ishermitian ? eigh_trunc : eig_trunc)(A_mat; trunc, kwargs...)
+    D, V = (ishermitian ? eigh_trunc! : eig_trunc!)(A_mat; trunc, kwargs...)
   else
-    D, V = (ishermitian ? eigh_full : eig_full)(A_mat; kwargs...)
+    D, V = (ishermitian ? eigh_full! : eig_full!)(A_mat; kwargs...)
   end
 
   # matrix to tensor
@@ -138,7 +138,7 @@ function eigvals(
 )
   A_mat = fusedims(A, biperm)
   ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
-  return (ishermitian ? eigh_vals : eig_vals)(A_mat; kwargs...)
+  return (ishermitian ? eigh_vals! : eig_vals!)(A_mat; kwargs...)
 end
 
 # TODO: separate out the algorithm selection step from the implementation
@@ -174,9 +174,9 @@ function svd(
   # factorization
   if !isnothing(trunc)
     @assert !full "Specified both full and truncation, currently not supported"
-    U, S, Vᴴ = svd_trunc(A_mat; trunc, kwargs...)
+    U, S, Vᴴ = svd_trunc!(A_mat; trunc, kwargs...)
   else
-    U, S, Vᴴ = full ? svd_full(A_mat; kwargs...) : svd_compact(A_mat; kwargs...)
+    U, S, Vᴴ = full ? svd_full!(A_mat; kwargs...) : svd_compact!(A_mat; kwargs...)
   end
 
   # matrix to tensor
@@ -200,5 +200,5 @@ function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
 end
 function svdvals(A::AbstractArray, biperm::BlockedPermutation{2})
   A_mat = fusedims(A, biperm)
-  return svd_vals(A_mat)
+  return svd_vals!(A_mat)
 end
