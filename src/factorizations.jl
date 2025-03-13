@@ -19,8 +19,8 @@ using LinearAlgebra: LinearAlgebra
 # TODO: figure out kwargs and document
 #
 """
-    qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=true, kwargs...) -> Q, R
-    qr(A::AbstractArray, biperm::BlockedPermutation{2}; full=true, kwargs...) -> Q, R
+    qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=false, kwargs...) -> Q, R
+    qr(A::AbstractArray, biperm::BlockedPermutation{2}; full=false, kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -30,7 +30,7 @@ function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return qr(A, biperm)
 end
-function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=true, kwargs...)
+function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
@@ -45,8 +45,8 @@ function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=true, kw
 end
 
 """
-    lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=true, kwargs...) -> L, Q
-    lq(A::AbstractArray, biperm::BlockedPermutation{2}; full=true, kwargs...) -> L, Q
+    lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=false, kwargs...) -> L, Q
+    lq(A::AbstractArray, biperm::BlockedPermutation{2}; full=false, kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -56,7 +56,7 @@ function lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return lq(A, biperm)
 end
-function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=true, kwargs...)
+function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
