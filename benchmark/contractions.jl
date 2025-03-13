@@ -9,7 +9,7 @@ function extract_contract_labels(contraction::AbstractString)
 end
 
 function generate_contract_benchmark(
-  line::AbstractString; T=Float64, alg=default_contract_alg(), do_alpha=true, do_beta=true
+  line::AbstractString; elt=Float64, alg=default_contract_alg(), do_alpha=true, do_beta=true
 )
   line_split = split(line, " & ")
   @assert length(line_split) == 2 "Invalid line format:\n$line"
@@ -29,24 +29,24 @@ function generate_contract_benchmark(
   szA = getindex.(Ref(subsizes), labelsA)
   szB = getindex.(Ref(subsizes), labelsB)
   szC = getindex.(Ref(subsizes), labelsC)
-  setup_tensors() = (rand(T, szA...), rand(T, szB...), rand(T, szC...))
+  setup_tensors() = (rand(elt, szA...), rand(elt, szB...), rand(elt, szC...))
 
   if do_alpha && do_beta
-    α, β = rand(T, 2)
+    α, β = rand(elt, 2)
     return @benchmarkable(
       contract!($alg, C, $labelsC, A, $labelsA, B, $labelsB, $α, $β),
       setup = ((A, B, C) = $setup_tensors()),
       evals = 1
     )
   elseif do_alpha
-    α = rand(T)
+    α = rand(elt)
     return @benchmarkable(
       contract!($alg, C, $labelsC, A, $labelsA, B, $labelsB, $α),
       setup = ((A, B, C) = $setup_tensors()),
       evals = 1
     )
   elseif do_beta
-    β = rand(T)
+    β = rand(elt)
     return @benchmarkable(
       contract!($alg, C, $labelsC, A, $labelsA, B, $labelsB, true, $β),
       setup = ((A, B, C) = $setup_tensors()),
