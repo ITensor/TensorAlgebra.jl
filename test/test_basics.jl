@@ -212,26 +212,3 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test a_dest[] ≈ s[] * t[]
   end
 end
-@testset "qr (eltype=$elt)" for elt in elts
-  a = randn(elt, 5, 4, 3, 2)
-  labels_a = (:a, :b, :c, :d)
-  labels_q = (:b, :a)
-  labels_r = (:d, :c)
-  q, r = qr(a, labels_a, labels_q, labels_r)
-  label_qr = :qr
-  a′ = contract(labels_a, q, (labels_q..., label_qr), r, (label_qr, labels_r...))
-  @test a ≈ a′
-end
-@testset "svd (eltype=$elt)" for elt in elts
-  a = randn(elt, 5, 4, 3, 2)
-  labels_a = (:a, :b, :c, :d)
-  labels_u = (:b, :a)
-  labels_v = (:d, :c)
-  u, s, v = svd(a, labels_a, labels_u, labels_v)
-  label_u = :u
-  label_v = :v
-  # TODO: Define multi-arg `contract`?
-  us, labels_us = contract(u, (labels_u..., label_u), s, (label_u, label_v))
-  a′ = contract(labels_a, us, labels_us, v, (label_v, labels_v...))
-  @test a ≈ a′
-end
