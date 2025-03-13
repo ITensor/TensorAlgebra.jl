@@ -15,16 +15,21 @@ using MatrixAlgebraKit:
   svd_vals!
 using LinearAlgebra: LinearAlgebra
 
-# TODO: consider in-place version
-# TODO: figure out kwargs and document
-#
 """
-    qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=false, kwargs...) -> Q, R
-    qr(A::AbstractArray, biperm::BlockedPermutation{2}; full=false, kwargs...) -> Q, R
+    qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
+    qr(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
 their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `R` is square, respectively.
+- `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
+- Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.qr_full!` and `MatrixAlgebraKit.qr_compact!`.
 """
 function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
@@ -45,12 +50,20 @@ function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
 end
 
 """
-    lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; full=false, kwargs...) -> L, Q
-    lq(A::AbstractArray, biperm::BlockedPermutation{2}; full=false, kwargs...) -> L, Q
+    lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
+    lq(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
 their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `L` is square, respectively.
+- `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
+- Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.lq_full!` and `MatrixAlgebraKit.lq_compact!`.
 """
 function lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
@@ -84,7 +97,10 @@ their labels, or directly through a `biperm`.
 - `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
     computation. If `false`, the output `eltype` will always be `<:Complex`.
 - `trunc`: Truncation keywords for `eig(h)_trunc`.
-- Other keywords are passed on directly to MatrixAlgebraKit
+- Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlgebraKit.eig_vals!`,
+`MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
 """
 function eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
@@ -127,7 +143,9 @@ their labels, or directly through a `biperm`. The output is a vector of eigenval
 
 - `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
     computation. If `false`, the output `eltype` will always be `<:Complex`.
-- Other keywords are passed on directly to MatrixAlgebraKit
+- Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
 function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
@@ -155,7 +173,9 @@ their labels, or directly through a `biperm`.
 - `full::Bool=false`: select between a "thick" or a "thin" decomposition, where both `U` and `Vᴴ`
   are unitary or isometric.
 - `trunc`: Truncation keywords for `svd_trunc`. Not compatible with `full=true`.
-- Other keywords are passed on directly to MatrixAlgebraKit
+- Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
 """
 function svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
@@ -193,6 +213,8 @@ end
 Compute the singular values of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
 their labels, or directly through a `biperm`. The output is a vector of singular values.
+
+See also `MatrixAlgebraKit.svd_vals!`.
 """
 function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
