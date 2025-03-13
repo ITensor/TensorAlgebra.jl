@@ -28,7 +28,7 @@ their labels, or directly through a `biperm`.
 """
 function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return qr(A, biperm)
+  return qr(A, biperm; kwargs...)
 end
 function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
   # tensor to matrix
@@ -54,7 +54,7 @@ their labels, or directly through a `biperm`.
 """
 function lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return lq(A, biperm)
+  return lq(A, biperm; kwargs...)
 end
 function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
   # tensor to matrix

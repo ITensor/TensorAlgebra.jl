@@ -75,8 +75,8 @@ end
   labels_V′ = (:d, :c)
 
   Acopy = deepcopy(A)
-  # type-unstable if `ishermitian` not set
-  D, V = @constinferred eigen(A, labels_A, labels_V, labels_V′; ishermitian=false)
+  # type-unstable because of `ishermitian` difference
+  D, V = eigen(A, labels_A, labels_V, labels_V′; ishermitian=false)
   @test A == Acopy # should not have altered initial array
   @test eltype(D) == eltype(V) && eltype(D) <: Complex
 
@@ -84,7 +84,7 @@ end
   VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
   @test AV ≈ VD
 
-  # TODO: broken type stability
+  # type-unstable because of `ishermitian` difference
   Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian=false)
   @test Dvals ≈ diag(D)
   @test eltype(Dvals) <: Complex
@@ -98,8 +98,8 @@ end
   labels_V′ = (:d, :c)
 
   Acopy = deepcopy(A)
-  # type-unstable if `ishermitian` not set
-  D, V = @constinferred eigen(A, labels_A, labels_V, labels_V′; ishermitian=true)
+  # type-unstable because of `ishermitian` difference
+  D, V = eigen(A, labels_A, labels_V, labels_V′; ishermitian=true)
   @test A == Acopy # should not have altered initial array
   @test eltype(D) <: Real
   @test eltype(V) == eltype(A)
@@ -108,7 +108,7 @@ end
   VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
   @test AV ≈ VD
 
-  # TODO: broken type stability
+  # type-unstable because of `ishermitian` difference
   Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian=true)
   @test Dvals ≈ diag(D)
   @test eltype(Dvals) <: Real
