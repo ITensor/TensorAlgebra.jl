@@ -1,6 +1,6 @@
 using Test: @test, @testset, @inferred
 using TestExtras: @constinferred
-using TensorAlgebra: TensorAlgebra, contract, lq, qr, svd, svdvals, eig, eigvals
+using TensorAlgebra: TensorAlgebra, contract, lq, qr, svd, svdvals, eigen, eigvals
 using MatrixAlgebraKit: truncrank
 using LinearAlgebra: norm, diag
 
@@ -76,7 +76,7 @@ end
 
   Acopy = deepcopy(A)
   # type-unstable if `ishermitian` not set
-  D, V = @constinferred eig(A, labels_A, labels_V, labels_V′; ishermitian=false)
+  D, V = @constinferred eigen(A, labels_A, labels_V, labels_V′; ishermitian=false)
   @test A == Acopy # should not have altered initial array
   @test eltype(D) == eltype(V) && eltype(D) <: Complex
 
@@ -99,7 +99,7 @@ end
 
   Acopy = deepcopy(A)
   # type-unstable if `ishermitian` not set
-  D, V = @constinferred eig(A, labels_A, labels_V, labels_V′; ishermitian=true)
+  D, V = @constinferred eigen(A, labels_A, labels_V, labels_V′; ishermitian=true)
   @test A == Acopy # should not have altered initial array
   @test eltype(D) <: Real
   @test eltype(V) == eltype(A)

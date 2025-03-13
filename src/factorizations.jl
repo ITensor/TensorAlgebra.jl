@@ -72,8 +72,8 @@ end
 
 # TODO: what name do we want?
 """
-    eig(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eig(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> D, V
+    eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
+    eigen(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -86,11 +86,11 @@ their labels, or directly through a `biperm`.
 - `trunc`: Truncation keywords for `eig(h)_trunc`.
 - Other keywords are passed on directly to MatrixAlgebraKit
 """
-function eig(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+function eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return eig(A, biperm; kwargs...)
+  return eigen(A, biperm; kwargs...)
 end
-function eig(
+function eigen(
   A::AbstractArray,
   biperm::BlockedPermutation{2};
   trunc=nothing,
