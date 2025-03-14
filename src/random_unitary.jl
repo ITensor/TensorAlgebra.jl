@@ -1,27 +1,30 @@
-using Random: Random, AbstractRNG
+using MatrixAlgebraKit: qr_full!
+using Random: Random, AbstractRNG, randn!
+
+function square_zero_map(elt::Type, ax::Tuple{AbstractUnitRange,Vararg{AbstractUnitRange}})
+  return zeros(elt, (ax..., ax...))
+end
+
+using EllipsisNotation: : .. function random_unitary!(rng::AbstractRNG, a::AbstractArray)
+  @assert iseven(ndims(a))
+  ndims_codomain = ndims(a) ÷ 2
+  biperm = blockedperm(ntuple(identity, ndims(a)), (ndims_codomain, ndims_codomain))
+  a_mat = fusedims(a, biperm)
+  r_mat = random_unitary!(rng, a_mat)
+  splitdims!(a, r_mat, biperm)
+  return a
+end
+
+function random_unitary!(rng::AbstractRNG, a::AbstractMatrix)
+  a_r = randn!(rng, a)
+  Q, _ = qr_full!(randn!(rng, a); positive=true)
+  return Q
+end
 
 function random_unitary(
   rng::AbstractRNG, elt::Type, ax::Tuple{AbstractUnitRange,Vararg{AbstractUnitRange}}
 )
-  ax_fused = ⊗(ax...)
-  a_fused = random_unitary(rng, elt, ax_fused)
-  return splitdims(a_fused, dual.(ax), ax)
-end
-
-# Copy of `Base.to_dim`:
-# https://github.com/JuliaLang/julia/blob/1431bec1bcd205f181ca2a3f1c314247b64076df/base/array.jl#L439-L440
-to_dim(d::Integer) = d
-to_dim(d::Base.OneTo) = last(d)
-
-# Matrix version.
-function random_unitary(rng::AbstractRNG, elt::Type, ax::Tuple{AbstractUnitRange})
-  return random_unitary(rng, elt, map(to_dim, ax))
-end
-
-using MatrixAlgebraKit: qr_full!
-function random_unitary(rng::AbstractRNG, elt::Type, dims::Tuple{Integer})
-  Q, _ = qr_full!(randn(rng, elt, (dims..., dims...)); positive=true)
-  return Q
+  return random_unitary!(rng, square_zero_map(elt, ax))
 end
 
 # Canonicalizing other kinds of inputs.

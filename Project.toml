@@ -14,14 +14,16 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 TypeParameterAccessors = "7e5a90cf-f82e-492e-a09b-e3e26432c138"
 
 [weakdeps]
+BlockSparseArrays = "2c9a651f-6452-4ace-a6ac-809f4280fbb4"
 GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
 
 [extensions]
-TensorAlgebraGradedUnitRangesExt = "GradedUnitRanges"
+TensorAlgebraBlockSparseArraysGradedUnitRangesExt = ["BlockSparseArrays", "GradedUnitRanges"]
 
 [compat]
 ArrayLayouts = "1.10.4"
 BlockArrays = "1.2.0"
+BlockSparseArrays = "0.3.6"
 EllipsisNotation = "1.8.0"
 GradedUnitRanges = "0.1.0"
 LinearAlgebra = "1.10.0"
