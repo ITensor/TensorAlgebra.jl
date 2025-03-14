@@ -16,7 +16,8 @@ function TensorAlgebra.random_unitary!(
   rng::AbstractRNG,
   a::BlockSparseMatrix{<:Any,<:Any,<:Any,<:NTuple{2,AbstractGradedUnitRange}},
 )
-  space_isequal(axes(a, 1), dual(axes(a, 2))) || throw(ArgumentError("Codomain and domain spaces must be equal."))
+  space_isequal(axes(a, 1), dual(axes(a, 2))) ||
+    throw(ArgumentError("Codomain and domain spaces must be equal."))
   # TODO: Define and use `blockdiagindices`
   # or `blockdiaglength`.
   for i in 1:blocksize(a, 1)
