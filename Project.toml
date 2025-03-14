@@ -19,6 +19,7 @@ GradedUnitRanges = "e2de450a-8a67-46c7-b59c-01d5a3d041c5"
 
 [extensions]
 TensorAlgebraBlockSparseArraysGradedUnitRangesExt = ["BlockSparseArrays", "GradedUnitRanges"]
+TensorAlgebraGradedUnitRangesExt = "GradedUnitRanges"
 
 [compat]
 ArrayLayouts = "1.10.4"
