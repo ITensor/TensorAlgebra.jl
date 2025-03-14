@@ -14,14 +14,14 @@ function TensorAlgebra.dual(a::AbstractGradedUnitRange)
 end
 
 function TensorAlgebra.random_unitary(
-  rng::AbstractRNG,
-  elt::Type,
-  ax::Tuple{AbstractGradedUnitRange},
+  rng::AbstractRNG, elt::Type, axs::Tuple{AbstractGradedUnitRange}
 )
-  a = zeros(elt, dual.(ax)..., ax...)
-  # TODO: Define `blockdiagindices`.
-  for i in 1:minimum(blocksize(a))
-    a[Block(i, i)] = random_unitary(rng, elt, Int(blocklengths(only(ax))[i]))
+  ax = only(axs)
+  a = zeros(elt, dual(ax), ax)
+  # TODO: Define and use `blockdiagindices`
+  # or `blockdiaglength`.
+  for i in 1:blocksize(a, 1)
+    a[Block(i, i)] = random_unitary(rng, elt, Int(blocklengths(ax)[i]))
   end
   return a
 end

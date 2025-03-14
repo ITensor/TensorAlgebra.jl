@@ -21,6 +21,8 @@ function fusedims(::ReshapeFusion, a::AbstractArray, axes::AbstractUnitRange...)
   return reshape(a, axes)
 end
 
+dual(x) = x
+
 ⊗(a::AbstractUnitRange) = a
 function ⊗(a1::AbstractUnitRange, a2::AbstractUnitRange, as::AbstractUnitRange...)
   return ⊗(a1, ⊗(a2, as...))
