@@ -25,7 +25,7 @@ function TensorAlgebra.random_unitary!(
   # TODO: Define and use `blockdiagindices`
   # or `blockdiaglength`.
   for i in 1:blocksize(a, 1)
-    a[Block(i, i)] = random_unitary!(rng, @view!(a[Block(i, i)]))
+    random_unitary!(rng, @view!(a[Block(i, i)]))
   end
   return a
 end

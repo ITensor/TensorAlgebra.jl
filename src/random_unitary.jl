@@ -13,15 +13,15 @@ function random_unitary!(rng::AbstractRNG, a::AbstractArray)
   ndims_codomain = ndims(a) ÷ 2
   biperm = blockedperm(ntuple(identity, ndims(a)), (ndims_codomain, ndims_codomain))
   a_mat = fusedims(a, biperm)
-  r_mat = random_unitary!(rng, a_mat)
-  splitdims!(a, r_mat, biperm)
+  random_unitary!(rng, a_mat)
+  splitdims!(a, a_mat, biperm)
   return a
 end
 
 function random_unitary!(rng::AbstractRNG, a::AbstractMatrix)
-  a_r = randn!(rng, a)
   Q, _ = qr_full!(randn!(rng, a); positive=true)
-  return Q
+  a .= Q
+  return a
 end
 
 function random_unitary(
