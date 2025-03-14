@@ -14,9 +14,7 @@ end
 
 function TensorAlgebra.random_unitary!(
   rng::AbstractRNG,
-  a::BlockSparseMatrix{
-    <:Any,<:Any,<:Any,<:NTuple{2,AbstractGradedUnitRange}
-  },
+  a::BlockSparseMatrix{<:Any,<:Any,<:Any,<:NTuple{2,AbstractGradedUnitRange}},
 )
   # TODO: Define and use `blockdiagindices`
   # or `blockdiaglength`.
