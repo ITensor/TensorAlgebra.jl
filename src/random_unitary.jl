@@ -5,7 +5,10 @@ function square_zero_map(elt::Type, ax::Tuple{AbstractUnitRange,Vararg{AbstractU
   return zeros(elt, (ax..., ax...))
 end
 
-using EllipsisNotation: : .. function random_unitary!(rng::AbstractRNG, a::AbstractArray)
+# Imports `..` into the namespace.
+using EllipsisNotation
+
+function random_unitary!(rng::AbstractRNG, a::AbstractArray)
   @assert iseven(ndims(a))
   ndims_codomain = ndims(a) ÷ 2
   biperm = blockedperm(ntuple(identity, ndims(a)), (ndims_codomain, ndims_codomain))
