@@ -10,7 +10,8 @@ using Test: @test, @testset
     :left_null,
     :lq,
     :qr,
-    (:right_null):svd,
+    :right_null,
+    :svd,
     :svdvals,
   ]
   @test issetequal(names(TensorAlgebra), exports)
