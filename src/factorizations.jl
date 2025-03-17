@@ -85,7 +85,6 @@ function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
   return splitdims(L, axes_L), splitdims(Q, axes_Q)
 end
 
-# TODO: what name do we want?
 """
     eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
     eigen(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> D, V
