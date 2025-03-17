@@ -1,8 +1,9 @@
 using Test: @test, @testset, @inferred
 using TestExtras: @constinferred
-using TensorAlgebra: TensorAlgebra, contract, lq, qr, svd, svdvals, eigen, eigvals
+using TensorAlgebra:
+  TensorAlgebra, contract, lq, qr, svd, svdvals, eigen, eigvals, left_null, right_null
 using MatrixAlgebraKit: truncrank
-using LinearAlgebra: norm, diag
+using LinearAlgebra: LinearAlgebra, norm, diag
 
 elts = (Float64, ComplexF64)
 
@@ -169,4 +170,27 @@ end
   A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
   @test norm(A - A′) ≈ S_untrunc[end]
   @test size(S, 1) == size(S_untrunc, 1) - 1
+end
+
+@testset "Nullspace ($T)" for T in elts
+  A = randn(T, 5, 4, 3, 2)
+  labels_A = (:a, :b, :c, :d)
+  labels_codomain = (:b, :a)
+  labels_domain = (:d, :c)
+
+  Acopy = deepcopy(A)
+  N = @constinferred left_null(A, labels_A, labels_codomain, labels_domain)
+  @test A == Acopy # should not have altered initial array
+  # N^ba_n' * A^ba_dc = 0
+  NA = contract((:n, labels_domain...), conj(N), (labels_codomain..., :n), A, labels_A)
+  @test norm(NA) ≈ 0 atol = 1e-14
+  NN = contract((:n, :n′), conj(N), (labels_codomain..., :n), N, (labels_codomain..., :n′))
+  @test NN ≈ LinearAlgebra.I
+
+  Nᴴ = @constinferred right_null(A, labels_A, labels_codomain, labels_domain)
+  @test A == Acopy # should not have altered initial array
+  # A^ba_dc * N^dc_n' = 0
+  AN = contract((labels_codomain..., :n), A, labels_A, conj(Nᴴ), (:n, labels_domain...))
+  @test norm(AN) ≈ 0 atol = 1e-14
+  NN = contract((:n, :n′), Nᴴ, (:n, labels_domain...), Nᴴ, (:n′, labels_domain...))
 end

@@ -5,10 +5,12 @@ using MatrixAlgebraKit:
   eigh_full!,
   eigh_trunc!,
   eigh_vals!,
+  left_null!,
   lq_full!,
   lq_compact!,
   qr_full!,
   qr_compact!,
+  right_null!,
   svd_full!,
   svd_compact!,
   svd_trunc!,
@@ -223,4 +225,63 @@ end
 function svdvals(A::AbstractArray, biperm::BlockedPermutation{2})
   A_mat = fusedims(A, biperm)
   return svd_vals!(A_mat)
+end
+
+"""
+    left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> N
+    left_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> N
+
+Compute the left nullspace of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
+
+## Keyword arguments
+
+- `atol::Real=0`: absolute tolerance for the nullspace computation.
+- `rtol::Real=0`: relative tolerance for the nullspace computation.
+- `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
+  The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
+  The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
+"""
+function left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+  return left_null(A, biperm; kwargs...)
+end
+function left_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+  A_mat = fusedims(A, biperm)
+  N = left_null!(A_mat; kwargs...)
+  axes_codomain, _ = blockpermute(axes(A), biperm)
+  axes_N = (axes_codomain..., axes(N, 2))
+  N_tensor = splitdims(N, axes_N)
+  return N_tensor
+end
+
+"""
+    right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
+    right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> Nᴴ
+
+Compute the right nullspace of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
+
+## Keyword arguments
+
+- `atol::Real=0`: absolute tolerance for the nullspace computation.
+- `rtol::Real=0`: relative tolerance for the nullspace computation.
+- `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
+  The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
+  The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
+"""
+function right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+  return right_null(A, biperm; kwargs...)
+end
+function right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+  A_mat = fusedims(A, biperm)
+  Nᴴ = right_null!(A_mat; kwargs...)
+  _, axes_domain = blockpermute(axes(A), biperm)
+  axes_Nᴴ = (axes(Nᴴ, 1), axes_domain...)
+  return splitdims(Nᴴ, axes_Nᴴ)
 end

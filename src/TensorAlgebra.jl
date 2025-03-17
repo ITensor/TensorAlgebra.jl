@@ -1,6 +1,6 @@
 module TensorAlgebra
 
-export contract, contract!, eigen, eigvals, lq, qr, svd, svdvals
+export contract, contract!, eigen, eigvals, lq, left_null, qr, right_null, svd, svdvals
 
 include("blockedtuple.jl")
 include("blockedpermutation.jl")
