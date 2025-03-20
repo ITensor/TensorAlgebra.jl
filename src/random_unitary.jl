@@ -31,7 +31,7 @@ end
 function random_unitary(
   rng::AbstractRNG, elt::Type, dims::Tuple{Vararg{Union{AbstractUnitRange,Integer}}}
 )
-  return random_unitary(Random.default_rng(), elt, map(to_axis, dims))
+  return random_unitary(rng, elt, map(to_axis, dims))
 end
 function random_unitary(elt::Type, dims::Tuple{Vararg{Union{AbstractUnitRange,Integer}}})
   return random_unitary(Random.default_rng(), elt, dims)
