@@ -1,3 +1,4 @@
+using TensorProducts: ⊗
 using .BaseExtensions: _permutedims, _permutedims!
 
 abstract type FusionStyle end
@@ -20,13 +21,6 @@ FusionStyle(a::AbstractArray) = FusionStyle(axes(a))
 function fusedims(::ReshapeFusion, a::AbstractArray, axes::AbstractUnitRange...)
   return reshape(a, axes)
 end
-
-⊗(a::AbstractUnitRange) = a
-function ⊗(a1::AbstractUnitRange, a2::AbstractUnitRange, as::AbstractUnitRange...)
-  return ⊗(a1, ⊗(a2, as...))
-end
-⊗(a1::AbstractUnitRange, a2::AbstractUnitRange) = Base.OneTo(length(a1) * length(a2))
-⊗() = Base.OneTo(1)
 
 # Overload this version for most arrays
 function fusedims(a::AbstractArray, ax::AbstractUnitRange, axes::AbstractUnitRange...)
