@@ -1,3 +1,4 @@
+using TensorProducts: ⊗
 using .BaseExtensions: _permutedims, _permutedims!
 
 abstract type FusionStyle end
@@ -21,13 +22,6 @@ FusionStyle(a::AbstractArray) = FusionStyle(axes(a))
 function fusedims(::ReshapeFusion, a::AbstractArray, axes::AbstractUnitRange...)
   return reshape(a, axes)
 end
-
-⊗(a::AbstractUnitRange) = a
-function ⊗(a1::AbstractUnitRange, a2::AbstractUnitRange, as::AbstractUnitRange...)
-  return ⊗(a1, ⊗(a2, as...))
-end
-⊗(a1::AbstractUnitRange, a2::AbstractUnitRange) = Base.OneTo(length(a1) * length(a2))
-⊗() = Base.OneTo(1)
 
 # Overload this version for most arrays
 function fusedims(a::AbstractArray, ax::AbstractUnitRange, axes::AbstractUnitRange...)
@@ -62,15 +56,15 @@ end
 # deal with zero-dim case
 fusedims(a::AbstractArray{<:Any,0}, t::Tuple{}...) = reshape(a, ntuple(_ -> 1, length(t)))
 
-function fusedims(a::AbstractArray, blockedperm::AbstractBlockPermutation)
+function fusedims(a::AbstractArray, bt::AbstractBlockTuple)
   # TBD define permutedims(::AbstractArray, ::AbstractBlockPermutation)
   # TBD remove call to BlockedTrivialPermutation?
-  a_perm = _permutedims(a, Tuple(blockedperm))
-  return fusedims(a_perm, trivialperm(blockedperm))
+  a_perm = _permutedims(a, Tuple(bt))
+  return fusedims(a_perm, trivialperm(bt))
 end
 
 #  fusedims(ones((2,2,2,2)), (3, 1, 2), (4,))
 #  fusedims(ones((2,2,2,2)), (3, 1, 2), 4)
 function fusedims(a::AbstractArray, permblocks...)
-  return fusedims(a, blockedperm(permblocks...; length=Val(ndims(a))))
+  return fusedims(a, blockedpermvcat(permblocks...; length=Val(ndims(a))))
 end

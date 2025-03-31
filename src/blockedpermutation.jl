@@ -32,22 +32,26 @@ widened_constructorof(::Type{<:AbstractBlockPermutation}) = BlockedTuple
 # blockperm((4, 3, 2, 1), (2, 2)) == blockedperm((4, 3), (2, 1))
 # TODO: Optimize with StaticNumbers.jl or generated functions, see:
 # https://discourse.julialang.org/t/avoiding-type-instability-when-slicing-a-tuple/38567
-function blockperm(perm::Tuple{Vararg{Int}}, blocklengths::Tuple{Vararg{Int}})
+function blockedperm(perm::Tuple{Vararg{Int}}, blocklengths::Tuple{Vararg{Int}})
   return blockedperm(BlockedTuple(perm, blocklengths))
 end
 
-function blockperm(perm::Tuple{Vararg{Int}}, BlockLengths::Val)
+function blockedperm(perm::Tuple{Vararg{Int}}, BlockLengths::Val)
   return blockedperm(BlockedTuple(perm, BlockLengths))
 end
 
-function Base.invperm(blockedperm::AbstractBlockPermutation)
+function Base.invperm(bp::AbstractBlockPermutation)
   # use Val to preserve compile time info
-  return blockperm(invperm(Tuple(blockedperm)), Val(blocklengths(blockedperm)))
+  return blockedperm(invperm(Tuple(bp)), Val(blocklengths(bp)))
 end
 
 #
 # Constructors
 #
+
+function blockedperm(bt::AbstractBlockTuple)
+  return permmortar(blocks(bt))
+end
 
 # Bipartition a vector according to the
 # bipartitioned permutation.
@@ -56,26 +60,32 @@ function blockpermute(v, blockedperm::AbstractBlockPermutation)
   return map(blockperm -> map(i -> v[i], blockperm), blocks(blockedperm))
 end
 
-# blockedperm((4, 3), (2, 1))
-function blockedperm(permblocks::Tuple{Vararg{Int}}...; length::Union{Val,Nothing}=nothing)
-  return blockedperm(length, permblocks...)
+# blockedpermvcat((4, 3), (2, 1))
+function blockedpermvcat(
+  permblocks::Tuple{Vararg{Int}}...; length::Union{Val,Nothing}=nothing
+)
+  return blockedpermvcat(length, permblocks...)
 end
 
-function blockedperm(::Nothing, permblocks::Tuple{Vararg{Int}}...)
-  return blockedperm(Val(sum(length, permblocks; init=zero(Bool))), permblocks...)
+function blockedpermvcat(::Nothing, permblocks::Tuple{Vararg{Int}}...)
+  return blockedpermvcat(Val(sum(length, permblocks; init=zero(Bool))), permblocks...)
 end
 
-# blockedperm((3, 2), 1) == blockedperm((3, 2), (1,))
-function blockedperm(permblocks::Union{Tuple{Vararg{Int}},Int}...; kwargs...)
-  return blockedperm(collect_tuple.(permblocks)...; kwargs...)
+# blockedpermvcat((3, 2), 1) == blockedpermvcat((3, 2), (1,))
+function blockedpermvcat(permblocks::Union{Tuple{Vararg{Int}},Int}...; kwargs...)
+  return blockedpermvcat(collect_tuple.(permblocks)...; kwargs...)
 end
 
-function blockedperm(permblocks::Union{Tuple{Vararg{Int}},Int,Ellipsis}...; kwargs...)
-  return blockedperm(collect_tuple.(permblocks)...; kwargs...)
+function blockedpermvcat(
+  permblocks::Union{Tuple{Vararg{Int}},Tuple{Ellipsis},Int,Ellipsis}...; kwargs...
+)
+  return blockedpermvcat(collect_tuple.(permblocks)...; kwargs...)
 end
 
-function blockedperm(bt::AbstractBlockTuple; length::Union{Val,Nothing}=nothing)
-  return blockedperm(Val(Base.length(bt)), blocks(bt)...)
+function blockedpermvcat(len::Val, permblocks::Tuple{Vararg{Int}}...)
+  value(len) != sum(length.(permblocks); init=0) &&
+    throw(ArgumentError("Invalid total length"))
+  return permmortar(Tuple(permblocks))
 end
 
 function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
@@ -86,25 +96,39 @@ function _blockedperm_length(vallength::Val, ::Tuple{Vararg{Int}})
   return value(vallength)
 end
 
-# blockedperm((4, 3), .., 1) == blockedperm((4, 3), 2, 1)
-# blockedperm((4, 3), .., 1; length=Val(5)) == blockedperm((4, 3), 2, 5, 1)
-function blockedperm(
-  permblocks::Union{Tuple{Vararg{Int}},Ellipsis}...; length::Union{Val,Nothing}=nothing
+# blockedpermvcat((4, 3), .., 1) == blockedpermvcat((4, 3), (2,), (1,))
+# blockedpermvcat((4, 3), .., 1; length=Val(5)) == blockedpermvcat((4, 3), (2,), (5,), (1,))
+# blockedpermvcat((4, 3), (..,), 1) == blockedpermvcat((4, 3), (2,), (1,))
+# blockedpermvcat((4, 3), (..,), 1; length=Val(5)) == blockedpermvcat((4, 3), (2, 5), (1,))
+function blockedpermvcat(
+  permblocks::Union{Tuple{Vararg{Int}},Ellipsis,Tuple{Ellipsis}}...;
+  length::Union{Val,Nothing}=nothing,
 )
   # Check there is only one `Ellipsis`.
-  @assert isone(count(x -> x isa Ellipsis, permblocks))
-  specified_permblocks = filter(x -> !(x isa Ellipsis), permblocks)
-  unspecified_dim = findfirst(x -> x isa Ellipsis, permblocks)
+  @assert isone(count(x -> x isa Union{Ellipsis,Tuple{Ellipsis}}, permblocks))
+  specified_permblocks = filter(x -> !(x isa Union{Ellipsis,Tuple{Ellipsis}}), permblocks)
+  unspecified_dim = findfirst(x -> x isa Union{Ellipsis,Tuple{Ellipsis}}, permblocks)
   specified_perm = flatten_tuples(specified_permblocks)
   len = _blockedperm_length(length, specified_perm)
-  unspecified_dims = Tuple(setdiff(Base.OneTo(len), flatten_tuples(specified_permblocks)))
-  permblocks_specified = TupleTools.insertat(permblocks, unspecified_dim, unspecified_dims)
-  return blockedperm(permblocks_specified...)
+  unspecified_dims_vec = setdiff(Base.OneTo(len), specified_perm)
+  ndims_unspecified = Val(len - sum(Base.length.(specified_permblocks)))  # preserve type stability when possible
+  insert = unspecified_dims(
+    permblocks[unspecified_dim], unspecified_dims_vec, ndims_unspecified
+  )
+  permblocks_specified = TupleTools.insertat(permblocks, unspecified_dim, insert)
+  return blockedpermvcat(permblocks_specified...)
+end
+
+function unspecified_dims(::Tuple{Ellipsis}, unspecified_dims_vec, ndims_unspecified::Val)
+  return (ntuple(i -> unspecified_dims_vec[i], ndims_unspecified),)
+end
+function unspecified_dims(::Ellipsis, unspecified_dims_vec, ndims_unspecified::Val)
+  return ntuple(i -> (unspecified_dims_vec[i],), ndims_unspecified)
 end
 
 # Version of `indexin` that outputs a `blockedperm`.
 function blockedperm_indexin(collection, subs...)
-  return blockedperm(map(sub -> BaseExtensions.indexin(sub, collection), subs)...)
+  return blockedpermvcat(map(sub -> BaseExtensions.indexin(sub, collection), subs)...)
 end
 
 #
@@ -138,7 +162,7 @@ function BlockArrays.blocklengths(
   return BlockLengths
 end
 
-function blockedperm(::Val, permblocks::Tuple{Vararg{Int}}...)
+function permmortar(permblocks::Tuple{Vararg{Tuple{Vararg{Int}}}})
   blockedperm = BlockedPermutation{length(permblocks),length.(permblocks)}(
     flatten_tuples(permblocks)
   )
