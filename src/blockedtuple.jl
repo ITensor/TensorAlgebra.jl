@@ -70,12 +70,38 @@ function Base.BroadcastStyle(T::Type{<:AbstractBlockTuple})
   return AbstractBlockTupleBroadcastStyle{blocklengths(T),unspecify_type_parameters(T)}()
 end
 
-# BroadcastStyle is not called for two identical styles
+# BroadcastStyle(::Style1, ::Style2) is not called when Style1 == Style2
+# tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,))) = tuplemortar(((true,), (true,)))
+# tuplemortar(((1,), (2,))) .== tuplemortar(((1, 2),)) = (true, true)
+# tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,), (3,))) = error DimensionMismatch
+
 function Base.BroadcastStyle(
   ::AbstractBlockTupleBroadcastStyle, ::AbstractBlockTupleBroadcastStyle
 )
-  throw(DimensionMismatch("Incompatible blocks"))
+  return Base.Broadcast.Style{Tuple}()
 end
+
+# tuplemortar(((1,), (2,))) .== (1, 2) = (true, true)
+function Base.BroadcastStyle(
+  ::AbstractBlockTupleBroadcastStyle, ::Base.Broadcast.Style{Tuple}
+)
+  return Base.Broadcast.Style{Tuple}()
+end
+
+# tuplemortar(((1,), (2,))) .== 1 = (true, false)
+function Base.BroadcastStyle(
+  ::Base.Broadcast.DefaultArrayStyle{0}, s::AbstractBlockTupleBroadcastStyle
+)
+  return s
+end
+
+# tuplemortar(((1,), (2,))) .== [1, 1] = BlockVector([true, false], [1, 1])
+function Base.BroadcastStyle(
+  a::Base.Broadcast.AbstractArrayStyle, ::AbstractBlockTupleBroadcastStyle
+)
+  return a
+end
+
 function Base.copy(
   bc::Broadcast.Broadcasted{AbstractBlockTupleBroadcastStyle{BlockLengths,BT}}
 ) where {BlockLengths,BT}
