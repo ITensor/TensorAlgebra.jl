@@ -10,7 +10,7 @@ using TypeParameterAccessors: unspecify_type_parameters
 # ==================================  AbstractBlockTuple  ==================================
 #
 # AbstractBlockTuple imposes BlockLength as first type parameter for easy dispatch
-# it makes no assumotion on storage type
+# it makes no assumption on storage type
 abstract type AbstractBlockTuple{BlockLength} end
 
 constructorof(type::Type{<:AbstractBlockTuple}) = unspecify_type_parameters(type)
@@ -74,7 +74,6 @@ end
 # tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,))) = tuplemortar(((true,), (true,)))
 # tuplemortar(((1,), (2,))) .== tuplemortar(((1, 2),)) = (true, true)
 # tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,), (3,))) = error DimensionMismatch
-
 function Base.BroadcastStyle(
   ::AbstractBlockTupleBroadcastStyle, ::AbstractBlockTupleBroadcastStyle
 )
