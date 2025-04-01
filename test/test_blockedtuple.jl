@@ -1,6 +1,7 @@
 using Test: @test, @test_throws
 
-using BlockArrays: Block, blocklength, blocklengths, blockedrange, blockisequal, blocks
+using BlockArrays:
+  Block, BlockVector, blocklength, blocklengths, blockedrange, blockisequal, blocks
 using TestExtras: @constinferred
 
 using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
