@@ -55,8 +55,10 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
     BlockedTuple{3,blocklengths(bt)}(Tuple(bt) .+ 1)
   @test (@constinferred bt .+ tuplemortar(((1,), (1, 1), (1, 1)))) ==
     BlockedTuple{3,blocklengths(bt)}(Tuple(bt) .+ 1)
-  @test bt .+ tuplemortar(((1, 1), (1, 1), (1,))) isa NTuple{5,Int}
-  @test bt .+ tuplemortar(((1, 1), (1, 1), (1,))) == (2, 5, 3, 6, 4)
+  @test (@constinferred bt .+ tuplemortar(((1,), (1, 1, 1), (1,)))) isa
+    BlockedTuple{4,(1, 2, 1, 1),NTuple{5,Int64}}
+  @test bt .+ tuplemortar(((1,), (1, 1, 1), (1,))) ==
+    tuplemortar(((2,), (5, 3), (6,), (4,)))
 
   bt = tuplemortar(((1:2, 1:2), (1:3,)))
   @test length.(bt) == tuplemortar(((2, 2), (3,)))
@@ -65,8 +67,8 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
   bt = tuplemortar(((1,), (2,)))
   @test (bt .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test (bt .== bt) == tuplemortar(((true,), (true,)))
-  @test (bt .== tuplemortar(((1, 2),))) isa Tuple{Bool,Bool}
-  @test (bt .== tuplemortar(((1, 2),))) == (true, true)
+  @test (bt .== tuplemortar(((1, 2),))) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (bt .== tuplemortar(((1, 2),))) == tuplemortar(((true,), (true,)))
   @test_throws DimensionMismatch bt .== tuplemortar(((1,), (2,), (3,)))
   @test (bt .== (1, 2)) isa Tuple{Bool,Bool}
   @test (bt .== (1, 2)) == (true, true)
