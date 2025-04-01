@@ -37,7 +37,9 @@ function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return qr(A, biperm; kwargs...)
 end
-function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
+function qr(
+  A::AbstractArray, biperm::AbstractBlockPermutation{2}; full::Bool=false, kwargs...
+)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
@@ -46,8 +48,8 @@ function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_Q = (axes_codomain..., axes(Q, 2))
-  axes_R = (axes(R, 1), axes_domain...)
+  axes_Q = tuplemortar((axes_codomain, (axes(q_matricized, 2),)))
+  axes_R = tuplemortar(((axes(r_matricized, 1),), axes_domain))
   return splitdims(Q, axes_Q), splitdims(R, axes_R)
 end
 
@@ -80,8 +82,8 @@ function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_L = (axes_codomain..., axes(L, ndims(L)))
-  axes_Q = (axes(Q, 1), axes_domain...)
+  axes_L = tuplemortar((axes_codomain, (axes(L, ndims(L)),)))
+  axes_Q = tuplemortar(((axes(Q, 1),), axes_domain))
   return splitdims(L, axes_L), splitdims(Q, axes_Q)
 end
 
@@ -128,7 +130,7 @@ function eigen(
 
   # matrix to tensor
   axes_codomain, = blockpermute(axes(A), biperm)
-  axes_V = (axes_codomain..., axes(V, ndims(V)))
+  axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
   return D, splitdims(V, axes_V)
 end
 
@@ -202,8 +204,8 @@ function svd(
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_U = (axes_codomain..., axes(U, 2))
-  axes_Vᴴ = (axes(Vᴴ, 1), axes_domain...)
+  axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
+  axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
   return splitdims(U, axes_U), S, splitdims(Vᴴ, axes_Vᴴ)
 end
 
@@ -251,7 +253,7 @@ function left_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
   N = left_null!(A_mat; kwargs...)
   axes_codomain, _ = blockpermute(axes(A), biperm)
-  axes_N = (axes_codomain..., axes(N, 2))
+  axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
   N_tensor = splitdims(N, axes_N)
   return N_tensor
 end
@@ -281,6 +283,6 @@ function right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
   Nᴴ = right_null!(A_mat; kwargs...)
   _, axes_domain = blockpermute(axes(A), biperm)
-  axes_Nᴴ = (axes(Nᴴ, 1), axes_domain...)
+  axes_Nᴴ = tuplemortar((axes(Nᴴ, 1), (axes_domain,)))
   return splitdims(Nᴴ, axes_Nᴴ)
 end
