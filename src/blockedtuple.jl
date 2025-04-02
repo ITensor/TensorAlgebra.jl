@@ -23,6 +23,7 @@ end
 
 # Base interface
 Base.axes(bt::AbstractBlockTuple) = (blockedrange([blocklengths(bt)...]),)
+Base.axes(::AbstractBlockTuple{0}) = (blockedrange(zeros(Int, 0)),)
 
 Base.deepcopy(bt::AbstractBlockTuple) = deepcopy.(bt)
 

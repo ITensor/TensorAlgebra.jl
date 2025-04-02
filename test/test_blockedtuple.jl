@@ -93,16 +93,19 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
   @test Tuple(bt) == (1, 5, 3)
   @test blocklengths(bt) == (1, 0, 2)
   @test (@constinferred blocks(bt)) == ((1,), (), (5, 3))
+  @test blockisequal(only(axes(bt)), blockedrange([1, 0, 2]))
 
   bt = tuplemortar(((), ()))
   @test bt isa BlockedTuple{2}
   @test Tuple(bt) == ()
   @test blocklengths(bt) == (0, 0)
   @test (@constinferred blocks(bt)) == ((), ())
+  @test blockisequal(only(axes(bt)), blockedrange([0, 0]))
 
   bt = tuplemortar(())
   @test bt isa BlockedTuple{0}
   @test Tuple(bt) == ()
   @test blocklengths(bt) == ()
   @test (@constinferred blocks(bt)) == ()
+  @test blockisequal(only(axes(bt)), blockedrange(zeros(Int, 0)))
 end
