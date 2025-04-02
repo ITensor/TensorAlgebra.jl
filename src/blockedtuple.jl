@@ -151,8 +151,6 @@ function BlockArrays.blocks(bt::AbstractBlockTuple)
   return ntuple(i -> Tuple(bt)[bf[i]:bl[i]], blocklength(bt))
 end
 
-#    length(BlockLengths) != BlockLength && throw(DimensionMismatch("Invalid blocklength"))
-
 # =====================================  BlockedTuple  =====================================
 #
 struct BlockedTuple{BlockLength,BlockLengths,Flat} <: AbstractBlockTuple{BlockLength}
