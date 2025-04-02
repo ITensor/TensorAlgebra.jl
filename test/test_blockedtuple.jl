@@ -65,25 +65,32 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
   @test length.(length.(bt)) == tuplemortar(((1, 1), (1,)))
 
   bt = tuplemortar(((1,), (2,)))
-  @test (bt .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (@constinferred bt .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test (bt .== bt) == tuplemortar(((true,), (true,)))
-  @test (bt .== tuplemortar(((1, 2),))) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (@constinferred bt .== tuplemortar(((1, 2),))) isa
+    BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test (bt .== tuplemortar(((1, 2),))) == tuplemortar(((true,), (true,)))
   @test_throws DimensionMismatch bt .== tuplemortar(((1,), (2,), (3,)))
-  @test (bt .== (1, 2)) isa Tuple{Bool,Bool}
-  @test (bt .== (1, 2)) == (true, true)
+  @test (@constinferred bt .== (1, 2)) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (bt .== (1, 2)) == tuplemortar(((true,), (true,)))
   @test_throws DimensionMismatch bt .== (1, 2, 3)
-  @test (bt .== 1) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (@constinferred bt .== 1) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test (bt .== 1) == tuplemortar(((true,), (false,)))
+  @test (@constinferred bt .== (1,)) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (bt .== (1,)) == tuplemortar(((true,), (false,)))
+  @test_broken @inferred bt .== [1, 1]
   @test (bt .== [1, 1]) isa BlockVector{Bool}
   @test blocks(bt .== [1, 1]) == [[true], [false]]
   @test_throws DimensionMismatch bt .== [1, 2, 3]
 
-  @test ((1, 2) .== bt) isa Tuple{Bool,Bool}
-  @test ((1, 2) .== bt) == (true, true)
+  @test (@constinferred (1, 2) .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test ((1, 2) .== bt) == tuplemortar(((true,), (true,)))
   @test_throws DimensionMismatch (1, 2, 3) .== bt
-  @test (1 .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test (@constinferred 1 .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test (1 .== bt) == tuplemortar(((true,), (false,)))
+  @test (@constinferred (1,) .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+  @test ((1,) .== bt) == tuplemortar(((true,), (false,)))
+  @test_broken @inferred [1, 1] .== bt
   @test ([1, 1] .== bt) isa BlockVector{Bool}
   @test blocks([1, 1] .== bt) == [[true], [false]]
 
@@ -101,11 +108,17 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
   @test blocklengths(bt) == (0, 0)
   @test (@constinferred blocks(bt)) == ((), ())
   @test blockisequal(only(axes(bt)), blockedrange([0, 0]))
+  @test bt == bt .+ bt
 
-  bt = tuplemortar(())
-  @test bt isa BlockedTuple{0}
-  @test Tuple(bt) == ()
-  @test blocklengths(bt) == ()
-  @test (@constinferred blocks(bt)) == ()
-  @test blockisequal(only(axes(bt)), blockedrange(zeros(Int, 0)))
+  bt0 = tuplemortar(())
+  bt1 = tuplemortar(((),))
+  @test bt0 isa BlockedTuple{0}
+  @test Tuple(bt0) == ()
+  @test blocklengths(bt0) == ()
+  @test (@constinferred blocks(bt0)) == ()
+  @test blockisequal(only(axes(bt0)), blockedrange(zeros(Int, 0)))
+  @test bt0 == bt0
+  @test bt != bt1
+  @test (@constinferred bt0 .+ bt0) == bt0
+  @test (@constinferred bt0 .+ bt1) == bt1
 end

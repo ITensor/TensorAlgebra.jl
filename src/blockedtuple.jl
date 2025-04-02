@@ -71,6 +71,9 @@ function Base.BroadcastStyle(T::Type{<:AbstractBlockTuple})
   return AbstractBlockTupleBroadcastStyle{blocklengths(T),unspecify_type_parameters(T)}()
 end
 
+# default
+combine_types(::Type{<:AbstractBlockTuple}, ::Type{<:AbstractBlockTuple}) = BlockedTuple
+
 # BroadcastStyle(::Style1, ::Style2) is not called when Style1 == Style2
 # tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,))) = tuplemortar(((true,), (true,)))
 # tuplemortar(((1,), (2,))) .== tuplemortar(((1, 2),)) = tuplemortar(((true,), (true,)))
@@ -80,13 +83,14 @@ function Base.BroadcastStyle(
 )
   blocklengths1 = type_parameters(s1, 1)
   blocklengths2 = type_parameters(s2, 1)
-  sum(blocklengths1) != sum(blocklengths2) &&
+  sum(blocklengths1; init=0) != sum(blocklengths2; init=0) &&
     throw(DimensionMismatch("blocked tuples could not be broadcast to a common size"))
   new_blocklasts = static_mergesort(cumsum(blocklengths1), cumsum(blocklengths2))
   new_blocklengths = (
     first(new_blocklasts), Base.tail(new_blocklasts) .- Base.front(new_blocklasts)...
   )
-  return AbstractBlockTupleBroadcastStyle{new_blocklengths,type_parameters(s1, 2)}()
+  BT = combine_types(type_parameters(s1, 2), type_parameters(s2, 2))
+  return AbstractBlockTupleBroadcastStyle{new_blocklengths,BT}()
 end
 
 static_mergesort(::Tuple{}, ::Tuple{}) = ()
@@ -104,9 +108,9 @@ end
 
 # tuplemortar(((1,), (2,))) .== (1, 2) = (true, true)
 function Base.BroadcastStyle(
-  ::AbstractBlockTupleBroadcastStyle, ::Base.Broadcast.Style{Tuple}
+  s::AbstractBlockTupleBroadcastStyle, ::Base.Broadcast.Style{Tuple}
 )
-  return Base.Broadcast.Style{Tuple}()
+  return s
 end
 
 # tuplemortar(((1,), (2,))) .== 1 = (true, false)
