@@ -4,13 +4,13 @@
 
 using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
 
-using TypeParameterAccessors: unspecify_type_parameters
+using TypeParameterAccessors: type_parameters, unspecify_type_parameters
 
 #
 # ==================================  AbstractBlockTuple  ==================================
 #
 # AbstractBlockTuple imposes BlockLength as first type parameter for easy dispatch
-# it makes no assumotion on storage type
+# it makes no assumption on storage type
 abstract type AbstractBlockTuple{BlockLength} end
 
 constructorof(type::Type{<:AbstractBlockTuple}) = unspecify_type_parameters(type)
@@ -23,6 +23,7 @@ end
 
 # Base interface
 Base.axes(bt::AbstractBlockTuple) = (blockedrange([blocklengths(bt)...]),)
+Base.axes(::AbstractBlockTuple{0}) = (blockedrange(Int[]),)
 
 Base.deepcopy(bt::AbstractBlockTuple) = deepcopy.(bt)
 
@@ -70,12 +71,62 @@ function Base.BroadcastStyle(T::Type{<:AbstractBlockTuple})
   return AbstractBlockTupleBroadcastStyle{blocklengths(T),unspecify_type_parameters(T)}()
 end
 
-# BroadcastStyle is not called for two identical styles
+# default
+combine_types(::Type{<:AbstractBlockTuple}, ::Type{<:AbstractBlockTuple}) = BlockedTuple
+
+# BroadcastStyle(::Style1, ::Style2) is not called when Style1 == Style2
+# tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,))) = tuplemortar(((true,), (true,)))
+# tuplemortar(((1,), (2,))) .== tuplemortar(((1, 2),)) = tuplemortar(((true,), (true,)))
+# tuplemortar(((1,), (2,))) .== tuplemortar(((1,), (2,), (3,))) = error DimensionMismatch
 function Base.BroadcastStyle(
-  ::AbstractBlockTupleBroadcastStyle, ::AbstractBlockTupleBroadcastStyle
+  s1::AbstractBlockTupleBroadcastStyle, s2::AbstractBlockTupleBroadcastStyle
 )
-  throw(DimensionMismatch("Incompatible blocks"))
+  blocklengths1 = type_parameters(s1, 1)
+  blocklengths2 = type_parameters(s2, 1)
+  sum(blocklengths1; init=0) != sum(blocklengths2; init=0) &&
+    throw(DimensionMismatch("blocked tuples could not be broadcast to a common size"))
+  new_blocklasts = static_mergesort(cumsum(blocklengths1), cumsum(blocklengths2))
+  new_blocklengths = (
+    first(new_blocklasts), Base.tail(new_blocklasts) .- Base.front(new_blocklasts)...
+  )
+  BT = combine_types(type_parameters(s1, 2), type_parameters(s2, 2))
+  return AbstractBlockTupleBroadcastStyle{new_blocklengths,BT}()
 end
+
+static_mergesort(::Tuple{}, ::Tuple{}) = ()
+static_mergesort(a::Tuple, ::Tuple{}) = a
+static_mergesort(::Tuple{}, b::Tuple) = b
+function static_mergesort(a::Tuple, b::Tuple)
+  if first(a) == first(b)
+    return (first(a), static_mergesort(Base.tail(a), Base.tail(b))...)
+  end
+  if first(a) < first(b)
+    return (first(a), static_mergesort(Base.tail(a), b)...)
+  end
+  return (first(b), static_mergesort(a, Base.tail(b))...)
+end
+
+# tuplemortar(((1,), (2,))) .== (1, 2) = (true, true)
+function Base.BroadcastStyle(
+  s::AbstractBlockTupleBroadcastStyle, ::Base.Broadcast.Style{Tuple}
+)
+  return s
+end
+
+# tuplemortar(((1,), (2,))) .== 1 = (true, false)
+function Base.BroadcastStyle(
+  ::Base.Broadcast.DefaultArrayStyle{0}, s::AbstractBlockTupleBroadcastStyle
+)
+  return s
+end
+
+# tuplemortar(((1,), (2,))) .== [1, 1] = BlockVector([true, false], [1, 1])
+function Base.BroadcastStyle(
+  a::Base.Broadcast.AbstractArrayStyle, ::AbstractBlockTupleBroadcastStyle
+)
+  return a
+end
+
 function Base.copy(
   bc::Broadcast.Broadcasted{AbstractBlockTupleBroadcastStyle{BlockLengths,BT}}
 ) where {BlockLengths,BT}
@@ -103,8 +154,6 @@ function BlockArrays.blocks(bt::AbstractBlockTuple)
   bl = blocklasts(bt)
   return ntuple(i -> Tuple(bt)[bf[i]:bl[i]], blocklength(bt))
 end
-
-#    length(BlockLengths) != BlockLength && throw(DimensionMismatch("Invalid blocklength"))
 
 # =====================================  BlockedTuple  =====================================
 #

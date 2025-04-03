@@ -77,6 +77,8 @@ using TensorAlgebra:
   @test (@constinferred BlockedTuple(p)) == bt
   @test (@constinferred map(identity, p)) == bt
   @test (@constinferred p .+ p) == tuplemortar(((6, 4), (), (2,)))
+  @test (@constinferred p .+ bt) == tuplemortar(((6, 4), (), (2,)))
+  @test (@constinferred bt .+ p) == tuplemortar(((6, 4), (), (2,)))
   @test (@constinferred blockedperm(p)) == p
   @test (@constinferred blockedperm(bt)) == p
 
@@ -149,6 +151,8 @@ end
   @test (@constinferred blocks(tp)) == blocks(bt)
   @test (@constinferred map(identity, tp)) == bt
   @test (@constinferred tp .+ tp) == tuplemortar(((2, 4), (), (6,)))
+  @test (@constinferred tp .+ Tuple(tp)) == tuplemortar(((2, 4), (), (6,)))
+  @test (@constinferred tp .+ BlockedTuple(tp)) == tuplemortar(((2, 4), (), (6,)))
   @test (@constinferred blockedperm(tp)) == tp
   @test (@constinferred trivialperm(tp)) == tp
   @test (@constinferred trivialperm(bt)) == tp
