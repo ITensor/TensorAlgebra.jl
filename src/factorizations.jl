@@ -41,16 +41,16 @@ function qr(
   A::AbstractArray, biperm::AbstractBlockPermutation{2}; full::Bool=false, kwargs...
 )
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   Q, R = full ? qr_full!(A_mat; kwargs...) : qr_compact!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_Q = tuplemortar((axes_codomain, (axes(q_matricized, 2),)))
-  axes_R = tuplemortar(((axes(r_matricized, 1),), axes_domain))
-  return splitdims(Q, axes_Q), splitdims(R, axes_R)
+  axes_Q = tuplemortar((axes_codomain, (axes(Q, 2),)))
+  axes_R = tuplemortar(((axes(R, 1),), axes_domain))
+  return unmatricize(Q, axes_Q), unmatricize(R, axes_R)
 end
 
 """
@@ -77,7 +77,7 @@ function lq(
   A::AbstractArray, biperm::AbstractBlockPermutation{2}; full::Bool=false, kwargs...
 )
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   L, Q = full ? lq_full!(A_mat; kwargs...) : lq_compact!(A_mat; kwargs...)
@@ -86,7 +86,7 @@ function lq(
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
   axes_L = tuplemortar((axes_codomain, (axes(L, ndims(L)),)))
   axes_Q = tuplemortar(((axes(Q, 1),), axes_domain))
-  return splitdims(L, axes_L), splitdims(Q, axes_Q)
+  return unmatricize(L, axes_L), unmatricize(Q, axes_Q)
 end
 
 """
@@ -119,7 +119,7 @@ function eigen(
   kwargs...,
 )
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
 
@@ -133,7 +133,7 @@ function eigen(
   # matrix to tensor
   axes_codomain, = blockpermute(axes(A), biperm)
   axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
-  return D, splitdims(V, axes_V)
+  return D, unmatricize(V, axes_V)
 end
 
 """
@@ -159,7 +159,7 @@ end
 function eigvals(
   A::AbstractArray, biperm::AbstractBlockPermutation{2}; ishermitian=nothing, kwargs...
 )
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
   ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
   return (ishermitian ? eigh_vals! : eig_vals!)(A_mat; kwargs...)
 end
@@ -194,7 +194,7 @@ function svd(
   kwargs...,
 )
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   if !isnothing(trunc)
@@ -208,7 +208,7 @@ function svd(
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
   axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
   axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
-  return splitdims(U, axes_U), S, splitdims(Vᴴ, axes_Vᴴ)
+  return unmatricize(U, axes_U), S, unmatricize(Vᴴ, axes_Vᴴ)
 end
 
 """
@@ -226,7 +226,7 @@ function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
   return svdvals(A, biperm)
 end
 function svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2})
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
   return svd_vals!(A_mat)
 end
 
@@ -252,11 +252,11 @@ function left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; k
   return left_null(A, biperm; kwargs...)
 end
 function left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
   N = left_null!(A_mat; kwargs...)
   axes_codomain, _ = blockpermute(axes(A), biperm)
   axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
-  N_tensor = splitdims(N, axes_N)
+  N_tensor = unmatricize(N, axes_N)
   return N_tensor
 end
 
@@ -282,9 +282,9 @@ function right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; 
   return right_null(A, biperm; kwargs...)
 end
 function right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
   Nᴴ = right_null!(A_mat; kwargs...)
   _, axes_domain = blockpermute(axes(A), biperm)
   axes_Nᴴ = tuplemortar((axes(Nᴴ, 1), (axes_domain,)))
-  return splitdims(Nᴴ, axes_Nᴴ)
+  return unmatricize(Nᴴ, axes_Nᴴ)
 end
