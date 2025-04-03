@@ -2,7 +2,15 @@ using EllipsisNotation: var".."
 using LinearAlgebra: norm
 using StableRNGs: StableRNG
 using TensorAlgebra:
-  blockedpermvcat, contract, contract!, matricize, qr, svd, tuplemortar, unmatricize
+  blockedpermvcat,
+  contract,
+  contract!,
+  matricize,
+  qr,
+  svd,
+  tuplemortar,
+  unmatricize,
+  unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -81,6 +89,19 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a = unmatricize(m, map(i -> axes0[i], invperm(Tuple(bp))), bp)
     @test eltype(a) === elt
     @test a ≈ permutedims(a0, invperm(Tuple(bp)))
+
+    a = similar(a0)
+    unmatricize!(a, m, blockedpermvcat((1, 2), (3, 4)))
+    @test a ≈ a0
+
+    m1 = matricize(a0, bp)
+    a = unmatricize(m1, axes0, bp)
+    @test a ≈ a0
+
+    a1 = permutedims(a0, Tuple(bp))
+    a = similar(a1)
+    unmatricize!(a, m, invperm(bp))
+    @test a ≈ a1
 
     a = unmatricize(m, (), axes0)
     @test eltype(a) === elt

@@ -100,14 +100,6 @@ function unmatricize(
 end
 
 function unmatricize(
-  m::AbstractMatrix, axes::Tuple{Vararg{AbstractUnitRange}}, bp::AbstractBlockPermutation{2}
-)
-  blocked_axes = tuplemortar(blockpermute(axes, bp))
-  a_perm = unmatricize(m, blocked_axes)
-  return permutedims(a_perm, invperm(bp))
-end
-
-function unmatricize(
   m::AbstractMatrix,
   codomain_axes::Tuple{Vararg{AbstractUnitRange}},
   domain_axes::Tuple{Vararg{AbstractUnitRange}},
@@ -116,7 +108,16 @@ function unmatricize(
   return unmatricize(m, blocked_axes)
 end
 
+function unmatricize(
+  m::AbstractMatrix, axes::Tuple{Vararg{AbstractUnitRange}}, bp::AbstractBlockPermutation{2}
+)
+  blocked_axes = tuplemortar(blockpermute(axes, bp))
+  a_perm = unmatricize(m, blocked_axes)
+  return permutedims(a_perm, invperm(bp))
+end
+
 function unmatricize!(a::AbstractArray, m::AbstractMatrix, bp::AbstractBlockPermutation{2})
-  a_perm = unmatricize(m, axes(a), bp)
+  blocked_axes = tuplemortar(blockpermute(axes(a), bp))
+  a_perm = unmatricize(m, blocked_axes)
   return permutedims!(a, a_perm, invperm(bp))
 end
