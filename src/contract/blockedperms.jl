@@ -22,10 +22,10 @@ function blockedperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
   perm_domain2 = BaseExtensions.indexin(domain, dimnames2)
 
   permblocks_dest = (perm_codomain_dest, perm_domain_dest)
-  biperm_dest = blockedpermvcat(filter(!isempty, permblocks_dest)...)
+  biperm_dest = blockedpermvcat(permblocks_dest...)
   permblocks1 = (perm_codomain1, perm_domain1)
-  biperm1 = blockedpermvcat(filter(!isempty, permblocks1)...)
+  biperm1 = blockedpermvcat(permblocks1...)
   permblocks2 = (perm_codomain2, perm_domain2)
-  biperm2 = blockedpermvcat(filter(!isempty, permblocks2)...)
+  biperm2 = blockedpermvcat(permblocks2...)
   return biperm_dest, biperm1, biperm2
 end

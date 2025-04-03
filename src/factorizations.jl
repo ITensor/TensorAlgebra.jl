@@ -19,7 +19,7 @@ using LinearAlgebra: LinearAlgebra
 
 """
     qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> Q, R
+    qr(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -37,7 +37,9 @@ function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return qr(A, biperm; kwargs...)
 end
-function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
+function qr(
+  A::AbstractArray, biperm::AbstractBlockPermutation{2}; full::Bool=false, kwargs...
+)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
@@ -46,14 +48,14 @@ function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_Q = (axes_codomain..., axes(Q, 2))
-  axes_R = (axes(R, 1), axes_domain...)
+  axes_Q = tuplemortar((axes_codomain, (axes(q_matricized, 2),)))
+  axes_R = tuplemortar(((axes(r_matricized, 1),), axes_domain))
   return splitdims(Q, axes_Q), splitdims(R, axes_R)
 end
 
 """
     lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> L, Q
+    lq(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -71,7 +73,9 @@ function lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return lq(A, biperm; kwargs...)
 end
-function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
+function lq(
+  A::AbstractArray, biperm::AbstractBlockPermutation{2}; full::Bool=false, kwargs...
+)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
@@ -80,14 +84,14 @@ function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, k
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_L = (axes_codomain..., axes(L, ndims(L)))
-  axes_Q = (axes(Q, 1), axes_domain...)
+  axes_L = tuplemortar((axes_codomain, (axes(L, ndims(L)),)))
+  axes_Q = tuplemortar(((axes(Q, 1),), axes_domain))
   return splitdims(L, axes_L), splitdims(Q, axes_Q)
 end
 
 """
     eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eigen(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> D, V
+    eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -109,7 +113,7 @@ function eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwarg
 end
 function eigen(
   A::AbstractArray,
-  biperm::BlockedPermutation{2};
+  biperm::AbstractBlockPermutation{2};
   trunc=nothing,
   ishermitian=nothing,
   kwargs...,
@@ -128,13 +132,13 @@ function eigen(
 
   # matrix to tensor
   axes_codomain, = blockpermute(axes(A), biperm)
-  axes_V = (axes_codomain..., axes(V, ndims(V)))
+  axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
   return D, splitdims(V, axes_V)
 end
 
 """
     eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eigvals(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> D
+    eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -153,7 +157,7 @@ function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwa
   return eigvals(A, biperm; kwargs...)
 end
 function eigvals(
-  A::AbstractArray, biperm::BlockedPermutation{2}; ishermitian=nothing, kwargs...
+  A::AbstractArray, biperm::AbstractBlockPermutation{2}; ishermitian=nothing, kwargs...
 )
   A_mat = fusedims(A, biperm)
   ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
@@ -163,7 +167,7 @@ end
 # TODO: separate out the algorithm selection step from the implementation
 """
     svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> U, S, Vᴴ
+    svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
 
 Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -184,7 +188,7 @@ function svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs.
 end
 function svd(
   A::AbstractArray,
-  biperm::BlockedPermutation{2};
+  biperm::AbstractBlockPermutation{2};
   full::Bool=false,
   trunc=nothing,
   kwargs...,
@@ -202,14 +206,14 @@ function svd(
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_U = (axes_codomain..., axes(U, 2))
-  axes_Vᴴ = (axes(Vᴴ, 1), axes_domain...)
+  axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
+  axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
   return splitdims(U, axes_U), S, splitdims(Vᴴ, axes_Vᴴ)
 end
 
 """
     svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> S
-    svdvals(A::AbstractArray, biperm::BlockedPermutation{2}) -> S
+    svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -221,14 +225,14 @@ function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return svdvals(A, biperm)
 end
-function svdvals(A::AbstractArray, biperm::BlockedPermutation{2})
+function svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2})
   A_mat = fusedims(A, biperm)
   return svd_vals!(A_mat)
 end
 
 """
     left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> N
-    left_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> N
+    left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -247,18 +251,18 @@ function left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; k
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return left_null(A, biperm; kwargs...)
 end
-function left_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
   N = left_null!(A_mat; kwargs...)
   axes_codomain, _ = blockpermute(axes(A), biperm)
-  axes_N = (axes_codomain..., axes(N, 2))
+  axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
   N_tensor = splitdims(N, axes_N)
   return N_tensor
 end
 
 """
     right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
-    right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> Nᴴ
+    right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -277,10 +281,10 @@ function right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; 
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return right_null(A, biperm; kwargs...)
 end
-function right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
   Nᴴ = right_null!(A_mat; kwargs...)
   _, axes_domain = blockpermute(axes(A), biperm)
-  axes_Nᴴ = (axes(Nᴴ, 1), axes_domain...)
+  axes_Nᴴ = tuplemortar((axes(Nᴴ, 1), (axes_domain,)))
   return splitdims(Nᴴ, axes_Nᴴ)
 end

@@ -4,11 +4,11 @@ using Base.PermutedDimsArrays: genperm
 # i.e. `ContractAdd`?
 function output_axes(
   ::typeof(contract),
-  biperm_dest::BlockedPermutation{2},
+  biperm_dest::AbstractBlockPermutation{2},
   a1::AbstractArray,
-  biperm1::BlockedPermutation{2},
+  biperm1::AbstractBlockPermutation{2},
   a2::AbstractArray,
-  biperm2::BlockedPermutation{2},
+  biperm2::AbstractBlockPermutation{2},
   α::Number=one(Bool),
 )
   axes_codomain, axes_contracted = blockpermute(axes(a1), biperm1)
@@ -22,11 +22,11 @@ end
 # i.e. `ContractAdd`?
 function output_axes(
   ::typeof(contract),
-  perm_dest::BlockedPermutation{0},
+  perm_dest::AbstractBlockPermutation{0},
   a1::AbstractArray,
-  perm1::BlockedPermutation{1},
+  perm1::AbstractBlockPermutation{1},
   a2::AbstractArray,
-  perm2::BlockedPermutation{1},
+  perm2::AbstractBlockPermutation{1},
   α::Number=one(Bool),
 )
   axes_contracted = blockpermute(axes(a1), perm1)
@@ -38,11 +38,11 @@ end
 # Vec-mat.
 function output_axes(
   ::typeof(contract),
-  perm_dest::BlockedPermutation{1},
+  perm_dest::AbstractBlockPermutation{1},
   a1::AbstractArray,
-  perm1::BlockedPermutation{1},
+  perm1::AbstractBlockPermutation{1},
   a2::AbstractArray,
-  biperm2::BlockedPermutation{2},
+  biperm2::AbstractBlockPermutation{2},
   α::Number=one(Bool),
 )
   (axes_contracted,) = blockpermute(axes(a1), perm1)
@@ -54,11 +54,11 @@ end
 # Mat-vec.
 function output_axes(
   ::typeof(contract),
-  perm_dest::BlockedPermutation{1},
+  perm_dest::AbstractBlockPermutation{1},
   a1::AbstractArray,
-  perm1::BlockedPermutation{2},
+  perm1::AbstractBlockPermutation{2},
   a2::AbstractArray,
-  biperm2::BlockedPermutation{1},
+  biperm2::AbstractBlockPermutation{1},
   α::Number=one(Bool),
 )
   axes_dest, axes_contracted = blockpermute(axes(a1), perm1)
@@ -70,11 +70,11 @@ end
 # Outer product.
 function output_axes(
   ::typeof(contract),
-  biperm_dest::BlockedPermutation{2},
+  biperm_dest::AbstractBlockPermutation{2},
   a1::AbstractArray,
-  perm1::BlockedPermutation{1},
+  perm1::AbstractBlockPermutation{1},
   a2::AbstractArray,
-  perm2::BlockedPermutation{1},
+  perm2::AbstractBlockPermutation{1},
   α::Number=one(Bool),
 )
   @assert istrivialperm(Tuple(perm1))
@@ -86,11 +86,11 @@ end
 # Array-scalar contraction.
 function output_axes(
   ::typeof(contract),
-  perm_dest::BlockedPermutation{1},
+  perm_dest::AbstractBlockPermutation{1},
   a1::AbstractArray,
-  perm1::BlockedPermutation{1},
+  perm1::AbstractBlockPermutation{1},
   a2::AbstractArray,
-  perm2::BlockedPermutation{0},
+  perm2::AbstractBlockPermutation{0},
   α::Number=one(Bool),
 )
   @assert istrivialperm(Tuple(perm1))
@@ -101,11 +101,11 @@ end
 # Scalar-array contraction.
 function output_axes(
   ::typeof(contract),
-  perm_dest::BlockedPermutation{1},
+  perm_dest::AbstractBlockPermutation{1},
   a1::AbstractArray,
-  perm1::BlockedPermutation{0},
+  perm1::AbstractBlockPermutation{0},
   a2::AbstractArray,
-  perm2::BlockedPermutation{1},
+  perm2::AbstractBlockPermutation{1},
   α::Number=one(Bool),
 )
   @assert istrivialperm(Tuple(perm2))
@@ -116,11 +116,11 @@ end
 # Scalar-scalar contraction.
 function output_axes(
   ::typeof(contract),
-  perm_dest::BlockedPermutation{0},
+  perm_dest::AbstractBlockPermutation{0},
   a1::AbstractArray,
-  perm1::BlockedPermutation{0},
+  perm1::AbstractBlockPermutation{0},
   a2::AbstractArray,
-  perm2::BlockedPermutation{0},
+  perm2::AbstractBlockPermutation{0},
   α::Number=one(Bool),
 )
   return ()
@@ -130,11 +130,11 @@ end
 # i.e. `ContractAdd`?
 function allocate_output(
   ::typeof(contract),
-  biperm_dest::BlockedPermutation,
+  biperm_dest::AbstractBlockPermutation,
   a1::AbstractArray,
-  biperm1::BlockedPermutation,
+  biperm1::AbstractBlockPermutation,
   a2::AbstractArray,
-  biperm2::BlockedPermutation,
+  biperm2::AbstractBlockPermutation,
   α::Number=one(Bool),
 )
   axes_dest = output_axes(contract, biperm_dest, a1, biperm1, a2, biperm2, α)

@@ -1,13 +1,13 @@
 using LinearAlgebra: mul!
 
 function contract!(
-  alg::Matricize,
+  ::Matricize,
   a_dest::AbstractArray,
-  biperm_dest::BlockedPermutation,
+  biperm_dest::AbstractBlockPermutation{2},
   a1::AbstractArray,
-  biperm1::BlockedPermutation,
+  biperm1::AbstractBlockPermutation{2},
   a2::AbstractArray,
-  biperm2::BlockedPermutation,
+  biperm2::AbstractBlockPermutation{2},
   α::Number,
   β::Number,
 )
