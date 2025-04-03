@@ -1,47 +1,69 @@
 using EllipsisNotation: var".."
 using LinearAlgebra: norm
 using StableRNGs: StableRNG
-using TensorAlgebra: contract, contract!, fusedims, qr, splitdims, svd
+using TensorAlgebra: contract, contract!, matricize, qr, svd, tuplemortar, unmatricize
 using TensorOperations: TensorOperations
-using Test: @test, @test_broken, @testset
+using Test: @test, @test_broken, @test_throws, @testset
 
 default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
 @testset "TensorAlgebra" begin
-  @testset "fusedims (eltype=$elt)" for elt in elts
+  @testset "matricize (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
-    a_fused = fusedims(a, (1, 2), (3, 4))
+
+    a_fused = matricize(a, blockedpermvcat((1, 2), (3, 4)))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(a, 6, 20)
-    a_fused = fusedims(a, (3, 1), (2, 4))
+
+    a_fused = matricize(a, tuplemortar(((1, 2), (3, 4))))
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(a, 6, 20)
+
+    a_fused = matricize(a, (1, 2), (3, 4))
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(a, 6, 20)
+    a_fused = matricize(a, (3, 1), (2, 4))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
-    a_fused = fusedims(a, (3, 1, 2), 4)
+    a_fused = matricize(a, (3, 1, 2), 4)
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (24, 5))
-    a_fused = fusedims(a, .., (3, 1))
+    a_fused = matricize(a, (..,), (3, 1))
     @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (3, 5, 8))
-    a_fused = fusedims(a, (3, 1), ..)
-    @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 3, 5))
-    a_fused = fusedims(a, .., (3, 1), 2)
-    @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(permutedims(a, (4, 3, 1, 2)), (5, 8, 3))
-    a_fused = fusedims(a, (3, 1), .., 2)
-    @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(permutedims(a, (3, 1, 4, 2)), (8, 5, 3))
-    a_fused = fusedims(a, (3, 1), (..,))
+    @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (15, 8))
+    a_fused = matricize(a, (3, 1), (..,))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
+
+    a_fused = matricize(a, (), (..,))
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(a, (1, 120))
+    a_fused = matricize(a, (..,), ())
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ reshape(a, (120, 1))
+
+    @test_throws ArgumentError matricize(a, (1, 2), (3,), (4,))
+    @test_throws ArgumentError matricize(a, (1, 2, 3, 4))
+
+    v = ones(elt, 2)
+    a_fused = matricize(v, (1,), ())
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ ones(elt, 2, 1)
+    a_fused = matricize(v, (), (1,))
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ ones(elt, 1, 2)
+
+    a_fused = matricize(ones(elt), (), ())
+    @test eltype(a_fused) === elt
+    @test a_fused ≈ ones(elt, 1, 1)
   end
-  @testset "splitdims (eltype=$elt)" for elt in elts
+  @testset "unmatricize (eltype=$elt)" for elt in elts
     a = randn(elt, 6, 20)
-    a_split = splitdims(a, (2, 3), (5, 4))
+    a_split = unmatricize(a, (2, 3), (5, 4))
     @test eltype(a_split) === elt
     @test a_split ≈ reshape(a, (2, 3, 5, 4))
-    a_split = splitdims(a, (1:2, 1:3), (1:5, 1:4))
+    a_split = unmatricize(a, (1:2, 1:3), (1:5, 1:4))
     @test eltype(a_split) === elt
     @test a_split ≈ reshape(a, (2, 3, 5, 4))
     a_split = splitdims(a, 2 => (5, 4), 1 => (2, 3))
