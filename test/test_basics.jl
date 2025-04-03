@@ -1,7 +1,8 @@
 using EllipsisNotation: var".."
 using LinearAlgebra: norm
 using StableRNGs: StableRNG
-using TensorAlgebra: contract, contract!, matricize, qr, svd, tuplemortar, unmatricize
+using TensorAlgebra:
+  blockedpermvcat, contract, contract!, matricize, qr, svd, tuplemortar, unmatricize
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -58,33 +59,43 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test eltype(a_fused) === elt
     @test a_fused ≈ ones(elt, 1, 1)
   end
+
   @testset "unmatricize (eltype=$elt)" for elt in elts
-    a = randn(elt, 6, 20)
-    a_split = unmatricize(a, (2, 3), (5, 4))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (2, 3, 5, 4))
-    a_split = unmatricize(a, (1:2, 1:3), (1:5, 1:4))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (2, 3, 5, 4))
-    a_split = splitdims(a, 2 => (5, 4), 1 => (2, 3))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (2, 3, 5, 4))
-    a_split = splitdims(a, 2 => (1:5, 1:4), 1 => (1:2, 1:3))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (2, 3, 5, 4))
-    a_split = splitdims(a, 2 => (5, 4))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (6, 5, 4))
-    a_split = splitdims(a, 2 => (1:5, 1:4))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (6, 5, 4))
-    a_split = splitdims(a, 1 => (2, 3))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (2, 3, 20))
-    a_split = splitdims(a, 1 => (1:2, 1:3))
-    @test eltype(a_split) === elt
-    @test a_split ≈ reshape(a, (2, 3, 20))
+    a0 = randn(elt, 2, 3, 4, 5)
+    axes0 = axes(a0)
+    m = reshape(a0, 6, 20)
+
+    a = unmatricize(m, tuplemortar((axes0[1:2], axes0[3:4])))
+    @test eltype(a) === elt
+    @test a ≈ a0
+
+    a = unmatricize(m, axes0[1:2], axes0[3:4])
+    @test eltype(a) === elt
+    @test a ≈ a0
+
+    a = unmatricize(m, axes0, blockedpermvcat((1, 2), (3, 4)))
+    @test eltype(a) === elt
+    @test a ≈ a0
+
+    bp = blockedpermvcat((4, 2), (1, 3))
+    a = unmatricize(m, map(i -> axes0[i], invperm(Tuple(bp))), bp)
+    @test eltype(a) === elt
+    @test a ≈ permutedims(a0, invperm(Tuple(bp)))
+
+    a = unmatricize(m, (), axes0)
+    @test eltype(a) === elt
+    @test a ≈ a0
+
+    a = unmatricize(m, axes0, ())
+    @test eltype(a) === elt
+    @test a ≈ a0
+
+    m = randn(elt, 1, 1)
+    a = unmatricize(m, (), ())
+    @test a isa Array{elt,0}
+    @test a[] == m[1, 1]
   end
+
   using TensorOperations: TensorOperations
   @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
     dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
