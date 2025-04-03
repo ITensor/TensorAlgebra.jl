@@ -1,4 +1,4 @@
-using Test: @test, @test_throws
+using Test: @test, @test_throws, @testset
 
 using BlockArrays:
   Block, BlockVector, blocklength, blocklengths, blockedrange, blockisequal, blocks
@@ -77,8 +77,9 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
   @test (@constinferred bt .== 1) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test (bt .== 1) == tuplemortar(((true,), (false,)))
   @test (@constinferred bt .== (1,)) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
+
   @test (bt .== (1,)) == tuplemortar(((true,), (false,)))
-  @test_broken @inferred bt .== [1, 1]
+  # BlockedTuple .== AbstractVector is not type stable. Requires fix in BlockArrays
   @test (bt .== [1, 1]) isa BlockVector{Bool}
   @test blocks(bt .== [1, 1]) == [[true], [false]]
   @test_throws DimensionMismatch bt .== [1, 2, 3]
@@ -90,7 +91,6 @@ using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
   @test (1 .== bt) == tuplemortar(((true,), (false,)))
   @test (@constinferred (1,) .== bt) isa BlockedTuple{2,(1, 1),Tuple{Bool,Bool}}
   @test ((1,) .== bt) == tuplemortar(((true,), (false,)))
-  @test_broken @inferred [1, 1] .== bt
   @test ([1, 1] .== bt) isa BlockVector{Bool}
   @test blocks([1, 1] .== bt) == [[true], [false]]
 
