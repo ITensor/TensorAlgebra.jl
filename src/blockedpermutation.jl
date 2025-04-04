@@ -45,19 +45,23 @@ function Base.invperm(bp::AbstractBlockPermutation)
   return blockedperm(invperm(Tuple(bp)), Val(blocklengths(bp)))
 end
 
+# interface
+
+# Bipartition a vector according to the
+# bipartitioned permutation.
+# Like `Base.permute!` block out-of-place and blocked.
+function blockpermute(v, blockedperm::AbstractBlockPermutation)
+  return tuplemortar(map(blockperm -> map(i -> v[i], blockperm), blocks(blockedperm)))
+end
+
+Base.getindex(v, perm::AbstractBlockPermutation) = blockpermute(v, perm)
+
 #
 # Constructors
 #
 
 function blockedperm(bt::AbstractBlockTuple)
   return permmortar(blocks(bt))
-end
-
-# Bipartition a vector according to the
-# bipartitioned permutation.
-# Like `Base.permute!` block out-of-place and blocked.
-function blockpermute(v, blockedperm::AbstractBlockPermutation)
-  return map(blockperm -> map(i -> v[i], blockperm), blocks(blockedperm))
 end
 
 # blockedpermvcat((4, 3), (2, 1))

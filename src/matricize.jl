@@ -25,7 +25,7 @@ combine_fusion_styles(styles::FusionStyle...) = foldl(combine_fusion_styles, sty
 function fuseaxes(
   axes::Tuple{Vararg{AbstractUnitRange}}, blockedperm::AbstractBlockPermutation
 )
-  axesblocks = blockpermute(axes, blockedperm)
+  axesblocks = blocks(axes[blockedperm])
   return map(block -> ⊗(block...), axesblocks)
 end
 
@@ -129,7 +129,7 @@ function unmatricize(
   axes::Tuple{Vararg{AbstractUnitRange}},
   biperm::AbstractBlockPermutation{2},
 )
-  blocked_axes = tuplemortar(blockpermute(axes, biperm))
+  blocked_axes = axes[biperm]
   a_perm = unmatricize(m, blocked_axes)
   return permutedims(a_perm, invperm(biperm))
 end
@@ -137,7 +137,7 @@ end
 function unmatricize!(
   a::AbstractArray, m::AbstractMatrix, biperm::AbstractBlockPermutation{2}
 )
-  blocked_axes = tuplemortar(blockpermute(axes(a), biperm))
+  blocked_axes = axes[biperm]
   a_perm = unmatricize(m, blocked_axes)
   return permutedims!(a, a_perm, invperm(biperm))
 end
