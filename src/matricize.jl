@@ -1,3 +1,5 @@
+using LinearAlgebra: Diagonal
+
 using TensorProducts: ⊗
 
 # =====================================  FusionStyle  ======================================
@@ -27,16 +29,30 @@ function fuseaxes(
   return map(block -> ⊗(block...), axesblocks)
 end
 
-Base.permutedims(a::AbstractArray, bp::AbstractBlockPermutation) = permutedims(a, Tuple(bp))
-Base.permutedims(a::StridedArray, bp::AbstractBlockPermutation) = permutedims(a, Tuple(bp))
-
-function Base.permutedims!(a::AbstractArray, b::AbstractArray, bp::AbstractBlockPermutation)
-  return permutedims!(a, b, Tuple(bp))
+# define permutedims with a BlockedPermuation. Default is to flatten it.
+function Base.permutedims(a::AbstractArray, biperm::AbstractBlockPermutation)
+  return permutedims(a, Tuple(biperm))
 end
+
+# solve ambiguities
+function Base.permutedims(a::StridedArray, biperm::AbstractBlockPermutation)
+  return permutedims(a, Tuple(biperm))
+end
+function Base.permutedims(a::Diagonal, biperm::AbstractBlockPermutation)
+  return permutedims(a, Tuple(biperm))
+end
+
 function Base.permutedims!(
-  a::Array{T,N}, b::StridedArray{T,N}, bp::AbstractBlockPermutation
+  a::AbstractArray, b::AbstractArray, biperm::AbstractBlockPermutation
+)
+  return permutedims!(a, b, Tuple(biperm))
+end
+
+# solve ambiguities
+function Base.permutedims!(
+  a::Array{T,N}, b::StridedArray{T,N}, biperm::AbstractBlockPermutation
 ) where {T,N}
-  return permutedims!(a, b, Tuple(bp))
+  return permutedims!(a, b, Tuple(biperm))
 end
 
 # =====================================  matricize  ========================================
@@ -54,8 +70,8 @@ function matricize(
   return reshape(a, row_axis, col_axis)
 end
 
-function matricize(::ReshapeFusion, a::AbstractArray, bp::AbstractBlockPermutation{2})
-  axes_fused = fuseaxes(axes(a), bp)
+function matricize(::ReshapeFusion, a::AbstractArray, biperm::AbstractBlockPermutation{2})
+  axes_fused = fuseaxes(axes(a), biperm)
   return matricize(ReshapeFusion(), a, axes_fused...)
 end
 
@@ -63,9 +79,9 @@ function matricize(a::AbstractArray, tp::BlockedTrivialPermutation{2})
   return matricize(FusionStyle(a), a, tp)
 end
 
-function matricize(a::AbstractArray, bp::AbstractBlockPermutation{2})
-  a_perm = permutedims(a, bp)  # includes copy
-  return matricize(a_perm, trivialperm(bp))
+function matricize(a::AbstractArray, biperm::AbstractBlockPermutation{2})
+  a_perm = permutedims(a, biperm)  # includes copy
+  return matricize(a_perm, trivialperm(biperm))
 end
 
 function matricize(a::AbstractArray, bt::AbstractBlockTuple{2})
@@ -109,15 +125,19 @@ function unmatricize(
 end
 
 function unmatricize(
-  m::AbstractMatrix, axes::Tuple{Vararg{AbstractUnitRange}}, bp::AbstractBlockPermutation{2}
+  m::AbstractMatrix,
+  axes::Tuple{Vararg{AbstractUnitRange}},
+  biperm::AbstractBlockPermutation{2},
 )
-  blocked_axes = tuplemortar(blockpermute(axes, bp))
+  blocked_axes = tuplemortar(blockpermute(axes, biperm))
   a_perm = unmatricize(m, blocked_axes)
-  return permutedims(a_perm, invperm(bp))
+  return permutedims(a_perm, invperm(biperm))
 end
 
-function unmatricize!(a::AbstractArray, m::AbstractMatrix, bp::AbstractBlockPermutation{2})
-  blocked_axes = tuplemortar(blockpermute(axes(a), bp))
+function unmatricize!(
+  a::AbstractArray, m::AbstractMatrix, biperm::AbstractBlockPermutation{2}
+)
+  blocked_axes = tuplemortar(blockpermute(axes(a), biperm))
   a_perm = unmatricize(m, blocked_axes)
-  return permutedims!(a, a_perm, invperm(bp))
+  return permutedims!(a, a_perm, invperm(biperm))
 end

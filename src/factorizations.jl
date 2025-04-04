@@ -285,6 +285,6 @@ function right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwarg
   A_mat = matricize(A, biperm)
   Nᴴ = right_null!(A_mat; kwargs...)
   _, axes_domain = blockpermute(axes(A), biperm)
-  axes_Nᴴ = tuplemortar((axes(Nᴴ, 1), (axes_domain,)))
+  axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
   return unmatricize(Nᴴ, axes_Nᴴ)
 end
