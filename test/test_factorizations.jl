@@ -1,7 +1,21 @@
 using Test: @test, @testset, @inferred
 using TestExtras: @constinferred
 using TensorAlgebra:
-  TensorAlgebra, contract, lq, qr, svd, svdvals, eigen, eigvals, left_null, right_null
+  TensorAlgebra,
+  contract,
+  eigen,
+  eigvals,
+  factorize,
+  left_null,
+  left_orth,
+  left_polar,
+  lq,
+  qr,
+  right_null,
+  right_orth,
+  right_polar,
+  svd,
+  svdvals
 using MatrixAlgebraKit: truncrank
 using LinearAlgebra: LinearAlgebra, norm, diag
 
@@ -193,4 +207,76 @@ end
   AN = contract((labels_codomain..., :n), A, labels_A, conj(Nᴴ), (:n, labels_domain...))
   @test norm(AN) ≈ 0 atol = 1e-14
   NN = contract((:n, :n′), Nᴴ, (:n, labels_domain...), Nᴴ, (:n′, labels_domain...))
+end
+
+@testset "Left polar ($T)" for T in elts
+  A = randn(T, 2, 2, 2, 2)
+  labels_A = (:a, :b, :c, :d)
+  labels_W = (:b, :a)
+  labels_P = (:d, :c)
+
+  Acopy = deepcopy(A)
+  W, P = left_polar(A, labels_A, labels_W, labels_P)
+  @test A == Acopy # should not have altered initial array
+  A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
+  @test A ≈ A′
+  @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+end
+
+@testset "Right polar ($T)" for T in elts
+  A = randn(T, 2, 2, 2, 2)
+  labels_A = (:a, :b, :c, :d)
+  labels_P = (:b, :a)
+  labels_W = (:d, :c)
+
+  Acopy = deepcopy(A)
+  P, W = right_polar(A, labels_A, labels_P, labels_W)
+  @test A == Acopy # should not have altered initial array
+  A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
+  @test A ≈ A′
+  @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+end
+
+@testset "Left orth ($T)" for T in elts
+  A = randn(T, 2, 2, 2, 2)
+  labels_A = (:a, :b, :c, :d)
+  labels_W = (:b, :a)
+  labels_P = (:d, :c)
+
+  Acopy = deepcopy(A)
+  W, P = left_orth(A, labels_A, labels_W, labels_P)
+  @test A == Acopy # should not have altered initial array
+  A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
+  @test A ≈ A′
+  @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+end
+
+@testset "Right orth ($T)" for T in elts
+  A = randn(T, 2, 2, 2, 2)
+  labels_A = (:a, :b, :c, :d)
+  labels_P = (:b, :a)
+  labels_W = (:d, :c)
+
+  Acopy = deepcopy(A)
+  P, W = right_orth(A, labels_A, labels_P, labels_W)
+  @test A == Acopy # should not have altered initial array
+  A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
+  @test A ≈ A′
+  @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+end
+
+@testset "factorize ($T)" for T in elts
+  A = randn(T, 2, 2, 2, 2)
+  labels_A = (:a, :b, :c, :d)
+  labels_X = (:b, :a)
+  labels_Y = (:d, :c)
+
+  Acopy = deepcopy(A)
+  for orth in (:left, :right)
+    X, Y = factorize(A, labels_A, labels_X, labels_Y; orth)
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
+    @test A ≈ A′
+    @test size(X, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  end
 end

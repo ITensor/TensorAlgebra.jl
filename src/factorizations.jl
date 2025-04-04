@@ -1,3 +1,4 @@
+using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit:
   eig_full!,
   eig_trunc!,
@@ -6,16 +7,19 @@ using MatrixAlgebraKit:
   eigh_trunc!,
   eigh_vals!,
   left_null!,
+  left_orth!,
+  left_polar!,
   lq_full!,
   lq_compact!,
   qr_full!,
   qr_compact!,
   right_null!,
+  right_orth!,
+  right_polar!,
   svd_full!,
   svd_compact!,
   svd_trunc!,
   svd_vals!
-using LinearAlgebra: LinearAlgebra
 
 """
     qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
@@ -341,7 +345,7 @@ function right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
 
   # factorization
-  P, W = right_polar(A_mat; kwargs...)
+  P, W = right_polar!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -405,13 +409,13 @@ function right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
 
   # factorization
-  P, W = right_orth(A_mat; kwargs...)
+  P, W = right_orth!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_C = (axes_codomain..., axes(C, ndims(C)))
-  axes_V = (axes(V, 1), axes_domain...)
-  return splitdims(C, axes_C), splitdims(V, axes_V)
+  axes_P = (axes_codomain..., axes(P, ndims(P)))
+  axes_W = (axes(W, 1), axes_domain...)
+  return splitdims(P, axes_P), splitdims(W, axes_W)
 end
 
 """
