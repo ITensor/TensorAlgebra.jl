@@ -10,6 +10,7 @@ using TensorAlgebra:
   BlockedTuple,
   blockedperm,
   blockedperm_indexin,
+  blockpermute,
   blockedtrivialperm,
   blockedpermvcat,
   permmortar,
@@ -135,6 +136,16 @@ using TensorAlgebra:
 
   p = blockedpermvcat((3, 2), (..,), 1)
   @test p == blockedpermvcat((3, 2), (), (1,))
+
+  # blockpermute
+  t = (1, 2, 3, 4)
+  pblocks = tuplemortar(((4, 3), (), (1, 2)))
+  p = blockedperm(pblocks)
+  @test (@constinferred blockpermute(t, p)) isa BlockedTuple{3,(2, 0, 2),NTuple{4,Int64}}
+  @test blockpermute(t, p) == pblocks
+  @test t[p] == pblocks
+  @test pblocks[p] == tuplemortar(((2, 1), (), (4, 3)))
+  @test p[p] == tuplemortar(((2, 1), (), (4, 3)))
 end
 
 @testset "BlockedTrivialPermutation" begin
