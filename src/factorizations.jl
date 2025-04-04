@@ -296,7 +296,7 @@ end
 
 """
     left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
-    left_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> W, P
+    left_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -312,23 +312,23 @@ function left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; 
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return left_polar(A, biperm; kwargs...)
 end
-function left_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function left_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   W, P = left_polar!(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_W = (axes_codomain..., axes(W, 2))
-  axes_P = (axes(P, 1), axes_domain...)
-  return splitdims(W, axes_W), splitdims(P, axes_P)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
+  axes_W = tuplemortar((axes_codomain, (axes(W, 2),)))
+  axes_P = tuplemortar(((axes(P, 1),), axes_domain))
+  return unmatricize(W, axes_W), unmatricize(P, axes_P)
 end
 
 """
     right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
-    right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> P, W
+    right_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -344,23 +344,23 @@ function right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain;
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return right_polar(A, biperm; kwargs...)
 end
-function right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function right_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   P, W = right_polar!(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_P = (axes_codomain..., axes(P, ndims(P)))
-  axes_W = (axes(W, 1), axes_domain...)
-  return splitdims(P, axes_P), splitdims(W, axes_W)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
+  axes_P = tuplemortar((axes_codomain, (axes(P, ndims(P)),)))
+  axes_W = tuplemortar(((axes(W, 1),), axes_domain))
+  return unmatricize(P, axes_P), unmatricize(W, axes_W)
 end
 
 """
     left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
-    left_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> V, C
+    left_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -376,23 +376,23 @@ function left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; k
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return left_orth(A, biperm; kwargs...)
 end
-function left_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function left_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   V, C = left_orth!(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_V = (axes_codomain..., axes(V, 2))
-  axes_C = (axes(C, 1), axes_domain...)
-  return splitdims(V, axes_V), splitdims(C, axes_C)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
+  axes_V = tuplemortar((axes_codomain, (axes(V, 2),)))
+  axes_C = tuplemortar(((axes(C, 1),), axes_domain))
+  return unmatricize(V, axes_V), unmatricize(C, axes_C)
 end
 
 """
     right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
-    right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> C, V
+    right_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -408,23 +408,23 @@ function right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; 
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return right_orth(A, biperm; kwargs...)
 end
-function right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+function right_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   P, W = right_orth!(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_P = (axes_codomain..., axes(P, ndims(P)))
-  axes_W = (axes(W, 1), axes_domain...)
-  return splitdims(P, axes_P), splitdims(W, axes_W)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
+  axes_P = tuplemortar((axes_codomain, (axes(P, ndims(P)),)))
+  axes_W = tuplemortar(((axes(W, 1),), axes_domain))
+  return unmatricize(P, axes_P), unmatricize(W, axes_W)
 end
 
 """
     factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    factorize(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> X, Y
+    factorize(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
 
 Compute the decomposition of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain indices. These can be specified either via
@@ -440,16 +440,18 @@ function factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; k
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return factorize(A, biperm; kwargs...)
 end
-function factorize(A::AbstractArray, biperm::BlockedPermutation{2}; orth=:left, kwargs...)
+function factorize(
+  A::AbstractArray, biperm::AbstractBlockPermutation{2}; orth=:left, kwargs...
+)
   # tensor to matrix
-  A_mat = fusedims(A, biperm)
+  A_mat = matricize(A, biperm)
 
   # factorization
   X, Y = (orth == :left ? left_orth! : right_orth!)(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_X = (axes_codomain..., axes(X, ndims(X)))
-  axes_Y = (axes(Y, 1), axes_domain...)
-  return splitdims(X, axes_X), splitdims(Y, axes_Y)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
+  axes_X = tuplemortar((axes_codomain, (axes(X, ndims(X)),)))
+  axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
+  return unmatricize(X, axes_X), unmatricize(Y, axes_Y)
 end

@@ -35,7 +35,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a_fused = matricize(a, (3, 1), (2, 4))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
-    a_fused = matricize(a, (3, 1, 2), 4)
+    a_fused = matricize(a, (3, 1, 2), (4,))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (24, 5))
     a_fused = matricize(a, (..,), (3, 1))
@@ -52,8 +52,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(a, (120, 1))
 
-    @test_throws ArgumentError matricize(a, (1, 2), (3,), (4,))
-    @test_throws ArgumentError matricize(a, (1, 2, 3, 4))
+    @test_throws MethodError matricize(a, (1, 2), (3,), (4,))
+    @test_throws MethodError matricize(a, (1, 2, 3, 4))
 
     v = ones(elt, 2)
     a_fused = matricize(v, (1,), ())

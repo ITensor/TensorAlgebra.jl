@@ -79,7 +79,8 @@ end
 
 # default is reshape
 function matricize(::ReshapeFusion, a::AbstractArray, biperm::BlockedTrivialPermutation{2})
-  return reshape(a, fuseaxes(axes(a), biperm)...)
+  new_axes = fuseaxes(axes(a), biperm)
+  return reshape(a, Base.to_shape.(new_axes)...)
 end
 
 function matricize(a::AbstractArray, bt::AbstractBlockTuple{2})
