@@ -60,28 +60,26 @@ end
 # matrix factorizations assume copy
 # maybe: copy=false kwarg
 
-# default is reshape
-function matricize(
-  ::ReshapeFusion,
-  a::AbstractArray,
-  row_axis::AbstractUnitRange,
-  col_axis::AbstractUnitRange,
-)
-  return reshape(a, row_axis, col_axis)
-end
-
-function matricize(::ReshapeFusion, a::AbstractArray, biperm::AbstractBlockPermutation{2})
-  axes_fused = fuseaxes(axes(a), biperm)
-  return matricize(ReshapeFusion(), a, axes_fused...)
-end
-
-function matricize(a::AbstractArray, tp::BlockedTrivialPermutation{2})
-  return matricize(FusionStyle(a), a, tp)
-end
-
 function matricize(a::AbstractArray, biperm::AbstractBlockPermutation{2})
-  a_perm = permutedims(a, biperm)  # includes copy
-  return matricize(a_perm, trivialperm(biperm))
+  return matricize(FusionStyle(a), a, biperm)
+end
+
+function matricize(
+  style::FusionStyle, a::AbstractArray, biperm::AbstractBlockPermutation{2}
+)
+  a_perm = permutedims(a, biperm)
+  return matricize(style, a_perm, trivialperm(biperm))
+end
+
+function matricize(
+  style::FusionStyle, a::AbstractArray, biperm::BlockedTrivialPermutation{2}
+)
+  return throw(MethodError(matricize, Tuple{typeof(style),typeof(a),typeof(biperm)}))
+end
+
+# default is reshape
+function matricize(::ReshapeFusion, a::AbstractArray, biperm::BlockedTrivialPermutation{2})
+  return reshape(a, fuseaxes(axes(a), biperm)...)
 end
 
 function matricize(a::AbstractArray, bt::AbstractBlockTuple{2})
@@ -97,6 +95,25 @@ function matricize(a::AbstractArray, permblocks...)
 end
 
 # ====================================  unmatricize  =======================================
+function unmatricize(
+  m::AbstractMatrix,
+  axes::Tuple{Vararg{AbstractUnitRange}},
+  biperm::AbstractBlockPermutation{2},
+)
+  return unmatricize(FusionStyle(m), m, axes, biperm)
+end
+
+function unmatricize(
+  ::FusionStyle,
+  m::AbstractMatrix,
+  axes::Tuple{Vararg{AbstractUnitRange}},
+  biperm::AbstractBlockPermutation{2},
+)
+  blocked_axes = axes[biperm]
+  a_perm = unmatricize(m, blocked_axes)
+  return permutedims(a_perm, invperm(biperm))
+end
+
 function unmatricize(::ReshapeFusion, m::AbstractMatrix, axes::AbstractUnitRange...)
   return reshape(m, Base.to_shape.(axes)...)
 end
@@ -106,7 +123,7 @@ function unmatricize(
   m::AbstractMatrix,
   blocked_axes::BlockedTuple{2,<:Any,<:Tuple{Vararg{AbstractUnitRange}}},
 )
-  return unmatricize(ReshapeFusion(), m, blocked_axes...)
+  return reshape(m, Base.to_shape.(Tuple(blocked_axes))...)
 end
 
 function unmatricize(
@@ -124,20 +141,10 @@ function unmatricize(
   return unmatricize(m, blocked_axes)
 end
 
-function unmatricize(
-  m::AbstractMatrix,
-  axes::Tuple{Vararg{AbstractUnitRange}},
-  biperm::AbstractBlockPermutation{2},
-)
-  blocked_axes = axes[biperm]
-  a_perm = unmatricize(m, blocked_axes)
-  return permutedims(a_perm, invperm(biperm))
-end
-
 function unmatricize!(
   a::AbstractArray, m::AbstractMatrix, biperm::AbstractBlockPermutation{2}
 )
-  blocked_axes = axes[biperm]
+  blocked_axes = axes(a)[biperm]
   a_perm = unmatricize(m, blocked_axes)
   return permutedims!(a, a_perm, invperm(biperm))
 end

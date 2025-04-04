@@ -47,7 +47,7 @@ function qr(
   Q, R = full ? qr_full!(A_mat; kwargs...) : qr_compact!(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
   axes_Q = tuplemortar((axes_codomain, (axes(Q, 2),)))
   axes_R = tuplemortar(((axes(R, 1),), axes_domain))
   return unmatricize(Q, axes_Q), unmatricize(R, axes_R)
@@ -83,7 +83,7 @@ function lq(
   L, Q = full ? lq_full!(A_mat; kwargs...) : lq_compact!(A_mat; kwargs...)
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
   axes_L = tuplemortar((axes_codomain, (axes(L, ndims(L)),)))
   axes_Q = tuplemortar(((axes(Q, 1),), axes_domain))
   return unmatricize(L, axes_L), unmatricize(Q, axes_Q)
@@ -131,7 +131,7 @@ function eigen(
   end
 
   # matrix to tensor
-  axes_codomain, = blockpermute(axes(A), biperm)
+  axes_codomain, = blocks(axes(A)[biperm])
   axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
   return D, unmatricize(V, axes_V)
 end
@@ -205,7 +205,7 @@ function svd(
   end
 
   # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+  axes_codomain, axes_domain = blocks(axes(A)[biperm])
   axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
   axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
   return unmatricize(U, axes_U), S, unmatricize(Vᴴ, axes_Vᴴ)
@@ -254,7 +254,7 @@ end
 function left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   A_mat = matricize(A, biperm)
   N = left_null!(A_mat; kwargs...)
-  axes_codomain, _ = blockpermute(axes(A), biperm)
+  axes_codomain = first(blocks(axes(A)[biperm]))
   axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
   N_tensor = unmatricize(N, axes_N)
   return N_tensor
@@ -284,7 +284,7 @@ end
 function right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
   A_mat = matricize(A, biperm)
   Nᴴ = right_null!(A_mat; kwargs...)
-  _, axes_domain = blockpermute(axes(A), biperm)
+  axes_domain = last(blocks(axes(A)[biperm]))
   axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
   return unmatricize(Nᴴ, axes_Nᴴ)
 end

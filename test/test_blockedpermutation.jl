@@ -10,6 +10,7 @@ using TensorAlgebra:
   BlockedTuple,
   blockedperm,
   blockedperm_indexin,
+  blockpermute,
   blockedtrivialperm,
   blockedpermvcat,
   permmortar,
