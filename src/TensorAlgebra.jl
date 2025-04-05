@@ -2,6 +2,8 @@ module TensorAlgebra
 
 export contract, contract!, eigen, eigvals, lq, left_null, qr, right_null, svd, svdvals
 
+include("MatrixAlgebra.jl")
+using .MatrixAlgebra: MatrixAlgebra
 include("blockedtuple.jl")
 include("blockedpermutation.jl")
 include("BaseExtensions/BaseExtensions.jl")

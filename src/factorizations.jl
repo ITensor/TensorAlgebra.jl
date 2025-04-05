@@ -1,25 +1,6 @@
 using LinearAlgebra: LinearAlgebra
-using MatrixAlgebraKit:
-  eig_full!,
-  eig_trunc!,
-  eig_vals!,
-  eigh_full!,
-  eigh_trunc!,
-  eigh_vals!,
-  left_null!,
-  left_orth!,
-  left_polar!,
-  lq_full!,
-  lq_compact!,
-  qr_full!,
-  qr_compact!,
-  right_null!,
-  right_orth!,
-  right_polar!,
-  svd_full!,
-  svd_compact!,
-  svd_trunc!,
-  svd_vals!
+using .MatrixAlgebra: MatrixAlgebra
+using MatrixAlgebraKit: MatrixAlgebraKit
 
 """
     qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
@@ -41,12 +22,12 @@ function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return qr(A, biperm; kwargs...)
 end
-function qr(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
+function qr(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
   # factorization
-  Q, R = full ? qr_full!(A_mat; kwargs...) : qr_compact!(A_mat; kwargs...)
+  Q, R = MatrixAlgebra.qr(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -75,12 +56,12 @@ function lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs..
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return lq(A, biperm; kwargs...)
 end
-function lq(A::AbstractArray, biperm::BlockedPermutation{2}; full::Bool=false, kwargs...)
+function lq(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
   # factorization
-  L, Q = (full ? lq_full! : lq_compact!)(A_mat; kwargs...)
+  L, Q = MatrixAlgebra.lq(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -111,25 +92,12 @@ function eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwarg
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return eigen(A, biperm; kwargs...)
 end
-function eigen(
-  A::AbstractArray,
-  biperm::BlockedPermutation{2};
-  trunc=nothing,
-  ishermitian=nothing,
-  kwargs...,
-)
+function eigen(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
-  ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
-
   # factorization
-  f! = if !isnothing(trunc)
-    ishermitian ? eigh_trunc! : eig_trunc!
-  else
-    ishermitian ? eigh_full! : eig_full!
-  end
-  D, V = f!(A_mat; kwargs...)
+  D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, = blockpermute(axes(A), biperm)
@@ -161,11 +129,9 @@ function eigvals(
   A::AbstractArray, biperm::BlockedPermutation{2}; ishermitian=nothing, kwargs...
 )
   A_mat = fusedims(A, biperm)
-  ishermitian = @something ishermitian LinearAlgebra.ishermitian(A_mat)
-  return (ishermitian ? eigh_vals! : eig_vals!)(A_mat; kwargs...)
+  return MatrixAlgebra.eigvals!(A_mat; kwargs...)
 end
 
-# TODO: separate out the algorithm selection step from the implementation
 """
     svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
     svd(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> U, S, Vᴴ
@@ -187,23 +153,12 @@ function svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs.
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return svd(A, biperm; kwargs...)
 end
-function svd(
-  A::AbstractArray,
-  biperm::BlockedPermutation{2};
-  full::Bool=false,
-  trunc=nothing,
-  kwargs...,
-)
+function svd(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   # tensor to matrix
   A_mat = fusedims(A, biperm)
 
   # factorization
-  if !isnothing(trunc)
-    @assert !full "Specified both full and truncation, currently not supported"
-    U, S, Vᴴ = svd_trunc!(A_mat; trunc, kwargs...)
-  else
-    U, S, Vᴴ = full ? svd_full!(A_mat; kwargs...) : svd_compact!(A_mat; kwargs...)
-  end
+  U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -228,7 +183,7 @@ function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
 end
 function svdvals(A::AbstractArray, biperm::BlockedPermutation{2})
   A_mat = fusedims(A, biperm)
-  return svd_vals!(A_mat)
+  return MatrixAlgebraKit.svd_vals!(A_mat)
 end
 
 """
@@ -254,7 +209,7 @@ function left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; k
 end
 function left_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
-  N = left_null!(A_mat; kwargs...)
+  N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
   axes_codomain, _ = blockpermute(axes(A), biperm)
   axes_N = (axes_codomain..., axes(N, 2))
   N_tensor = splitdims(N, axes_N)
@@ -284,7 +239,7 @@ function right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; 
 end
 function right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
-  Nᴴ = right_null!(A_mat; kwargs...)
+  Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
   _, axes_domain = blockpermute(axes(A), biperm)
   axes_Nᴴ = (axes(Nᴴ, 1), axes_domain...)
   return splitdims(Nᴴ, axes_Nᴴ)
@@ -313,7 +268,7 @@ function left_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
 
   # factorization
-  W, P = left_polar!(A_mat; kwargs...)
+  W, P = MatrixAlgebraKit.left_polar!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -345,7 +300,7 @@ function right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
 
   # factorization
-  P, W = right_polar!(A_mat; kwargs...)
+  P, W = MatrixAlgebraKit.right_polar!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -377,7 +332,7 @@ function left_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
 
   # factorization
-  V, C = left_orth!(A_mat; kwargs...)
+  V, C = MatrixAlgebraKit.left_orth!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -409,7 +364,7 @@ function right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
 
   # factorization
-  P, W = right_orth!(A_mat; kwargs...)
+  P, W = MatrixAlgebraKit.right_orth!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
@@ -441,7 +396,7 @@ function factorize(A::AbstractArray, biperm::BlockedPermutation{2}; orth=:left, 
   A_mat = fusedims(A, biperm)
 
   # factorization
-  X, Y = (orth == :left ? left_orth! : right_orth!)(A_mat; kwargs...)
+  X, Y = MatrixAlgebra.factorize!(A_mat; kwargs...)
 
   # matrix to tensor
   axes_codomain, axes_domain = blockpermute(axes(A), biperm)
