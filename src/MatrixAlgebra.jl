@@ -16,6 +16,8 @@ using MatrixAlgebraKit:
   eigh_vals!,
   left_orth,
   left_orth!,
+  left_polar,
+  left_polar!,
   lq_full,
   lq_full!,
   lq_compact,
@@ -26,6 +28,8 @@ using MatrixAlgebraKit:
   qr_compact!,
   right_orth,
   right_orth!,
+  right_polar,
+  right_polar!,
   svd_full,
   svd_full!,
   svd_compact,
@@ -91,14 +95,43 @@ for (svd, svd_trunc, svd_full, svd_compact) in (
   end
 end
 
-for (factorize, left_orth, right_orth) in
-    ((:factorize, :left_orth, :right_orth), (:factorize!, :left_orth!, :right_orth!))
+for (polar, left_polar, right_polar) in
+    ((:polar, :left_polar, :right_polar), (:polar!, :left_polar!, :right_polar!))
+  @eval begin
+    function $polar(A::AbstractMatrix; side=:left, kwargs...)
+      f = if side == :left
+        $left_polar
+      elseif side == :right
+        $right_polar
+      else
+        throw(ArgumentError("`side=$side` not supported."))
+      end
+      return f(A; kwargs...)
+    end
+  end
+end
+
+for (orth, left_orth, right_orth) in
+    ((:orth, :left_orth, :right_orth), (:orth!, :left_orth!, :right_orth!))
+  @eval begin
+    function $orth(A::AbstractMatrix; side=:left, kwargs...)
+      f = if side == :left
+        $left_orth
+      elseif side == :right
+        $right_orth
+      else
+        throw(ArgumentError("`side=$side` not supported."))
+      end
+      return f(A; kwargs...)
+    end
+  end
+end
+
+for (factorize, orth_f) in ((:factorize, :(MatrixAlgebra.orth)), (:factorize!, :orth!))
   @eval begin
     function $factorize(A::AbstractMatrix; orth=:left, kwargs...)
-      f = if orth == :left
-        $left_orth
-      elseif orth == :right
-        $right_orth
+      f = if orth in (:left, :right)
+        $orth_f
       else
         throw(ArgumentError("`orth=$orth` not supported."))
       end

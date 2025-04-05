@@ -2,6 +2,42 @@ using LinearAlgebra: LinearAlgebra
 using .MatrixAlgebra: MatrixAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
+function factorize_with(f, A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+  # tensor to matrix
+  A_mat = fusedims(A, biperm)
+
+  # factorization
+  X, Y = f(A_mat; kwargs...)
+
+  # matrix to tensor
+  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+  axes_X = (axes_codomain..., axes(X, 2))
+  axes_Y = (axes(Y, 1), axes_domain...)
+  return splitdims(X, axes_X), splitdims(Y, axes_Y)
+end
+
+for (f, f_mat) in (
+  (:qr, :(MatrixAlgebra.qr)),
+  (:lq, :(MatrixAlgebra.lq)),
+  (:left_polar, :(MatrixAlgebra.left_polar)),
+  (:right_polar, :(MatrixAlgebra.right_polar)),
+  (:polar, :(MatrixAlgebra.polar)),
+  (:left_orth, :(MatrixAlgebra.left_orth)),
+  (:right_orth, :(MatrixAlgebra.right_orth)),
+  (:orth, :(MatrixAlgebra.orth)),
+  (:factorize, :(MatrixAlgebra.factorize)),
+)
+  @eval begin
+    function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+      biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+      return $f(A, biperm; kwargs...)
+    end
+    function $f(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
+      return factorize_with($f_mat, A, biperm; kwargs...)
+    end
+  end
+end
+
 """
     qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
     qr(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> Q, R
@@ -18,23 +54,7 @@ their labels, or directly through a `biperm`.
 
 See also `MatrixAlgebraKit.qr_full!` and `MatrixAlgebraKit.qr_compact!`.
 """
-function qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return qr(A, biperm; kwargs...)
-end
-function qr(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  Q, R = MatrixAlgebra.qr(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_Q = (axes_codomain..., axes(Q, 2))
-  axes_R = (axes(R, 1), axes_domain...)
-  return splitdims(Q, axes_Q), splitdims(R, axes_R)
-end
+qr
 
 """
     lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
@@ -52,23 +72,87 @@ their labels, or directly through a `biperm`.
 
 See also `MatrixAlgebraKit.lq_full!` and `MatrixAlgebraKit.lq_compact!`.
 """
-function lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return lq(A, biperm; kwargs...)
-end
-function lq(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
+lq
 
-  # factorization
-  L, Q = MatrixAlgebra.lq(A_mat; kwargs...)
+"""
+    left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
+    left_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> W, P
 
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_L = (axes_codomain..., axes(L, ndims(L)))
-  axes_Q = (axes(Q, 1), axes_domain...)
-  return splitdims(L, axes_L), splitdims(Q, axes_Q)
-end
+Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- Keyword arguments are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.left_polar!`.
+"""
+left_polar
+
+"""
+    right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
+    right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> P, W
+
+Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- Keyword arguments are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.right_polar!`.
+"""
+right_polar
+
+"""
+    left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
+    left_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> V, C
+
+Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- Keyword arguments are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.left_orth!`.
+"""
+left_orth
+
+"""
+    right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
+    right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> C, V
+
+Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- Keyword arguments are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.right_orth!`.
+"""
+right_orth
+
+"""
+    factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
+    factorize(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> X, Y
+
+Compute the decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain indices. These can be specified either via
+their labels, or directly through a `biperm`.
+
+## Keyword arguments
+
+- `orth::Symbol=:left`: specify the orthogonality of the decomposition.
+  Currently only `:left` and `:right` are supported.
+- Other keywords are passed on directly to MatrixAlgebraKit.
+"""
+factorize
 
 """
     eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
@@ -243,164 +327,4 @@ function right_null(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   _, axes_domain = blockpermute(axes(A), biperm)
   axes_Nᴴ = (axes(Nᴴ, 1), axes_domain...)
   return splitdims(Nᴴ, axes_Nᴴ)
-end
-
-"""
-    left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
-    left_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> W, P
-
-Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
-their labels, or directly through a `biperm`.
-
-## Keyword arguments
-
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
-
-See also `MatrixAlgebraKit.left_polar!`.
-"""
-function left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return left_polar(A, biperm; kwargs...)
-end
-function left_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  W, P = MatrixAlgebraKit.left_polar!(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_W = (axes_codomain..., axes(W, 2))
-  axes_P = (axes(P, 1), axes_domain...)
-  return splitdims(W, axes_W), splitdims(P, axes_P)
-end
-
-"""
-    right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
-    right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> P, W
-
-Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
-their labels, or directly through a `biperm`.
-
-## Keyword arguments
-
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
-
-See also `MatrixAlgebraKit.right_polar!`.
-"""
-function right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return right_polar(A, biperm; kwargs...)
-end
-function right_polar(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  P, W = MatrixAlgebraKit.right_polar!(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_P = (axes_codomain..., axes(P, ndims(P)))
-  axes_W = (axes(W, 1), axes_domain...)
-  return splitdims(P, axes_P), splitdims(W, axes_W)
-end
-
-"""
-    left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
-    left_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> V, C
-
-Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
-their labels, or directly through a `biperm`.
-
-## Keyword arguments
-
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
-
-See also `MatrixAlgebraKit.left_orth!`.
-"""
-function left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return left_orth(A, biperm; kwargs...)
-end
-function left_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  V, C = MatrixAlgebraKit.left_orth!(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_V = (axes_codomain..., axes(V, 2))
-  axes_C = (axes(C, 1), axes_domain...)
-  return splitdims(V, axes_V), splitdims(C, axes_C)
-end
-
-"""
-    right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
-    right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> C, V
-
-Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
-their labels, or directly through a `biperm`.
-
-## Keyword arguments
-
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
-
-See also `MatrixAlgebraKit.right_orth!`.
-"""
-function right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return right_orth(A, biperm; kwargs...)
-end
-function right_orth(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  P, W = MatrixAlgebraKit.right_orth!(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_P = (axes_codomain..., axes(P, ndims(P)))
-  axes_W = (axes(W, 1), axes_domain...)
-  return splitdims(P, axes_P), splitdims(W, axes_W)
-end
-
-"""
-    factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    factorize(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...) -> X, Y
-
-Compute the decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
-their labels, or directly through a `biperm`.
-
-## Keyword arguments
-
-- `orth::Symbol=:left`: specify the orthogonality of the decomposition.
-  Currently only `:left` and `:right` are supported.
-- Other keywords are passed on directly to MatrixAlgebraKit.
-"""
-function factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return factorize(A, biperm; kwargs...)
-end
-function factorize(A::AbstractArray, biperm::BlockedPermutation{2}; orth=:left, kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  X, Y = MatrixAlgebra.factorize!(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_X = (axes_codomain..., axes(X, ndims(X)))
-  axes_Y = (axes(Y, 1), axes_domain...)
-  return splitdims(X, axes_X), splitdims(Y, axes_Y)
 end
