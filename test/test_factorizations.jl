@@ -10,6 +10,8 @@ using TensorAlgebra:
   left_orth,
   left_polar,
   lq,
+  orth,
+  polar,
   qr,
   right_null,
   right_orth,
@@ -216,11 +218,16 @@ end
   labels_P = (:d, :c)
 
   Acopy = deepcopy(A)
-  W, P = left_polar(A, labels_A, labels_W, labels_P)
-  @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
-  @test A ≈ A′
-  @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  for (W, P) in (
+    left_polar(A, labels_A, labels_W, labels_P),
+    polar(A, labels_A, labels_W, labels_P; side=:left),
+    polar(A, labels_A, labels_W, labels_P),
+  )
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
+    @test A ≈ A′
+    @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  end
 end
 
 @testset "Right polar ($T)" for T in elts
@@ -230,11 +237,15 @@ end
   labels_W = (:d, :c)
 
   Acopy = deepcopy(A)
-  P, W = right_polar(A, labels_A, labels_P, labels_W)
-  @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-  @test A ≈ A′
-  @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  for (P, W) in (
+    right_polar(A, labels_A, labels_P, labels_W),
+    polar(A, labels_A, labels_P, labels_W; side=:right),
+  )
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
+    @test A ≈ A′
+    @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  end
 end
 
 @testset "Left orth ($T)" for T in elts
@@ -244,11 +255,16 @@ end
   labels_P = (:d, :c)
 
   Acopy = deepcopy(A)
-  W, P = left_orth(A, labels_A, labels_W, labels_P)
-  @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
-  @test A ≈ A′
-  @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  for (W, P) in (
+    left_orth(A, labels_A, labels_W, labels_P),
+    orth(A, labels_A, labels_W, labels_P; side=:left),
+    orth(A, labels_A, labels_W, labels_P),
+  )
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
+    @test A ≈ A′
+    @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  end
 end
 
 @testset "Right orth ($T)" for T in elts
@@ -258,11 +274,15 @@ end
   labels_W = (:d, :c)
 
   Acopy = deepcopy(A)
-  P, W = right_orth(A, labels_A, labels_P, labels_W)
-  @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-  @test A ≈ A′
-  @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  for (P, W) in (
+    right_orth(A, labels_A, labels_P, labels_W),
+    orth(A, labels_A, labels_P, labels_W; side=:right),
+  )
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
+    @test A ≈ A′
+    @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+  end
 end
 
 @testset "factorize ($T)" for T in elts
