@@ -1,5 +1,24 @@
 module MatrixAlgebra
 
+export eigen,
+  eigen!,
+  eigvals,
+  eigvals!,
+  factorize,
+  factorize!,
+  lq,
+  lq!,
+  orth,
+  orth!,
+  polar,
+  polar!,
+  qr,
+  qr!,
+  svd,
+  svd!,
+  svdvals,
+  svdvals!
+
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit
 
@@ -57,6 +76,14 @@ for (svd, svd_trunc, svd_full, svd_compact) in (
       else
         (full ? $svd_full : $svd_compact)(A; kwargs...)
       end
+    end
+  end
+end
+
+for (svdvals, svd_vals) in ((:svdvals, :svd_vals), (:svdvals!, :svd_vals!))
+  @eval begin
+    function $svdvals(A::AbstractMatrix; ishermitian=nothing, kwargs...)
+      return $svd_vals(A; kwargs...)
     end
   end
 end

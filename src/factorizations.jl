@@ -252,7 +252,7 @@ function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
 end
 function svdvals(A::AbstractArray, biperm::BlockedPermutation{2})
   A_mat = fusedims(A, biperm)
-  return MatrixAlgebraKit.svd_vals!(A_mat)
+  return MatrixAlgebra.svdvals!(A_mat)
 end
 
 """
