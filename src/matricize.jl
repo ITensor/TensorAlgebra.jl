@@ -3,6 +3,7 @@ using LinearAlgebra: Diagonal
 using BlockArrays: AbstractBlockedUnitRange, blockedrange
 
 using TensorProducts: ⊗
+using .BaseExtensions: _permutedims, _permutedims!
 
 # =====================================  FusionStyle  ======================================
 abstract type FusionStyle end
@@ -35,30 +36,31 @@ function fuseaxes(
   return map(block -> isempty(block) ? trivial_axis(axes) : ⊗(block...), axesblocks)
 end
 
+# TODO remove _permutedims once support for Julia 1.10 is dropped
 # define permutedims with a BlockedPermuation. Default is to flatten it.
 function Base.permutedims(a::AbstractArray, biperm::AbstractBlockPermutation)
-  return permutedims(a, Tuple(biperm))
+  return _permutedims(a, Tuple(biperm))
 end
 
 # solve ambiguities
 function Base.permutedims(a::StridedArray, biperm::AbstractBlockPermutation)
-  return permutedims(a, Tuple(biperm))
+  return _permutedims(a, Tuple(biperm))
 end
 function Base.permutedims(a::Diagonal, biperm::AbstractBlockPermutation)
-  return permutedims(a, Tuple(biperm))
+  return _permutedims(a, Tuple(biperm))
 end
 
 function Base.permutedims!(
   a::AbstractArray, b::AbstractArray, biperm::AbstractBlockPermutation
 )
-  return permutedims!(a, b, Tuple(biperm))
+  return _permutedims!(a, b, Tuple(biperm))
 end
 
 # solve ambiguities
 function Base.permutedims!(
   a::Array{T,N}, b::StridedArray{T,N}, biperm::AbstractBlockPermutation
 ) where {T,N}
-  return permutedims!(a, b, Tuple(biperm))
+  return _permutedims!(a, b, Tuple(biperm))
 end
 
 # =====================================  matricize  ========================================
