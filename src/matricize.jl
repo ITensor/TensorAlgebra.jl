@@ -91,14 +91,6 @@ function matricize(::ReshapeFusion, a::AbstractArray, biperm::BlockedTrivialPerm
   return reshape(a, new_axes...)
 end
 
-function matricize(a::AbstractArray, bt::AbstractBlockTuple{2})
-  return matricize(a, blockedperm(bt))
-end
-
-function matricize(::AbstractArray, ::AbstractBlockTuple)
-  throw(ArgumentError("Invalid axis permutation"))
-end
-
 function matricize(a::AbstractArray, permblock1::Tuple, permblock2::Tuple)
   return matricize(a, blockedpermvcat(permblock1, permblock2; length=Val(ndims(a))))
 end

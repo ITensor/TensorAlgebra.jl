@@ -18,10 +18,6 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(a, 6, 20)
 
-    a_fused = matricize(a, tuplemortar(((1, 2), (3, 4))))
-    @test eltype(a_fused) === elt
-    @test a_fused ≈ reshape(a, 6, 20)
-
     a_fused = matricize(a, (1, 2), (3, 4))
     @test eltype(a_fused) === elt
     @test a_fused ≈ reshape(a, 6, 20)
