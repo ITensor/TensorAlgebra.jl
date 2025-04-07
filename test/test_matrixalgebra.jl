@@ -1,6 +1,7 @@
 using LinearAlgebra: I, diag, isposdef
-using TensorAlgebra.MatrixAlgebra: MatrixAlgebra
 using Test: @test, @testset
+
+using TensorAlgebra.MatrixAlgebra: MatrixAlgebra
 
 elts = (Float32, Float64, ComplexF32, ComplexF64)
 

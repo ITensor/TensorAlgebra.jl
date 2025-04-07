@@ -1,5 +1,7 @@
-using TensorAlgebra: TensorAlgebra
 using Test: @test, @testset
+
+using TensorAlgebra: TensorAlgebra
+
 @testset "Test exports" begin
   exports = [
     :TensorAlgebra,

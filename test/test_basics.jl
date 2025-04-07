@@ -1,18 +1,11 @@
-using EllipsisNotation: var".."
-using LinearAlgebra: norm
-using StableRNGs: StableRNG
-using TensorAlgebra:
-  blockedpermvcat,
-  contract,
-  contract!,
-  matricize,
-  qr,
-  svd,
-  tuplemortar,
-  unmatricize,
-  unmatricize!
-using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
+
+using EllipsisNotation: var".."
+using StableRNGs: StableRNG
+using TensorOperations: TensorOperations
+
+using TensorAlgebra:
+  blockedpermvcat, contract, contract!, matricize, tuplemortar, unmatricize, unmatricize!
 
 default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})

@@ -1,7 +1,9 @@
-using BlockArrays: Block, BlockArray, BlockedArray, blockedrange, blocksize
-using TensorAlgebra: contract
 using Random: randn!
 using Test: @test, @test_broken, @testset
+
+using BlockArrays: Block, BlockArray, BlockedArray, blockedrange, blocksize
+
+using TensorAlgebra: contract
 
 function randn_blockdiagonal(elt::Type, axes::Tuple)
   a = zeros(elt, axes)
