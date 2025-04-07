@@ -1,5 +1,7 @@
 using LinearAlgebra: Diagonal
 
+using BlockArrays: AbstractBlockedUnitRange, blockedrange
+
 using TensorProducts: ⊗
 
 # =====================================  FusionStyle  ======================================
@@ -22,11 +24,15 @@ combine_fusion_styles(::FusionStyle, ::FusionStyle) = ReshapeFusion()
 combine_fusion_styles(styles::FusionStyle...) = foldl(combine_fusion_styles, styles)
 
 # =======================================  misc  ========================================
+trivial_axis(::Tuple{}) = Base.OneTo(1)
+trivial_axis(::Tuple{Vararg{AbstractUnitRange}}) = Base.OneTo(1)
+trivial_axis(::Tuple{Vararg{AbstractBlockedUnitRange}}) = blockedrange([1])
+
 function fuseaxes(
   axes::Tuple{Vararg{AbstractUnitRange}}, blockedperm::AbstractBlockPermutation
 )
   axesblocks = blocks(axes[blockedperm])
-  return map(block -> ⊗(block...), axesblocks)
+  return map(block -> isempty(block) ? trivial_axis(axes) : ⊗(block...), axesblocks)
 end
 
 # define permutedims with a BlockedPermuation. Default is to flatten it.
@@ -80,7 +86,7 @@ end
 # default is reshape
 function matricize(::ReshapeFusion, a::AbstractArray, biperm::BlockedTrivialPermutation{2})
   new_axes = fuseaxes(axes(a), biperm)
-  return reshape(a, Base.to_shape.(new_axes)...)
+  return reshape(a, new_axes...)
 end
 
 function matricize(a::AbstractArray, bt::AbstractBlockTuple{2})
@@ -116,7 +122,7 @@ function unmatricize(
 end
 
 function unmatricize(::ReshapeFusion, m::AbstractMatrix, axes::AbstractUnitRange...)
-  return reshape(m, Base.to_shape.(axes)...)
+  return reshape(m, axes...)
 end
 
 function unmatricize(
@@ -124,7 +130,7 @@ function unmatricize(
   m::AbstractMatrix,
   blocked_axes::BlockedTuple{2,<:Any,<:Tuple{Vararg{AbstractUnitRange}}},
 )
-  return reshape(m, Base.to_shape.(Tuple(blocked_axes))...)
+  return reshape(m, Tuple(blocked_axes)...)
 end
 
 function unmatricize(
