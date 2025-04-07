@@ -128,7 +128,7 @@ for (factorize, orth_f) in ((:factorize, :(MatrixAlgebra.orth)), (:factorize!, :
       else
         throw(ArgumentError("`orth=$orth` not supported."))
       end
-      return f(A; kwargs...)
+      return f(A; side=orth, kwargs...)
     end
   end
 end
