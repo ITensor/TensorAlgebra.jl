@@ -1,31 +1,8 @@
 using LinearAlgebra: LinearAlgebra
-using .MatrixAlgebra: MatrixAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-function factorize_with(f, A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = fusedims(A, biperm)
-
-  # factorization
-  X, Y = f(A_mat; kwargs...)
-
-  # matrix to tensor
-  axes_codomain, axes_domain = blockpermute(axes(A), biperm)
-  axes_X = (axes_codomain..., axes(X, 2))
-  axes_Y = (axes(Y, 1), axes_domain...)
-  return splitdims(X, axes_X), splitdims(Y, axes_Y)
-end
-
-for (f, f_mat) in (
-  (:qr, :(MatrixAlgebra.qr)),
-  (:lq, :(MatrixAlgebra.lq)),
-  (:left_polar, :(MatrixAlgebra.left_polar)),
-  (:right_polar, :(MatrixAlgebra.right_polar)),
-  (:polar, :(MatrixAlgebra.polar)),
-  (:left_orth, :(MatrixAlgebra.left_orth)),
-  (:right_orth, :(MatrixAlgebra.right_orth)),
-  (:orth, :(MatrixAlgebra.orth)),
-  (:factorize, :(MatrixAlgebra.factorize)),
+for f in (
+  :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth, :factorize
 )
   @eval begin
     function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
@@ -33,7 +10,17 @@ for (f, f_mat) in (
       return $f(A, biperm; kwargs...)
     end
     function $f(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
-      return factorize_with($f_mat, A, biperm; kwargs...)
+      # tensor to matrix
+      A_mat = fusedims(A, biperm)
+
+      # factorization
+      X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
+
+      # matrix to tensor
+      axes_codomain, axes_domain = blockpermute(axes(A), biperm)
+      axes_X = (axes_codomain..., axes(X, 2))
+      axes_Y = (axes(Y, 1), axes_domain...)
+      return splitdims(X, axes_X), splitdims(Y, axes_Y)
     end
   end
 end
@@ -209,9 +196,7 @@ function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwa
   biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
   return eigvals(A, biperm; kwargs...)
 end
-function eigvals(
-  A::AbstractArray, biperm::BlockedPermutation{2}; ishermitian=nothing, kwargs...
-)
+function eigvals(A::AbstractArray, biperm::BlockedPermutation{2}; kwargs...)
   A_mat = fusedims(A, biperm)
   return MatrixAlgebra.eigvals!(A_mat; kwargs...)
 end

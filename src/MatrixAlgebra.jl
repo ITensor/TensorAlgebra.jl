@@ -1,41 +1,7 @@
 module MatrixAlgebra
 
 using LinearAlgebra: LinearAlgebra
-using MatrixAlgebraKit:
-  eig_full,
-  eig_full!,
-  eig_trunc,
-  eig_trunc!,
-  eig_vals,
-  eig_vals!,
-  eigh_full,
-  eigh_full!,
-  eigh_trunc,
-  eigh_trunc!,
-  eigh_vals,
-  eigh_vals!,
-  left_orth,
-  left_orth!,
-  left_polar,
-  left_polar!,
-  lq_full,
-  lq_full!,
-  lq_compact,
-  lq_compact!,
-  qr_full,
-  qr_full!,
-  qr_compact,
-  qr_compact!,
-  right_orth,
-  right_orth!,
-  right_polar,
-  right_polar!,
-  svd_full,
-  svd_full!,
-  svd_compact,
-  svd_compact!,
-  svd_trunc,
-  svd_trunc!
+using MatrixAlgebraKit
 
 for (f, f_full, f_compact) in (
   (:qr, :qr_full, :qr_compact),
