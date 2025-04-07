@@ -16,10 +16,10 @@ function FusionStyle(a::AbstractArray, t::Tuple{Vararg{AbstractUnitRange}})
 end
 
 # Defaults to ReshapeFusion, a simple reshape
-FusionStyle(::AbstractArray{<:Any,0}) = ReshapeFusion()   # TBD better solution?
 FusionStyle(::AbstractUnitRange) = ReshapeFusion()
 FusionStyle(::AbstractArray, ::ReshapeFusion) = ReshapeFusion()
 
+combine_fusion_styles() = ReshapeFusion()
 combine_fusion_styles(::Style, ::Style) where {Style<:FusionStyle} = Style()
 combine_fusion_styles(::FusionStyle, ::FusionStyle) = ReshapeFusion()
 combine_fusion_styles(styles::FusionStyle...) = foldl(combine_fusion_styles, styles)
