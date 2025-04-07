@@ -1,10 +1,10 @@
-using LinearAlgebra: I, diag
+using LinearAlgebra: I, diag, isposdef
 using TensorAlgebra.MatrixAlgebra: MatrixAlgebra
 using Test: @test, @testset
 
 elts = (Float32, Float64, ComplexF32, ComplexF64)
 
-@testset "elt=$elt" for elt in elts
+@testset "TensorAlgebra.MatrixAlgebra (elt=$elt)" for elt in elts
   A = randn(elt, 3, 2)
   for positive in (false, true)
     for (Q, R) in (MatrixAlgebra.qr(A; positive), MatrixAlgebra.qr(A; full=false, positive))
