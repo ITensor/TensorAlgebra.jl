@@ -38,11 +38,11 @@ end
 
 # TODO remove _permutedims once support for Julia 1.10 is dropped
 # define permutedims with a BlockedPermuation. Default is to flatten it.
-function blockpermutedims(a::AbstractArray, biperm::AbstractBlockPermutation)
+function permuteblockeddims(a::AbstractArray, biperm::AbstractBlockPermutation)
   return _permutedims(a, Tuple(biperm))
 end
 
-function blockpermutedims!(
+function permuteblockeddims!(
   a::AbstractArray, b::AbstractArray, biperm::AbstractBlockPermutation
 )
   return _permutedims!(a, b, Tuple(biperm))
@@ -60,7 +60,7 @@ end
 function matricize(
   style::FusionStyle, a::AbstractArray, biperm::AbstractBlockPermutation{2}
 )
-  a_perm = blockpermutedims(a, biperm)
+  a_perm = permuteblockeddims(a, biperm)
   return matricize(style, a_perm, trivialperm(biperm))
 end
 
@@ -97,7 +97,7 @@ function unmatricize(
 )
   blocked_axes = axes[biperm]
   a_perm = unmatricize(m, blocked_axes)
-  return blockpermutedims(a_perm, invperm(biperm))
+  return permuteblockeddims(a_perm, invperm(biperm))
 end
 
 function unmatricize(::ReshapeFusion, m::AbstractMatrix, axes::AbstractUnitRange...)
@@ -132,5 +132,5 @@ function unmatricize!(
 )
   blocked_axes = axes(a)[biperm]
   a_perm = unmatricize(m, blocked_axes)
-  return blockpermutedims!(a, a_perm, invperm(biperm))
+  return permuteblockeddims!(a, a_perm, invperm(biperm))
 end

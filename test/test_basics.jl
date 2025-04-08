@@ -6,8 +6,8 @@ using TensorOperations: TensorOperations
 
 using TensorAlgebra:
   blockedpermvcat,
-  blockpermutedims,
-  blockpermutedims!,
+  permuteblockeddims,
+  permuteblockeddims!,
   contract,
   contract!,
   matricize,
@@ -19,14 +19,14 @@ default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
 @testset "TensorAlgebra" begin
-  @testset "blockpermutedims (eltype=$elt)" for elt in elts
+  @testset "permuteblockeddims (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
-    a_perm = blockpermutedims(a, blockedpermvcat((3, 1), (2, 4)))
+    a_perm = permuteblockeddims(a, blockedpermvcat((3, 1), (2, 4)))
     @test a_perm == permutedims(a, (3, 1, 2, 4))
 
     a = randn(elt, 2, 3, 4, 5)
     a_perm = Array{elt}(undef, (4, 2, 3, 5))
-    blockpermutedims!(a_perm, a, blockedpermvcat((3, 1), (2, 4)))
+    permuteblockeddims!(a_perm, a, blockedpermvcat((3, 1), (2, 4)))
     @test a_perm == permutedims(a, (3, 1, 2, 4))
   end
   @testset "matricize (eltype=$elt)" for elt in elts
