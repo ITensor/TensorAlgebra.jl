@@ -5,12 +5,30 @@ using StableRNGs: StableRNG
 using TensorOperations: TensorOperations
 
 using TensorAlgebra:
-  blockedpermvcat, contract, contract!, matricize, tuplemortar, unmatricize, unmatricize!
+  blockedpermvcat,
+  blockpermutedims,
+  blockpermutedims!,
+  contract,
+  contract!,
+  matricize,
+  tuplemortar,
+  unmatricize,
+  unmatricize!
 
 default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
 @testset "TensorAlgebra" begin
+  @testset "blockpermutedims (eltype=$elt)" for elt in elts
+    a = randn(elt, 2, 3, 4, 5)
+    a_perm = blockpermutedims(a, blockedpermvcat((3, 1), (2, 4)))
+    @test a_perm == permutedims(a, (3, 1, 2, 4))
+
+    a = randn(elt, 2, 3, 4, 5)
+    a_perm = Array{elt}(undef, (4, 2, 3, 5))
+    blockpermutedims!(a_perm, a, blockedpermvcat((3, 1), (2, 4)))
+    @test a_perm == permutedims(a, (3, 1, 2, 4))
+  end
   @testset "matricize (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
 
