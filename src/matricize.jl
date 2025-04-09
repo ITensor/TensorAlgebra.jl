@@ -10,19 +10,11 @@ abstract type FusionStyle end
 
 struct ReshapeFusion <: FusionStyle end
 
-FusionStyle(a::AbstractArray) = FusionStyle(a, axes(a))
-function FusionStyle(a::AbstractArray, t::Tuple{Vararg{AbstractUnitRange}})
-  return FusionStyle(a, combine_fusion_styles(FusionStyle.(t)...))
-end
+FusionStyle(x) = FusionStyle(typeof(x))
+FusionStle(::Type) = error("Not implemented")
 
 # Defaults to ReshapeFusion, a simple reshape
-FusionStyle(::AbstractUnitRange) = ReshapeFusion()
-FusionStyle(::AbstractArray, ::ReshapeFusion) = ReshapeFusion()
-
-combine_fusion_styles() = ReshapeFusion()
-combine_fusion_styles(::Style, ::Style) where {Style<:FusionStyle} = Style()
-combine_fusion_styles(::FusionStyle, ::FusionStyle) = ReshapeFusion()
-combine_fusion_styles(styles::FusionStyle...) = foldl(combine_fusion_styles, styles)
+FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
 
 # =======================================  misc  ========================================
 trivial_axis(::Tuple{}) = Base.OneTo(1)
