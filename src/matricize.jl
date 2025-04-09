@@ -11,7 +11,7 @@ abstract type FusionStyle end
 struct ReshapeFusion <: FusionStyle end
 
 FusionStyle(x) = FusionStyle(typeof(x))
-FusionStle(::Type) = error("Not implemented")
+FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
 
 # Defaults to ReshapeFusion, a simple reshape
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
