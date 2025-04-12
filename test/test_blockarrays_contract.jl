@@ -1,9 +1,7 @@
-using Random: randn!
-using Test: @test, @test_broken, @testset
-
 using BlockArrays: Block, BlockArray, BlockedArray, blockedrange, blocksize
-
+using Random: randn!
 using TensorAlgebra: contract
+using Test: @test, @testset
 
 function randn_blockdiagonal(elt::Type, axes::Tuple)
   a = zeros(elt, axes)
@@ -57,7 +55,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a_dest_dense, dimnames_dest_dense = contract(a3_dense, (1, 2), a3_dense, (2, 1))
     @test dimnames_dest == dimnames_dest_dense
     @test size(a_dest) == size(a_dest_dense)
-    @test_broken a_dest isa BlockedArray{elt,0}
+    @test a_dest isa BlockedArray{elt,0}
     @test a_dest ≈ a_dest_dense
 
     # outer product
@@ -103,7 +101,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a_dest, dimnames_dest = contract(a3, (1, 2), a3, (2, 1))
     @test dimnames_dest == dimnames_dest_dense
     @test size(a_dest) == size(a_dest_dense)
-    @test_broken a_dest isa BlockArray{elt,0}
+    @test a_dest isa BlockArray{elt,0}
     @test a_dest ≈ a_dest_dense
 
     # outer product

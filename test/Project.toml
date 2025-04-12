@@ -15,7 +15,7 @@ TestExtras = "5ed8adda-3752-4e41-b88a-e8b09835ee3a"
 
 [compat]
 Aqua = "0.8.9"
-BlockArrays = "1.4.0"
+BlockArrays = "1.6.1"
 EllipsisNotation = "1.8.0"
 LinearAlgebra = "<0.0.1, 1"
 MatrixAlgebraKit = "0.1"
