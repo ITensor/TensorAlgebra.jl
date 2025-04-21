@@ -1,5 +1,5 @@
 # Reference
 
 ```@autodocs
-Modules = [TensorAlgebra]
+Modules = [TensorAlgebra, TensorAlgebra.MatrixAlgebra]
 ```

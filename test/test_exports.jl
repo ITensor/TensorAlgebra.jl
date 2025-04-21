@@ -45,6 +45,7 @@ using TensorAlgebra: TensorAlgebra
     :svd!,
     :svdvals,
     :svdvals!,
+    :truncerr,
   ]
   @test issetequal(names(TensorAlgebra.MatrixAlgebra), exports)
 end
