@@ -173,4 +173,55 @@ function MatrixAlgebraKit.findtruncated(values::AbstractVector, strategy::Trunca
   return Base.OneTo(rank)
 end
 
+struct TruncationDegenerate{Strategy<:TruncationStrategy,T<:Real} <: TruncationStrategy
+  strategy::Strategy
+  atol::T
+  rtol::T
+end
+
+"""
+    truncdegen(trunc::TruncationStrategy; atol::Real=0, rtol::Real=0)
+
+Modify a truncation strategy so that if the truncation falls within
+a degenerate subspace, the entire subspace gets truncated as well.
+`max(atol, rtol * σ₁)` where `σ₁` is the maximum value in the spectrum
+being truncated.
+
+For now, this truncation strategy assumes the spectrum being truncated
+has already been reverse sorted and the strategy being wrapped
+outputs a contiguous subset of values including the largest one. It
+also only truncates for now, so may not respect if a minimum dimension
+was requested in the strategy being wrapped. These restrictions may
+be lifted in the future or provided through a different truncation strategy.
+"""
+function truncdegen(strategy::TruncationStrategy; atol::Real=0, rtol::Real=0)
+  return TruncationDegenerate(strategy, promote(atol, rtol)...)
+end
+
+using MatrixAlgebraKit: findtruncated
+
+function MatrixAlgebraKit.findtruncated(values::AbstractVector, strategy::TruncationDegenerate)
+  Base.require_one_based_indexing(values)
+  issorted(values; rev=true) || throw(ArgumentError("Values aren't reverse sorted."))
+  indices_collection = findtruncated(values, strategy.strategy)
+  indices = Base.OneTo(maximum(indices_collection))
+  indices_collection == indices || throw(ArgumentError("Truncation must be a contiguous range."))
+  if length(indices_collection) == length(values)
+    # No truncation occured.
+    return indices
+  end
+  # Value of the largest truncated value.
+  val = values[last(indices) + 1]
+  tol = max(strategy.atol, strategy.rtol * first(values))
+  ind = last(indices)
+  for i in reverse(Base.OneTo(last(indices)))
+    if abs(values[i] - val) ≤ tol
+      ind = i - 1
+    else
+      break
+    end
+  end
+  return Base.OneTo(ind)
+end
+
 end
