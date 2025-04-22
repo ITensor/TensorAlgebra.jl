@@ -162,25 +162,25 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     # p = 2, relative = true
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01]) / norm(diag(s)) + eps(real(elt)))
+      a; trunc=truncerr(; rtol=norm([0.3, 0.2, 0.01]) / norm(diag(s)) + eps(real(elt)))
     )
     @test size(ũ) == (n, 2)
     @test size(s̃) == (2, 2)
     @test size(ṽ) == (2, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.3, 0.2, 0.01])
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01]) / norm(diag(s)) - 10eps(real(elt)))
+      a; trunc=truncerr(; rtol=norm([0.3, 0.2, 0.01]) / norm(diag(s)) - 10eps(real(elt)))
     )
     @test size(ũ) == (n, 3)
     @test size(s̃) == (3, 3)
     @test size(ṽ) == (3, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.2, 0.01])
-    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(0))
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; rtol=0))
     @test size(ũ) == (n, n)
     @test size(s̃) == (n, n)
     @test size(ṽ) == (n, n)
     @test ũ * s̃ * ṽ ≈ a
-    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(1))
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; rtol=1))
     @test size(ũ) == (n, 0)
     @test size(s̃) == (0, 0)
     @test size(ṽ) == (0, n)
@@ -188,26 +188,26 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     # p = 2, relative = false
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01]) + eps(real(elt)); relative=false)
+      a; trunc=truncerr(; atol=norm([0.3, 0.2, 0.01]) + eps(real(elt)))
     )
     @test size(ũ) == (n, 2)
     @test size(s̃) == (2, 2)
     @test size(ṽ) == (2, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.3, 0.2, 0.01])
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01]) - 10eps(real(elt)); relative=false)
+      a; trunc=truncerr(; atol=norm([0.3, 0.2, 0.01]) - 10eps(real(elt)))
     )
     @test size(ũ) == (n, 3)
     @test size(s̃) == (3, 3)
     @test size(ṽ) == (3, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.2, 0.01])
-    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(0; relative=false))
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; atol=0))
     @test size(ũ) == (n, n)
     @test size(s̃) == (n, n)
     @test size(ṽ) == (n, n)
     @test ũ * s̃ * ṽ ≈ a
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm(diag(s)) * (one(real(elt)) + eps(real(elt))); relative=false)
+      a; trunc=truncerr(; atol=(norm(diag(s)) * (one(real(elt)) + eps(real(elt)))))
     )
     @test size(ũ) == (n, 0)
     @test size(s̃) == (0, 0)
@@ -216,25 +216,31 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     # p = 1, relative = true
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01], 1) / norm(diag(s), 1) + eps(real(elt)), 1)
+      a;
+      trunc=truncerr(;
+        rtol=(norm([0.3, 0.2, 0.01], 1) / norm(diag(s), 1) + eps(real(elt))), p=1
+      ),
     )
     @test size(ũ) == (n, 2)
     @test size(s̃) == (2, 2)
     @test size(ṽ) == (2, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.3, 0.2, 0.01])
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01], 1) / norm(diag(s), 1) - eps(real(elt)), 1)
+      a;
+      trunc=truncerr(;
+        rtol=(norm([0.3, 0.2, 0.01], 1) / norm(diag(s), 1) - eps(real(elt))), p=1
+      ),
     )
     @test size(ũ) == (n, 3)
     @test size(s̃) == (3, 3)
     @test size(ṽ) == (3, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.2, 0.01])
-    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(0, 1))
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; rtol=0, p=1))
     @test size(ũ) == (n, n)
     @test size(s̃) == (n, n)
     @test size(ṽ) == (n, n)
     @test ũ * s̃ * ṽ ≈ a
-    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(1, 1))
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; rtol=1, p=1))
     @test size(ũ) == (n, 0)
     @test size(s̃) == (0, 0)
     @test size(ṽ) == (0, n)
@@ -242,29 +248,27 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     # p = 1, relative = false
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01], 1) + 10eps(real(elt)), 1; relative=false)
+      a; trunc=truncerr(; atol=(norm([0.3, 0.2, 0.01], 1) + 10eps(real(elt))), p=1)
     )
     @test size(ũ) == (n, 2)
     @test size(s̃) == (2, 2)
     @test size(ṽ) == (2, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.3, 0.2, 0.01])
     ũ, s̃, ṽ = svd_trunc(
-      a; trunc=truncerr(norm([0.3, 0.2, 0.01], 1) - 10eps(real(elt)), 1; relative=false)
+      a; trunc=truncerr(; atol=(norm([0.3, 0.2, 0.01], 1) - 10eps(real(elt))), p=1)
     )
     @test size(ũ) == (n, 3)
     @test size(s̃) == (3, 3)
     @test size(ṽ) == (3, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.2, 0.01])
-    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(0, 1; relative=false))
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; atol=0, p=1))
     @test size(ũ) == (n, n)
     @test size(s̃) == (n, n)
     @test size(ṽ) == (n, n)
     @test ũ * s̃ * ṽ ≈ a
     ũ, s̃, ṽ = svd_trunc(
       a;
-      trunc=truncerr(
-        norm(diag(s), 1) * (one(real(elt)) + 10eps(real(elt))), 1; relative=false
-      ),
+      trunc=truncerr(; atol=(norm(diag(s), 1) * (one(real(elt)) + 10eps(real(elt)))), p=1),
     )
     @test size(ũ) == (n, 0)
     @test size(s̃) == (0, 0)

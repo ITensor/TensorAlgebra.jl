@@ -137,28 +137,27 @@ end
 using MatrixAlgebraKit: MatrixAlgebraKit, TruncationStrategy
 
 struct TruncationError{T<:Real} <: TruncationStrategy
-  ϵ::T
+  atol::T
+  rtol::T
   p::Int
-  relative::Bool
 end
 
 """
-    truncerr(epsilon::Real, p::Int=2; relative=true)
+    truncerr(; atol::Real=0, rtol::Real=0, p::Int=2)
 
 Create a truncation strategy for truncating such that the error in the factorization
-is smaller than `epsilon`, where the error is determined using the `p`-norm.
-
-The keyword argument `relative` specifies if the error `epsilon` is a relative error
-or not.
+is smaller than `max(atol, rtol * norm)`, where the error is determined using the `p`-norm.
 """
-truncerr(epsilon::Real, p::Int=2; relative=true) = TruncationError(epsilon, p, relative)
+function truncerr(; atol::Real=0, rtol::Real=0, p::Int=2)
+  return TruncationError(promote(atol, rtol)..., p)
+end
 
 function MatrixAlgebraKit.findtruncated(values::AbstractVector, strategy::TruncationError)
   Base.require_one_based_indexing(values)
   issorted(values; rev=true) || error("Not sorted.")
   # norm(values, p) ^ p
   normᵖ = sum(Base.Fix2(^, strategy.p) ∘ abs, values)
-  ϵᵖ = strategy.relative ? strategy.ϵ ^ strategy.p * normᵖ : strategy.ϵ ^ strategy.p
+  ϵᵖ = max(strategy.atol ^ strategy.p, strategy.rtol ^ strategy.p * normᵖ)
   if ϵᵖ ≥ normᵖ
     return Base.OneTo(0)
   end
