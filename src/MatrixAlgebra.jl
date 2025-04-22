@@ -184,8 +184,8 @@ end
 
 Modify a truncation strategy so that if the truncation falls within
 a degenerate subspace, the entire subspace gets truncated as well.
-`max(atol, rtol * σ₁)` where `σ₁` is the maximum value in the spectrum
-being truncated.
+Adjacent values `v1` and `v2` in the spectrum are considered to be degenerate if
+`≈(v1, v2; atol, rtol)`.
 
 For now, this truncation strategy assumes the spectrum being truncated
 has already been reverse sorted and the strategy being wrapped
@@ -200,23 +200,26 @@ end
 
 using MatrixAlgebraKit: findtruncated
 
-function MatrixAlgebraKit.findtruncated(values::AbstractVector, strategy::TruncationDegenerate)
+function MatrixAlgebraKit.findtruncated(
+  values::AbstractVector, strategy::TruncationDegenerate
+)
   Base.require_one_based_indexing(values)
   issorted(values; rev=true) || throw(ArgumentError("Values aren't reverse sorted."))
   indices_collection = findtruncated(values, strategy.strategy)
   indices = Base.OneTo(maximum(indices_collection))
-  indices_collection == indices || throw(ArgumentError("Truncation must be a contiguous range."))
+  indices_collection == indices ||
+    throw(ArgumentError("Truncation must be a contiguous range."))
   if length(indices_collection) == length(values)
     # No truncation occured.
     return indices
   end
   # Value of the largest truncated value.
   val = values[last(indices) + 1]
-  tol = max(strategy.atol, strategy.rtol * first(values))
   ind = last(indices)
   for i in reverse(Base.OneTo(last(indices)))
-    if abs(values[i] - val) ≤ tol
+    if ≈(values[i], val; atol=strategy.atol, rtol=strategy.rtol)
       ind = i - 1
+      val = values[i]
     else
       break
     end
