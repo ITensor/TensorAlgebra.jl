@@ -288,17 +288,20 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
     @test size(s̃) == (n, n)
     @test size(ṽ) == (n, n)
     @test ũ * s̃ * ṽ ≈ a
+    @test ũ * s̃ * ṽ ≈ a rtol = 0.002
 
     ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; atol=0.002))
     @test size(ũ) == (n, 2)
     @test size(s̃) == (2, 2)
     @test size(ṽ) == (2, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.001])
+    @test ũ * s̃ * ṽ ≈ a atol = 0.002
 
     ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; atol=0.002, rtol=0.002))
     @test size(ũ) == (n, 2)
     @test size(s̃) == (2, 2)
     @test size(ṽ) == (2, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.001])
+    @test ũ * s̃ * ṽ ≈ a atol = 0.002 rtol = 0.002
   end
 end
