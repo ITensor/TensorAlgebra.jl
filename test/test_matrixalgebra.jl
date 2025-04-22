@@ -156,8 +156,8 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
     s = Diagonal(real(elt)[1.2, 0.9, 0.3, 0.2, 0.01])
     n = length(diag(s))
     rng = StableRNG(123)
-    u = qr_compact(randn(rng, elt, n, n); positive=true)[1]
-    v = qr_compact(randn(rng, elt, n, n); positive=true)[1]
+    u, _ = qr_compact(randn(rng, elt, n, n); positive=true)
+    v, _ = qr_compact(randn(rng, elt, n, n); positive=true)
     a = u * s * v
 
     # p = 2, relative = true
@@ -274,5 +274,31 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
     @test size(s̃) == (0, 0)
     @test size(ṽ) == (0, n)
     @test norm(ũ * s̃ * ṽ) ≈ 0
+
+    # Specifying both `atol` and `rtol`.
+    s = Diagonal(real(elt)[0.1, 0.01, 0.001])
+    n = length(diag(s))
+    rng = StableRNG(123)
+    u, _ = qr_compact(randn(rng, elt, n, n); positive=true)
+    v, _ = qr_compact(randn(rng, elt, n, n); positive=true)
+    a = u * s * v
+
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; rtol=0.002))
+    @test size(ũ) == (n, n)
+    @test size(s̃) == (n, n)
+    @test size(ṽ) == (n, n)
+    @test ũ * s̃ * ṽ ≈ a
+
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; atol=0.002))
+    @test size(ũ) == (n, 2)
+    @test size(s̃) == (2, 2)
+    @test size(ṽ) == (2, n)
+    @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.001])
+
+    ũ, s̃, ṽ = svd_trunc(a; trunc=truncerr(; atol=0.002, rtol=0.002))
+    @test size(ũ) == (n, 2)
+    @test size(s̃) == (2, 2)
+    @test size(ṽ) == (2, n)
+    @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.001])
   end
 end
