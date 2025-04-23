@@ -20,7 +20,7 @@ export eigen,
   svdvals!,
   truncerr
 
-using LinearAlgebra: LinearAlgebra
+using LinearAlgebra: LinearAlgebra, norm
 using MatrixAlgebraKit
 
 for (f, f_full, f_compact) in (
@@ -213,18 +213,18 @@ function MatrixAlgebraKit.findtruncated(
     # No truncation occured.
     return indices
   end
-  # Value of the largest truncated value.
-  val = values[last(indices) + 1]
-  ind = last(indices)
+  # The largest truncated value.
+  truncval = values[last(indices) + 1]
+  # Rank to truncate to.
+  rank = last(indices)
   for i in reverse(Base.OneTo(last(indices)))
-    if ≈(values[i], val; atol=strategy.atol, rtol=strategy.rtol)
-      ind = i - 1
-      val = values[i]
+    if norm(values[i] - truncval) <= max(strategy.atol, strategy.rtol * norm(truncval))
+      rank = i - 1
     else
       break
     end
   end
-  return Base.OneTo(ind)
+  return Base.OneTo(rank)
 end
 
 end
