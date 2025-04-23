@@ -206,13 +206,13 @@ function MatrixAlgebraKit.findtruncated(
   values::AbstractVector, strategy::TruncationDegenerate
 )
   Base.require_one_based_indexing(values)
-  issorted(values; rev=true) || throw(ArgumentError("Values aren't reverse sorted."))
+  issorted(values; rev=true) || throw(ArgumentError("Values must be reverse sorted."))
   indices_collection = findtruncated(values, strategy.strategy)
   indices = Base.OneTo(maximum(indices_collection))
   indices_collection == indices ||
     throw(ArgumentError("Truncation must be a contiguous range."))
   if length(indices_collection) == length(values)
-    # No truncation occured.
+    # No truncation occurred.
     return indices
   end
   # The largest truncated value.
@@ -220,7 +220,7 @@ function MatrixAlgebraKit.findtruncated(
   # Tolerance of determining if a value is degenerate.
   atol = max(strategy.atol, strategy.rtol * abs(truncval))
   for rank in reverse(indices)
-    ≈(values[rank], truncval; atol) || return Base.OneTo(rank)
+    ≈(values[rank], truncval; atol, rtol=0) || return Base.OneTo(rank)
   end
   return Base.OneTo(0)
 end
