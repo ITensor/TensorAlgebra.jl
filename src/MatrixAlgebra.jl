@@ -184,8 +184,10 @@ end
 
 Modify a truncation strategy so that if the truncation falls within
 a degenerate subspace, the entire subspace gets truncated as well.
-Adjacent values `v1` and `v2` in the spectrum are considered to be degenerate if
-`≈(v1, v2; atol, rtol)`.
+A value `val` is considered degenerate if
+`norm(val - truncval) ≤ max(atol, rtol * norm(truncval))`
+where `truncval` is the largest value truncated by the original
+truncation strategy `trunc`.
 
 For now, this truncation strategy assumes the spectrum being truncated
 has already been reverse sorted and the strategy being wrapped
@@ -218,7 +220,7 @@ function MatrixAlgebraKit.findtruncated(
   # Rank to truncate to.
   rank = last(indices)
   for i in reverse(Base.OneTo(last(indices)))
-    if norm(values[i] - truncval) <= max(strategy.atol, strategy.rtol * norm(truncval))
+    if norm(values[i] - truncval) ≤ max(strategy.atol, strategy.rtol * norm(truncval))
       rank = i - 1
     else
       break
