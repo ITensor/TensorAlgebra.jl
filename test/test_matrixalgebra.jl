@@ -411,5 +411,33 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
     @test size(s̃) == (1, 1)
     @test size(ṽ) == (1, n)
     @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.32, 0.3, 0.29, 0.01, 0.01])
+
+    trunc = truncdegen(truncrank(3); atol=(2 - 0.29) - √(eps(real(elt))))
+    ũ, s̃, ṽ = svd_trunc(a; trunc)
+    @test size(ũ) == (n, 1)
+    @test size(s̃) == (1, 1)
+    @test size(ṽ) == (1, n)
+    @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.32, 0.3, 0.29, 0.01, 0.01])
+
+    trunc = truncdegen(truncrank(3); rtol=(2 - 0.29)/0.29 - √(eps(real(elt))))
+    ũ, s̃, ṽ = svd_trunc(a; trunc)
+    @test size(ũ) == (n, 1)
+    @test size(s̃) == (1, 1)
+    @test size(ṽ) == (1, n)
+    @test norm(ũ * s̃ * ṽ - a) ≈ norm([0.32, 0.3, 0.29, 0.01, 0.01])
+
+    trunc = truncdegen(truncrank(3); atol=(2 - 0.29) + √(eps(real(elt))))
+    ũ, s̃, ṽ = svd_trunc(a; trunc)
+    @test size(ũ) == (n, 0)
+    @test size(s̃) == (0, 0)
+    @test size(ṽ) == (0, n)
+    @test norm(ũ * s̃ * ṽ) ≈ 0
+
+    trunc = truncdegen(truncrank(3); rtol=(2 - 0.29)/0.29 + √(eps(real(elt))))
+    ũ, s̃, ṽ = svd_trunc(a; trunc)
+    @test size(ũ) == (n, 0)
+    @test size(s̃) == (0, 0)
+    @test size(ṽ) == (0, n)
+    @test norm(ũ * s̃ * ṽ) ≈ 0
   end
 end

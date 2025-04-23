@@ -217,16 +217,12 @@ function MatrixAlgebraKit.findtruncated(
   end
   # The largest truncated value.
   truncval = values[last(indices) + 1]
-  # Rank to truncate to.
-  rank = last(indices)
-  for i in reverse(Base.OneTo(last(indices)))
-    if norm(values[i] - truncval) ≤ max(strategy.atol, strategy.rtol * norm(truncval))
-      rank = i - 1
-    else
-      break
-    end
+  # Tolerance of determining if a value is degenerate.
+  atol = max(strategy.atol, strategy.rtol * abs(truncval))
+  for rank in reverse(indices)
+    ≈(values[rank], truncval; atol) || return Base.OneTo(rank)
   end
-  return Base.OneTo(rank)
+  return Base.OneTo(0)
 end
 
 end
