@@ -170,7 +170,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
       # Don't specify destination labels
       a_dest, labels_dest′ = contract(a1, labels1, a2, labels2)
-      @test labels_dest′ isa BlockedTuple{2}
+      @test labels_dest′ isa
+        BlockedTuple{2,(length(setdiff(d1s, d2s)), length(setdiff(d2s, d1s)))}
       a_dest_tensoroperations = TensorOperations.tensorcontract(
         Tuple(labels_dest′), a1, labels1, a2, labels2
       )
