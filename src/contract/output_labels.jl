@@ -10,10 +10,11 @@ function output_labels(
   return output_labels(f, alg, labels1, labels2)
 end
 
-function output_labels(f::typeof(contract), alg::Algorithm, labels1, labels2)
+function output_labels(f::typeof(contract), ::Algorithm, labels1, labels2)
   return output_labels(f, labels1, labels2)
 end
 
 function output_labels(::typeof(contract), labels1, labels2)
-  return Tuple(symdiff(labels1, labels2))
+  diff = symdiff(labels1, labels2)
+  return tuplemortar((Tuple(intersect(diff, labels1)), Tuple(intersect(diff, labels2))))
 end
