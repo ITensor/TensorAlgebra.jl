@@ -11,7 +11,7 @@ function contract!(
   α::Number,
   β::Number,
 )
-  checkndims(a_dest, biperm_dest, a1, biperm1, a2, biperm2)
+  check_input(contract, a_dest, biperm_dest, a1, biperm1, a2, biperm2)
   a_dest_mat = matricize(a_dest, biperm_dest)
   a1_mat = matricize(a1, biperm1)
   a2_mat = matricize(a2, biperm2)

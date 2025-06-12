@@ -15,6 +15,7 @@ function output_labels(f::typeof(contract), ::Algorithm, labels1, labels2)
 end
 
 function output_labels(::typeof(contract), labels1, labels2)
-  diff = symdiff(labels1, labels2)
-  return tuplemortar((Tuple(intersect(diff, labels1)), Tuple(intersect(diff, labels2))))
+  diff1 = Tuple(setdiff(labels1, labels2))
+  diff2 = Tuple(setdiff(labels2, labels1))
+  return tuplemortar((diff1, diff2))
 end
