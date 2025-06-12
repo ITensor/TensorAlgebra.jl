@@ -8,6 +8,11 @@ end
 
 # codomain <-- domain
 function blockedperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
+  dimnames = collect(Iterators.flatten((dimnames_dest, dimnames1, dimnames2)))
+  for i in unique(dimnames)
+    count(==(i), dimnames) == 2 || throw(ArgumentError("Invalid contraction labels"))
+  end
+
   codomain = Tuple(setdiff(dimnames1, dimnames2))
   contracted = Tuple(intersect(dimnames1, dimnames2))
   domain = Tuple(setdiff(dimnames2, dimnames1))

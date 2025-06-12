@@ -88,6 +88,7 @@ function contract(
   α::Number=one(Bool);
   kwargs...,
 )
+  checkndims(a1, labels1, a2, labels2)
   biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
   return contract(alg, biperm_dest, a1, biperm1, a2, biperm2, α; kwargs...)
 end
@@ -104,6 +105,7 @@ function contract!(
   β::Number;
   kwargs...,
 )
+  checkndims(a_dest, labels_dest, a1, labels1, a2, labels2)
   biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
   return contract!(alg, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, β; kwargs...)
 end
@@ -118,6 +120,7 @@ function contract(
   α::Number;
   kwargs...,
 )
+  checkndims(a1, biperm1, a2, biperm2)
   a_dest = allocate_output(contract, biperm_dest, a1, biperm1, a2, biperm2, α)
   contract!(alg, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, zero(Bool); kwargs...)
   return a_dest

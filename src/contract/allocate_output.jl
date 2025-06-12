@@ -1,5 +1,18 @@
 using Base.PermutedDimsArrays: genperm
 
+function checkndims(a1, labels1, a2, labels2)
+  ndims(a1) == length(labels1) ||
+    throw(ArgumentError("Invalid permutation for left tensor"))
+  return ndims(a2) == length(labels2) ||
+         throw(ArgumentError("Invalid permutation for right tensor"))
+end
+
+function checkndims(a_dest, labels_dest, a1, labels1, a2, labels2)
+  ndims(a_dest) == length(labels_dest) ||
+    throw(ArgumentError("Invalid permutation for destination tensor"))
+  return checkndims(a1, labels1, a2, labels2)
+end
+
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
 function output_axes(
@@ -28,6 +41,9 @@ function allocate_output(
   biperm2::AbstractBlockPermutation,
   α::Number=one(Bool),
 )
+  checkndims(a1, biperm1, a2, biperm2)
+  blocklengths(biperm_dest) == (length(biperm1[Block(1)]), length(biperm2[Block(2)])) ||
+    throw(ArgumentError("Invalid permutation for destination tensor"))
   axes_dest = output_axes(contract, biperm_dest, a1, biperm1, a2, biperm2, α)
   return similar(a1, promote_type(eltype(a1), eltype(a2), typeof(α)), axes_dest)
 end

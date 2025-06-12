@@ -46,6 +46,7 @@ end
 # maybe: copy=false kwarg
 
 function matricize(a::AbstractArray, biperm::AbstractBlockPermutation{2})
+  ndims(a) == length(biperm) || throw(ArgumentError("Invalid bipermutation"))
   return matricize(FusionStyle(a), a, biperm)
 end
 
@@ -78,6 +79,7 @@ function unmatricize(
   axes::Tuple{Vararg{AbstractUnitRange}},
   biperm::AbstractBlockPermutation{2},
 )
+  length(axes) == length(biperm) || throw(ArgumentError("axes do not match permutation"))
   return unmatricize(FusionStyle(m), m, axes, biperm)
 end
 
@@ -122,6 +124,8 @@ end
 function unmatricize!(
   a::AbstractArray, m::AbstractMatrix, biperm::AbstractBlockPermutation{2}
 )
+  ndims(a) == length(biperm) ||
+    throw(ArgumentError("destination does not match permutation"))
   blocked_axes = axes(a)[biperm]
   a_perm = unmatricize(m, blocked_axes)
   return permuteblockeddims!(a, a_perm, invperm(biperm))

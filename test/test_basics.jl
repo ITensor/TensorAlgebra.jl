@@ -62,6 +62,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
     @test_throws MethodError matricize(a, (1, 2), (3,), (4,))
     @test_throws MethodError matricize(a, (1, 2, 3, 4))
+    @test_throws ArgumentError matricize(a, blockedpermvcat((1, 2), (3,)))
 
     v = ones(elt, 2)
     a_fused = matricize(v, (1,), ())
@@ -123,10 +124,23 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     a = unmatricize(m, (), ())
     @test a isa Array{elt,0}
     @test a[] == m[1, 1]
+
+    @test_throws ArgumentError unmatricize(m, (), blockedpermvcat((1, 2), (3,)))
+    @test_throws ArgumentError unmatricize!(m, m, blockedpermvcat((1, 2), (3,)))
   end
 
   using TensorOperations: TensorOperations
   @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
+    elt_dest = promote_type(elt1, elt2)
+    a1 = ones(elt1, (1, 1))
+    a2 = ones(elt2, (1, 1))
+    a_dest = ones(elt_dest, (1, 1))
+    @test_throws ArgumentError contract(a1, (1, 2, 4), a2, (2, 3))
+    @test_throws ArgumentError contract(a1, (1, 2), a2, (2, 3, 4))
+    @test_throws ArgumentError contract((1, 3, 4), a1, (1, 2), a2, (2, 3))
+    @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 4))
+    @test_throws ArgumentError contract!(a_dest, (1, 3, 4), a1, (1, 2), a2, (2, 3))
+
     dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
     labels = (:a, :b, :c, :d, :e, :f, :g, :h, :i)
     for (d1s, d2s, d_dests) in (
@@ -181,7 +195,6 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       @test a_dest ≈ a_dest_tensoroperations
 
       # Specify α and β
-      elt_dest = promote_type(elt1, elt2)
       # TODO: Using random `α`, `β` causing
       # random test failures, investigate why.
       α = elt_dest(1.2) # randn(elt_dest)
