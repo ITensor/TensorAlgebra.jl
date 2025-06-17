@@ -44,12 +44,19 @@ for (eigen, eigh_full, eig_full, eigh_trunc, eig_trunc) in (
   @eval begin
     function $eigen(A::AbstractMatrix; trunc=nothing, ishermitian=nothing, kwargs...)
       ishermitian = @something ishermitian LinearAlgebra.ishermitian(A)
-      f = if !isnothing(trunc)
-        ishermitian ? $eigh_trunc : $eig_trunc
+      return if !isnothing(trunc)
+        if ishermitian
+          $eigh_trunc(A; trunc, kwargs...)
+        else
+          $eig_trunc(A; trunc, kwargs...)
+        end
       else
-        ishermitian ? $eigh_full : $eig_full
+        if ishermitian(trunc)
+          $eigh_full(A; kwargs...)
+        else
+          $eig_full(A; kwargs...)
+        end
       end
-      return f(A; kwargs...)
     end
   end
 end
