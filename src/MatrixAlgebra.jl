@@ -51,7 +51,7 @@ for (eigen, eigh_full, eig_full, eigh_trunc, eig_trunc) in (
           $eig_trunc(A; trunc, kwargs...)
         end
       else
-        if ishermitian(trunc)
+        if ishermitian
           $eigh_full(A; kwargs...)
         else
           $eig_full(A; kwargs...)
