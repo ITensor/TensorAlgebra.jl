@@ -74,46 +74,33 @@ function matricize(a::AbstractArray, permblock1::Tuple, permblock2::Tuple)
 end
 
 # ====================================  unmatricize  =======================================
-function unmatricize(
-  m::AbstractMatrix,
-  axes::Tuple{Vararg{AbstractUnitRange}},
-  biperm::AbstractBlockPermutation{2},
-)
+function unmatricize(m, axes, biperm::AbstractBlockPermutation{2})
   length(axes) == length(biperm) || throw(ArgumentError("axes do not match permutation"))
   return unmatricize(FusionStyle(m), m, axes, biperm)
 end
 
-function unmatricize(
-  ::FusionStyle,
-  m::AbstractMatrix,
-  axes::Tuple{Vararg{AbstractUnitRange}},
-  biperm::AbstractBlockPermutation{2},
-)
+function unmatricize(::FusionStyle, m, axes, biperm::AbstractBlockPermutation{2})
   blocked_axes = axes[biperm]
   a_perm = unmatricize(m, blocked_axes)
   return permuteblockeddims(a_perm, invperm(biperm))
 end
 
-function unmatricize(::ReshapeFusion, m::AbstractMatrix, axes::AbstractUnitRange...)
+function unmatricize(::ReshapeFusion, m, axes::AbstractUnitRange...)
   return reshape(m, axes...)
 end
 
 function unmatricize(
-  ::ReshapeFusion,
-  m::AbstractMatrix,
-  blocked_axes::BlockedTuple{2,<:Any,<:Tuple{Vararg{AbstractUnitRange}}},
+  ::ReshapeFusion, m, blocked_axes::BlockedTuple{2,<:Any,<:Tuple{Vararg{AbstractUnitRange}}}
 )
   return reshape(m, Tuple(blocked_axes)...)
 end
 
-function unmatricize(
-  m::AbstractMatrix, blocked_axes::BlockedTuple{2,<:Any,<:Tuple{Vararg{AbstractUnitRange}}}
-)
+function unmatricize(m, blocked_axes)
   return unmatricize(FusionStyle(m), m, blocked_axes)
 end
 
 function unmatricize(
-  m::AbstractMatrix,
+  m,
   codomain_axes::Tuple{Vararg{AbstractUnitRange}},
   domain_axes::Tuple{Vararg{AbstractUnitRange}},
 )
@@ -121,9 +108,7 @@ function unmatricize(
   return unmatricize(m, blocked_axes)
 end
 
-function unmatricize!(
-  a::AbstractArray, m::AbstractMatrix, biperm::AbstractBlockPermutation{2}
-)
+function unmatricize!(a, m, biperm::AbstractBlockPermutation{2})
   ndims(a) == length(biperm) ||
     throw(ArgumentError("destination does not match permutation"))
   blocked_axes = axes(a)[biperm]
