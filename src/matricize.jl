@@ -85,10 +85,6 @@ function unmatricize(::FusionStyle, m, axes, biperm::AbstractBlockPermutation{2}
   return permuteblockeddims(a_perm, invperm(biperm))
 end
 
-function unmatricize(::ReshapeFusion, m, axes::AbstractUnitRange...)
-  return reshape(m, axes...)
-end
-
 function unmatricize(
   ::ReshapeFusion, m, blocked_axes::BlockedTuple{2,<:Any,<:Tuple{Vararg{AbstractUnitRange}}}
 )
