@@ -1,3 +1,4 @@
+using Random: randn!
 using Test: @test, @test_broken, @test_throws, @testset
 
 using EllipsisNotation: var".."
@@ -134,62 +135,36 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     elt_dest = promote_type(elt1, elt2)
     a1 = ones(elt1, (1, 1))
     a2 = ones(elt2, (1, 1))
-    a_dest = ones(elt_dest, (1, 1))
+    a_dest = ones(elt_dest, (1, 1, 1))
     @test_throws ArgumentError contract(a1, (1, 2, 4), a2, (2, 3))
     @test_throws ArgumentError contract(a1, (1, 2), a2, (2, 3, 4))
-    @test_throws ArgumentError contract((1, 3, 4), a1, (1, 2), a2, (2, 3))
-    @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 4))
-    @test_throws ArgumentError contract!(a_dest, (1, 3, 4), a1, (1, 2), a2, (2, 3))
+    @test_throws ArgumentError contract!(a_dest, a1, (1, 2), a2, (2, 3))
 
     dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
     labels = (:a, :b, :c, :d, :e, :f, :g, :h, :i)
-    for (d1s, d2s, d_dests) in (
-      ((1, 2), (1, 2), ()),
-      ((1, 2), (2, 1), ()),
-      ((1, 2), (2, 1, 3), (3,)),
-      ((1, 2, 3), (2, 1), (3,)),
-      ((1, 2), (2, 3), (1, 3)),
-      ((1, 2), (2, 3), (3, 1)),
-      ((2, 1), (2, 3), (3, 1)),
-      ((1, 2, 3), (2, 3, 4), (1, 4)),
-      ((1, 2, 3), (2, 3, 4), (4, 1)),
-      ((3, 2, 1), (4, 2, 3), (4, 1)),
-      ((1, 2, 3), (3, 4), (1, 2, 4)),
-      ((1, 2, 3), (3, 4), (4, 1, 2)),
-      ((1, 2, 3), (3, 4), (2, 4, 1)),
-      ((3, 1, 2), (3, 4), (2, 4, 1)),
-      ((3, 2, 1), (4, 3), (2, 4, 1)),
-      ((1, 2, 3, 4, 5, 6), (4, 5, 6, 7, 8, 9), (1, 2, 3, 7, 8, 9)),
-      ((2, 4, 5, 1, 6, 3), (6, 4, 9, 8, 5, 7), (1, 7, 2, 8, 3, 9)),
+    for (d1s, d2s) in (
+      ((1, 2), (1, 2)),
+      ((1, 2), (2, 1)),
+      ((1, 2), (2, 1, 3)),
+      ((1, 2, 3), (2, 1)),
+      ((1, 2), (2, 3)),
+      ((2, 1), (2, 3)),
+      ((1, 2, 3), (2, 3, 4)),
+      ((3, 2, 1), (4, 2, 3)),
+      ((1, 2, 3), (3, 4)),
+      ((3, 1, 2), (3, 4)),
+      ((3, 2, 1), (4, 3)),
+      ((1, 2, 3, 4, 5, 6), (4, 5, 6, 7, 8, 9)),
+      ((2, 4, 5, 1, 6, 3), (6, 4, 9, 8, 5, 7)),
     )
       a1 = randn(elt1, map(i -> dims[i], d1s))
       labels1 = map(i -> labels[i], d1s)
       a2 = randn(elt2, map(i -> dims[i], d2s))
       labels2 = map(i -> labels[i], d2s)
-      labels_dest = map(i -> labels[i], d_dests)
 
-      # Don't specify destination labels
       a_dest, labels_dest′ = contract(a1, labels1, a2, labels2)
       @test labels_dest′ isa
         BlockedTuple{2,(length(setdiff(d1s, d2s)), length(setdiff(d2s, d1s)))}
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        Tuple(labels_dest′), a1, labels1, a2, labels2
-      )
-      @test a_dest ≈ a_dest_tensoroperations
-
-      # Specify destination labels
-      a_dest = contract(labels_dest, a1, labels1, a2, labels2)
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        labels_dest, a1, labels1, a2, labels2
-      )
-      @test a_dest ≈ a_dest_tensoroperations
-
-      # Specify with bituple
-      a_dest = contract(tuplemortar((labels_dest, ())), a1, labels1, a2, labels2)
-      @test a_dest ≈ a_dest_tensoroperations
-      a_dest = contract(tuplemortar(((), labels_dest)), a1, labels1, a2, labels2)
-      @test a_dest ≈ a_dest_tensoroperations
-      a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
       a_dest_tensoroperations = TensorOperations.tensorcontract(
         Tuple(labels_dest′), a1, labels1, a2, labels2
       )
@@ -200,12 +175,10 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       # random test failures, investigate why.
       α = elt_dest(1.2) # randn(elt_dest)
       β = elt_dest(2.4) # randn(elt_dest)
-      a_dest_init = randn(elt_dest, map(i -> dims[i], d_dests))
-      a_dest = copy(a_dest_init)
-      contract!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β)
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        labels_dest, a1, labels1, a2, labels2
-      )
+      randn!(a_dest)
+      a_dest_init = copy(a_dest)
+      contract!(a_dest, a1, labels1, a2, labels2, α, β)
+      a_dest_tensoroperations = TensorOperations.tensorcontract(a1, labels1, a2, labels2)
       ## Here we loosened the tolerance because of some floating point roundoff issue.
       ## with Float32 numbers
       @test a_dest ≈ α * a_dest_tensoroperations + β * a_dest_init rtol =
@@ -226,17 +199,9 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test eltype(a_dest) === elt_dest
     @test a_dest ≈ reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...))
 
-    a_dest = contract(("i", "k", "j", "l"), a1, ("i", "j"), a2, ("k", "l"))
-    @test eltype(a_dest) === elt_dest
-    @test a_dest ≈ permutedims(
-      reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 3, 2, 4)
-    )
-
-    a_dest = zeros(elt_dest, 2, 5, 3, 4)
-    contract!(a_dest, ("i", "l", "j", "k"), a1, ("i", "j"), a2, ("k", "l"))
-    @test a_dest ≈ permutedims(
-      reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 4, 2, 3)
-    )
+    a_dest = zeros(elt_dest, 2, 3, 4, 5)
+    contract!(a_dest, a1, ("i", "j"), a2, ("k", "l"))
+    @test a_dest ≈ reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...))
   end
   @testset "scalar contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
     elt2 in elts
@@ -265,38 +230,19 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test labels_dest == tuplemortar(((), ()))
     @test a_dest[] ≈ s[] * t[]
 
-    # Specify output labels.
-    labels_dest_example = ("j", "l", "i", "k")
-    size_dest_example = (3, 5, 2, 4)
-
     # Array-scalar contraction.
-    a_dest = contract(labels_dest_example, a, labels_a, s, ())
-    @test size(a_dest) == size_dest_example
-    @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
+    a_dest = zeros(elt_dest, size(a))
+    contract!(a_dest, a, (1, 2, 3, 4), s, ())
+    @test a_dest ≈ a * s[]
 
     # Scalar-array contraction.
-    a_dest = contract(labels_dest_example, s, (), a, labels_a)
-    @test size(a_dest) == size_dest_example
-    @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
-
-    # Scalar-scalar contraction.
-    a_dest = contract((), s, (), t, ())
-    @test size(a_dest) == ()
-    @test a_dest[] ≈ s[] * t[]
-
-    # Array-scalar contraction.
-    a_dest = zeros(elt_dest, size_dest_example)
-    contract!(a_dest, labels_dest_example, a, labels_a, s, ())
-    @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
-
-    # Scalar-array contraction.
-    a_dest = zeros(elt_dest, size_dest_example)
-    contract!(a_dest, labels_dest_example, s, (), a, labels_a)
-    @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
+    a_dest = zeros(elt_dest, size(a))
+    contract!(a_dest, s, (), a, (1, 2, 3, 4))
+    @test a_dest ≈ a * s[]
 
     # Scalar-scalar contraction.
     a_dest = zeros(elt_dest, ())
-    contract!(a_dest, (), s, (), t, ())
+    contract!(a_dest, s, (), t, ())
     @test a_dest[] ≈ s[] * t[]
   end
 end
