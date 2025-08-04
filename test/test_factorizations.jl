@@ -35,8 +35,8 @@ elts = (Float64, ComplexF64)
   Acopy = deepcopy(A)
   Q, R = @constinferred qr(A, labels_A, labels_Q, labels_R; full=true)
   @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
-  @test A ≈ A′
+  A′, legs = contract(Q, (labels_Q..., :q), R, (:q, labels_R...))
+  @test A ≈ permutedims(A′, (2, 1, 4, 3))
   @test size(Q, 1) * size(Q, 2) == size(Q, 3) # Q is unitary
 end
 
@@ -49,8 +49,8 @@ end
   Acopy = deepcopy(A)
   Q, R = @constinferred qr(A, labels_A, labels_Q, labels_R; full=false)
   @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
-  @test A ≈ A′
+  A′, legs = contract(Q, (labels_Q..., :q), R, (:q, labels_R...))
+  @test A ≈ permutedims(A′, (2, 1, 4, 3))
   @test size(Q, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
 end
 
@@ -65,8 +65,8 @@ end
   Acopy = deepcopy(A)
   L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full=true)
   @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
-  @test A ≈ A′
+  A′, legs = contract(L, (labels_L..., :q), Q, (:q, labels_Q...))
+  @test A ≈ permutedims(A′, (2, 1, 4, 3))
   @test size(Q, 1) == size(Q, 2) * size(Q, 3) # Q is unitary
 end
 
@@ -79,8 +79,8 @@ end
   Acopy = deepcopy(A)
   L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full=false)
   @test A == Acopy # should not have altered initial array
-  A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
-  @test A ≈ A′
+  A′, legs = contract(L, (labels_L..., :q), Q, (:q, labels_Q...))
+  @test A ≈ permutedims(A′, (2, 1, 4, 3))
   @test size(Q, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4)) # Q is unitary
 end
 
@@ -98,9 +98,9 @@ end
   @test A == Acopy # should not have altered initial array
   @test eltype(D) == eltype(V) && eltype(D) <: Complex
 
-  AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
-  VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
-  @test AV ≈ VD
+  AV, _ = contract(A, labels_A, V, (labels_V′..., :D))
+  VD, _ = contract(V, (labels_V..., :D′), D, (:D′, :D))
+  @test AV ≈ permutedims(VD, (2, 1, 3))
 
   # type-unstable because of `ishermitian` difference
   Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian=false)
@@ -122,9 +122,9 @@ end
   @test eltype(D) <: Real
   @test eltype(V) == eltype(A)
 
-  AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
-  VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
-  @test AV ≈ VD
+  AV, _ = contract(A, labels_A, V, (labels_V′..., :D))
+  VD, _ = contract(V, (labels_V..., :D′), D, (:D′, :D))
+  @test AV ≈ permutedims(VD, (2, 1, 3))
 
   # type-unstable because of `ishermitian` difference
   Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian=true)
@@ -144,22 +144,22 @@ end
   U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full=true)
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
-  @test A ≈ A′
+  A′, _ = contract(US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
+  @test A ≈ permutedims(A′, (2, 1, 4, 3))
   @test size(U, 1) * size(U, 2) == size(U, 3) # U is unitary
   @test size(Vᴴ, 1) == size(Vᴴ, 2) * size(Vᴴ, 3) # V is unitary
 
   U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full=true)
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (labels_A..., :u), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v,))
+  A′, _ = contract(US, labels_US, Vᴴ, (:v,))
   @test A ≈ A′
   @test size(Vᴴ, 1) == 1
 
   U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full=true)
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (:u,), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_A...))
+  A′, _ = contract(US, labels_US, Vᴴ, (:v, labels_A...))
   @test A ≈ A′
   @test size(U, 2) == 1
 end
@@ -174,8 +174,8 @@ end
   U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full=false)
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
-  @test A ≈ A′
+  A′, _ = contract(US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
+  @test A ≈ permutedims(A′, (2, 1, 4, 3))
   k = min(size(S)...)
   @test size(U, 3) == k == size(Vᴴ, 1)
 
@@ -185,14 +185,14 @@ end
   U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full=false)
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (labels_A..., :u), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v,))
+  A′, _ = contract(US, labels_US, Vᴴ, (:v,))
   @test A ≈ A′
   @test size(U, ndims(U)) == 1 == size(Vᴴ, 1)
 
   U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full=false)
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (:u,), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_A...))
+  A′, _ = contract(US, labels_US, Vᴴ, (:v, labels_A...))
   @test A ≈ A′
   @test size(U, 1) == 1 == size(Vᴴ, 1)
 end
@@ -212,8 +212,8 @@ end
 
   @test A == Acopy # should not have altered initial array
   US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
-  A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
-  @test norm(A - A′) ≈ S_untrunc[end]
+  A′, _ = contract(US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
+  @test norm(A - permutedims(A′, (2, 1, 4, 3))) ≈ S_untrunc[end]
   @test size(S, 1) == size(S_untrunc, 1) - 1
 end
 
@@ -227,17 +227,17 @@ end
   N = @constinferred left_null(A, labels_A, labels_codomain, labels_domain)
   @test A == Acopy # should not have altered initial array
   # N^ba_n' * A^ba_dc = 0
-  NA = contract((:n, labels_domain...), conj(N), (labels_codomain..., :n), A, labels_A)
+  NA, _ = contract(conj(N), (labels_codomain..., :n), A, labels_A)
   @test norm(NA) ≈ 0 atol = 1e-14
-  NN = contract((:n, :n′), conj(N), (labels_codomain..., :n), N, (labels_codomain..., :n′))
+  NN, _ = contract(conj(N), (labels_codomain..., :n), N, (labels_codomain..., :n′))
   @test NN ≈ LinearAlgebra.I
 
   Nᴴ = @constinferred right_null(A, labels_A, labels_codomain, labels_domain)
   @test A == Acopy # should not have altered initial array
   # A^ba_dc * N^dc_n' = 0
-  AN = contract((labels_codomain..., :n), A, labels_A, conj(Nᴴ), (:n, labels_domain...))
+  AN, _ = contract(A, labels_A, conj(Nᴴ), (:n, labels_domain...))
   @test norm(AN) ≈ 0 atol = 1e-14
-  NN = contract((:n, :n′), Nᴴ, (:n, labels_domain...), Nᴴ, (:n′, labels_domain...))
+  NN, _ = contract(Nᴴ, (:n, labels_domain...), Nᴴ, (:n′, labels_domain...))
 end
 
 @testset "Left polar ($T)" for T in elts
@@ -253,8 +253,8 @@ end
     polar(A, labels_A, labels_W, labels_P),
   )
     @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
-    @test A ≈ A′
+    A′, _ = contract(W, (labels_W..., :w), P, (:w, labels_P...))
+    @test A ≈ permutedims(A′, (2, 1, 4, 3))
     @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
   end
 end
@@ -271,8 +271,8 @@ end
     polar(A, labels_A, labels_P, labels_W; side=:right),
   )
     @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-    @test A ≈ A′
+    A′, _ = contract(P, (labels_P..., :w), W, (:w, labels_W...))
+    @test A ≈ permutedims(A′, (2, 1, 4, 3))
     @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
   end
 end
@@ -290,8 +290,8 @@ end
     orth(A, labels_A, labels_W, labels_P),
   )
     @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
-    @test A ≈ A′
+    A′, _ = contract(W, (labels_W..., :w), P, (:w, labels_P...))
+    @test A ≈ permutedims(A′, (2, 1, 4, 3))
     @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
   end
 end
@@ -308,8 +308,8 @@ end
     orth(A, labels_A, labels_P, labels_W; side=:right),
   )
     @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-    @test A ≈ A′
+    A′, _ = contract(P, (labels_P..., :w), W, (:w, labels_W...))
+    @test A ≈ permutedims(A′, (2, 1, 4, 3))
     @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
   end
 end
@@ -324,8 +324,8 @@ end
   for orth in (:left, :right)
     X, Y = factorize(A, labels_A, labels_X, labels_Y; orth)
     @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
-    @test A ≈ A′
+    A′, _ = contract(X, (labels_X..., :x), Y, (:x, labels_Y...))
+    @test A ≈ permutedims(A′, (2, 1, 4, 3))
     @test size(X, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
   end
 end
