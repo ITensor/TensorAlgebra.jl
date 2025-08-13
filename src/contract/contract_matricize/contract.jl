@@ -35,11 +35,10 @@ function contract_inplace!(
 )
   biperm_dest = invbiperm(biperm_out, Val(first(blocklengths(biperm1))))
   check_input(contract, a_dest, biperm_dest, a1, biperm1, a2, biperm2)
-  a_dest_mat = matricize(a_dest, biperm_dest)
-  a1_mat = matricize(a1, biperm1)
-  a2_mat = matricize(a2, biperm2)
+  a_dest_mat = matricize(a_dest, biperm_dest; copy=false)
+  a1_mat = matricize(a1, biperm1; copy=false)
+  a2_mat = matricize(a2, biperm2; copy=false)
   mul!(a_dest_mat, a1_mat, a2_mat, α, β)
-  unmatricize!(a_dest, a_dest_mat, biperm_dest)  # TODO remove: need no copy in matricize
   return a_dest
 end
 

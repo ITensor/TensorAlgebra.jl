@@ -45,20 +45,23 @@ end
 # matrix factorizations assume copy
 # maybe: copy=false kwarg
 
-function matricize(a::AbstractArray, biperm::AbstractBlockPermutation{2})
+function matricize(a::AbstractArray, biperm::AbstractBlockPermutation{2}; copy=false)
   ndims(a) == length(biperm) || throw(ArgumentError("Invalid bipermutation"))
-  return matricize(FusionStyle(a), a, biperm)
+  return matricize(FusionStyle(a), a, biperm; copy)
 end
 
 function matricize(
-  style::FusionStyle, a::AbstractArray, biperm::AbstractBlockPermutation{2}
+  style::FusionStyle, a::AbstractArray, biperm::AbstractBlockPermutation{2}; copy=false
 )
+  if istrivialperm(Tuple(biperm)) && !copy
+    return matricize(style, a, trivialperm(biperm))
+  end
   a_perm = permuteblockeddims(a, biperm)
   return matricize(style, a_perm, trivialperm(biperm))
 end
 
 function matricize(
-  style::FusionStyle, a::AbstractArray, biperm::BlockedTrivialPermutation{2}
+  style::FusionStyle, a::AbstractArray, biperm::BlockedTrivialPermutation{2}; copy=false
 )
   return throw(MethodError(matricize, Tuple{typeof(style),typeof(a),typeof(biperm)}))
 end
@@ -69,8 +72,8 @@ function matricize(::ReshapeFusion, a::AbstractArray, biperm::BlockedTrivialPerm
   return reshape(a, new_axes...)
 end
 
-function matricize(a::AbstractArray, permblock1::Tuple, permblock2::Tuple)
-  return matricize(a, blockedpermvcat(permblock1, permblock2; length=Val(ndims(a))))
+function matricize(a::AbstractArray, permblock1::Tuple, permblock2::Tuple; copy=false)
+  return matricize(a, blockedpermvcat(permblock1, permblock2; length=Val(ndims(a))); copy)
 end
 
 # ====================================  unmatricize  =======================================
