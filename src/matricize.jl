@@ -115,3 +115,7 @@ function unmatricize!(a, m::AbstractMatrix, biperm::AbstractBlockPermutation{2})
   a_perm = unmatricize(m, blocked_axes)
   return permuteblockeddims!(a, a_perm, invperm(biperm))
 end
+
+function unmatricize_add!(a_dest, a_dest_mat, biperm_dest, α, β)
+  return mul!(a_dest, 1.0, unmatricize(a_dest_mat, axes(a_dest), biperm_dest), α, β)
+end
