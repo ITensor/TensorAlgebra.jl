@@ -95,9 +95,10 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test a ≈ a0
 
     bp = blockedpermvcat((4, 2), (1, 3))
-    a = unmatricize(m, map(i -> axes0[i], invperm(Tuple(bp))), bp)
+    bpinv = blockedpermvcat((3, 2), (4, 1))
+    a = unmatricize(m, map(i -> axes0[i], bp), bpinv)
     @test eltype(a) === elt
-    @test a ≈ permutedims(a0, invperm(Tuple(bp)))
+    @test a ≈ permutedims(a0, Tuple(bp))
 
     a = similar(a0)
     unmatricize!(a, m, blockedpermvcat((1, 2), (3, 4)))
@@ -109,7 +110,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
     a1 = permutedims(a0, Tuple(bp))
     a = similar(a1)
-    unmatricize!(a, m, invperm(bp))
+    unmatricize!(a, m, bpinv)
     @test a ≈ a1
 
     a = unmatricize(m, (), axes0)
