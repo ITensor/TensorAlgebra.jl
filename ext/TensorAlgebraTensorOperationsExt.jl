@@ -19,6 +19,74 @@ end
 
 _blockedpermutation(p::Index2Tuple) = TensorAlgebra.blockedpermvcat(p...)
 
+# Using TensorOperations backends as TensorAlgebra implementations
+# ----------------------------------------------------------------
+
+# not in-place
+function TensorAlgebra.contract(
+  backend::TOAlgorithm,
+  bipermAB::BlockedPermutation,
+  A::AbstractArray,
+  bipermA::BlockedPermutation,
+  B::AbstractArray,
+  bipermB::BlockedPermutation,
+  α::Number,
+)
+  pA = _index2tuple(bipermA)
+  pB = _index2tuple(bipermB)
+
+  # TODO: this assumes biperm of output because not enough information!
+  ipermAB = invperm(Tuple(bipermAB))
+  pAB = (TupleTools.getindices(ipermAB, length(ipermAB)), ())
+
+  return tensorcontract(A, pA, false, B, pB, false, pAB, α, backend)
+end
+
+function TensorAlgebra.contract(
+  backend::TOAlgorithm,
+  labelsC,
+  A::AbstractArray,
+  labelsA,
+  B::AbstractArray,
+  labelsB,
+  α::Number,
+)
+  return tensorcontract(labelsC, A, labelsA, B, labelsB, α; backend)
+end
+
+# in-place
+function TensorAlgebra.contract!(
+  backend::TOAlgorithm,
+  C::AbstractArray,
+  bipermAB::BlockedPermutation,
+  A::AbstractArray,
+  bipermA::BlockedPermutation,
+  B::AbstractArray,
+  bipermB::BlockedPermutation,
+  α::Number,
+  β::Number,
+)
+  pA = _index2tuple(bipermA)
+  pB = _index2tuple(bipermB)
+  pAB = _index2tuple(bipermAB)
+  return tensorcontract!(C, A, pA, false, B, pB, false, pAB, α, β, backend)
+end
+
+function TensorAlgebra.contract!(
+  backend::TOAlgorithm,
+  C::AbstractArray,
+  labelsC,
+  A::AbstractArray,
+  labelsA,
+  B::AbstractArray,
+  labelsB,
+  α::Number,
+  β::Number,
+)
+  pA, pB, pAB = TensorOperations.contract_indices(labelsA, labelsB, labelsC)
+  return TensorOperations.tensorcontract!(C, A, pA, false, B, pB, false, pAB, α, β, backend)
+end
+
 # Using TensorAlgebra implementations as TensorOperations backends
 # ----------------------------------------------------------------
 function TensorOperations.tensorcontract!(
@@ -43,3 +111,4 @@ function TensorOperations.tensorcontract!(
   return TensorAlgebra.contract!(backend, C, bipermAB, A′, bipermA, B′, bipermB, α, β)
 end
 
+end
