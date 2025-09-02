@@ -2,15 +2,17 @@ using .BaseExtensions: BaseExtensions
 using BlockArrays: blocklengths
 
 # default: if no bipartion is specified, all axes to domain
-invbiperm(perm, ::Any) = invbiperm(perm, Val(0))
-invbiperm(perm, t::Tuple{Tuple,Tuple}) = invbiperm(perm, tuplemortar(t))
-invbiperm(perm, t::AbstractBlockTuple{2}) = invbiperm(perm, Val(first(blocklength(t))))
-
-function invbiperm(perm, ::Val{N1}) where {N1}
-  perm_out = invperm(Tuple(perm))
-  length(perm) <= N1 && return blockedpermvcat(perm_out, ())
-  return blockedpermvcat(perm_out[begin:N1], (perm_out[(N1 + 1):end]))
+function biperm(perm, blocklength1::Integer)
+  return biperm(perm, Val(blocklength1))
 end
+function biperm(perm, ::Val{BlockLength1}) where {BlockLength1}
+  length(perm) < BlockLength1 && throw(ArgumentError("Invalid codomain length"))
+  return blockedperm(Tuple(perm), (BlockLength1, length(perm) - BlockLength1))
+end
+
+length_codomain(t::AbstractBlockTuple{2}) = first(blocklengths(t))
+# Assume all dimensions are in the domain by default
+length_codomain(t) = 0
 
 function blockedperms(
   f::typeof(contract), alg::Algorithm, dimnames_dest, dimnames1, dimnames2
@@ -32,7 +34,7 @@ function blockedperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
   perm_codomain_dest = BaseExtensions.indexin(codomain, dimnames_dest)
   perm_domain_dest = BaseExtensions.indexin(domain, dimnames_dest)
   biperm_dest_to_a12 = (perm_codomain_dest..., perm_domain_dest...)
-  biperm_a12_to_dest = invbiperm(biperm_dest_to_a12, dimnames_dest)
+  biperm_a12_to_dest = biperm(invperm(biperm_dest_to_a12), length_codomain(dimnames_dest))
 
   perm_codomain1 = BaseExtensions.indexin(codomain, dimnames1)
   perm_domain1 = BaseExtensions.indexin(contracted, dimnames1)

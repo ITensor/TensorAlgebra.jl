@@ -74,23 +74,19 @@ function matricize(a::AbstractArray, permblock1::Tuple, permblock2::Tuple)
 end
 
 # ====================================  unmatricize  =======================================
-function unmatricize(
-  m::AbstractMatrix, axes_dest, biperm_dest_to_a12::AbstractBlockPermutation{2}
-)
-  length(axes_dest) == length(biperm_dest_to_a12) ||
+function unmatricize(m::AbstractMatrix, axes, biperm_dest::AbstractBlockPermutation{2})
+  length(axes) == length(biperm_dest) ||
     throw(ArgumentError("axes do not match permutation"))
-  return unmatricize(FusionStyle(m), m, axes_dest, biperm_dest_to_a12)
+  return unmatricize(FusionStyle(m), m, axes, biperm_dest)
 end
 
 function unmatricize(
-  ::FusionStyle,
-  m::AbstractMatrix,
-  axes_dest,
-  biperm_dest_to_a12::AbstractBlockPermutation{2},
+  ::FusionStyle, m::AbstractMatrix, axes, biperm_dest_to_a12::AbstractBlockPermutation{2}
 )
-  blocked_axes = axes_dest[biperm_dest_to_a12]
+  blocked_axes = axes[biperm_dest_to_a12]
   a12 = unmatricize(m, blocked_axes)
-  biperm_a12_to_dest = invbiperm(biperm_dest_to_a12, axes_dest)
+  biperm_a12_to_dest = biperm(invperm(biperm_dest_to_a12), length_codomain(axes))
+
   return permuteblockeddims(a12, biperm_a12_to_dest)
 end
 
@@ -122,7 +118,8 @@ function unmatricize!(
     throw(ArgumentError("destination does not match permutation"))
   blocked_axes = axes(a_dest)[biperm_dest_to_a12]
   a_perm = unmatricize(m, blocked_axes)
-  biperm_a12_to_dest = invbiperm(biperm_dest_to_a12, axes(a_dest))
+  biperm_a12_to_dest = biperm(invperm(biperm_dest_to_a12), length_codomain(axes(a_dest)))
+
   return permuteblockeddims!(a_dest, a_perm, biperm_a12_to_dest)
 end
 
