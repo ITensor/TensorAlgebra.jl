@@ -7,13 +7,13 @@ using TensorOperations: TensorOperations
 using TensorAlgebra:
   BlockedTuple,
   blockedpermvcat,
-  permuteblockeddims,
-  permuteblockeddims!,
   contract,
   contract!,
   length_codomain,
   length_domain,
   matricize,
+  permuteblockeddims,
+  permuteblockeddims!,
   tuplemortar,
   unmatricize,
   unmatricize!
