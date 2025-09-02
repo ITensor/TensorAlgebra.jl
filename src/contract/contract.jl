@@ -13,7 +13,7 @@ default_contract_alg() = Matricize()
 function contract!(
   alg::Algorithm,
   a_dest::AbstractArray,
-  biperm_a12_to_dest::AbstractBlockPermutation,
+  biperm_dest::AbstractBlockPermutation,
   a1::AbstractArray,
   biperm1::AbstractBlockPermutation,
   a2::AbstractArray,
@@ -89,10 +89,8 @@ function contract(
   kwargs...,
 )
   check_input(contract, a1, labels1, a2, labels2)
-  biperm_a12_to_dest, biperm1, biperm2 = blockedperms(
-    contract, labels_dest, labels1, labels2
-  )
-  return contract(alg, biperm_a12_to_dest, a1, biperm1, a2, biperm2, α; kwargs...)
+  biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
+  return contract(alg, biperm_dest, a1, biperm1, a2, biperm2, α; kwargs...)
 end
 
 function contract!(
@@ -108,17 +106,13 @@ function contract!(
   kwargs...,
 )
   check_input(contract, a_dest, labels_dest, a1, labels1, a2, labels2)
-  biperm_a12_to_dest, biperm1, biperm2 = blockedperms(
-    contract, labels_dest, labels1, labels2
-  )
-  return contract!(
-    alg, a_dest, biperm_a12_to_dest, a1, biperm1, a2, biperm2, α, β; kwargs...
-  )
+  biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
+  return contract!(alg, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, β; kwargs...)
 end
 
 function contract(
   alg::Algorithm,
-  biperm_a12_to_dest::AbstractBlockPermutation,
+  biperm_dest::AbstractBlockPermutation,
   a1::AbstractArray,
   biperm1::AbstractBlockPermutation,
   a2::AbstractArray,
@@ -127,9 +121,7 @@ function contract(
   kwargs...,
 )
   check_input(contract, a1, biperm1, a2, biperm2)
-  a_dest = allocate_output(contract, biperm_a12_to_dest, a1, biperm1, a2, biperm2, α)
-  contract!(
-    alg, a_dest, biperm_a12_to_dest, a1, biperm1, a2, biperm2, α, zero(Bool); kwargs...
-  )
+  a_dest = allocate_output(contract, biperm_dest, a1, biperm1, a2, biperm2, α)
+  contract!(alg, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, zero(Bool); kwargs...)
   return a_dest
 end
