@@ -11,9 +11,9 @@ using TensorAlgebra:
   permuteblockeddims!,
   contract,
   contract!,
-  matricize,
   length_codomain,
   length_domain,
+  matricize,
   tuplemortar,
   unmatricize,
   unmatricize!
