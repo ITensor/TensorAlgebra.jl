@@ -14,6 +14,8 @@ length_codomain(t::AbstractBlockTuple{2}) = first(blocklengths(t))
 # Assume all dimensions are in the domain by default
 length_codomain(t) = 0
 
+length_domain(t) = length(t) - length_codomain(t)
+
 function blockedperms(
   f::typeof(contract), alg::Algorithm, dimnames_dest, dimnames1, dimnames2
 )

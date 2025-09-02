@@ -12,6 +12,8 @@ using TensorAlgebra:
   contract,
   contract!,
   matricize,
+  length_codomain,
+  length_domain,
   tuplemortar,
   unmatricize,
   unmatricize!
@@ -20,6 +22,15 @@ default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
 @testset "TensorAlgebra" begin
+  @testset "misc" begin
+    t = (1, 2, 3)
+    bt = tuplemortar(((1, 2), (3,)))
+    @test length_codomain(t) == 0
+    @test length_codomain(bt) == 2
+    @test length_domain(t) == 3
+    @test length_domain(bt) == 1
+  end
+
   @testset "permuteblockeddims (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
     a_perm = permuteblockeddims(a, blockedpermvcat((3, 1), (2, 4)))

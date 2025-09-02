@@ -119,7 +119,6 @@ function unmatricize!(a_dest, m::AbstractMatrix, invbiperm::AbstractBlockPermuta
   blocked_axes = axes(a_dest)[invbiperm]
   a_perm = unmatricize(m, blocked_axes)
   biperm_dest = biperm(invperm(invbiperm), length_codomain(axes(a_dest)))
-
   return permuteblockeddims!(a_dest, a_perm, biperm_dest)
 end
 
