@@ -190,7 +190,9 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
       # Specify destination labels
       a_dest = contract(labels_dest, a1, labels1, a2, labels2)
-      a_dest_tensoroperations = contract(alg_tensoroperations, labels_dest, a1, labels1, a2, labels2)
+      a_dest_tensoroperations = contract(
+        alg_tensoroperations, labels_dest, a1, labels1, a2, labels2
+      )
       @test a_dest ≈ a_dest_tensoroperations
 
       # Specify with bituple
@@ -199,7 +201,9 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       a_dest = contract(tuplemortar(((), labels_dest)), a1, labels1, a2, labels2)
       @test a_dest ≈ a_dest_tensoroperations
       a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
-      a_dest_tensoroperations = contract(alg_tensoroperations, labels_dest′, a1, labels1, a2, labels2)
+      a_dest_tensoroperations = contract(
+        alg_tensoroperations, labels_dest′, a1, labels1, a2, labels2
+      )
       @test a_dest ≈ a_dest_tensoroperations
 
       # Specify α and β
@@ -211,7 +215,17 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       a_dest = copy(a_dest_init)
       contract!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β)
       a_dest_tensoroperations = copy(a_dest_init)
-      contract!(alg_tensoroperations, a_dest_tensoroperations, labels_dest, a1, labels1, a2, labels2, α, β)
+      contract!(
+        alg_tensoroperations,
+        a_dest_tensoroperations,
+        labels_dest,
+        a1,
+        labels1,
+        a2,
+        labels2,
+        α,
+        β,
+      )
       ## Here we loosened the tolerance because of some floating point roundoff issue.
       ## with Float32 numbers
       @test a_dest ≈ a_dest_tensoroperations rtol = 50 * default_rtol(elt_dest)

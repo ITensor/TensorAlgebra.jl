@@ -112,7 +112,9 @@ end
   NUM_TESTS = 10
 
   for _ in 1:NUM_TESTS
-    sizes, indices = generate_random_network(rand(1:MAX_CONTRACTED_INDICES), rand(1:MAX_OPEN_INDICES), MAX_DIM, MAX_IND_PER_TENS)
+    sizes, indices = generate_random_network(
+      rand(1:MAX_CONTRACTED_INDICES), rand(1:MAX_OPEN_INDICES), MAX_DIM, MAX_IND_PER_TENS
+    )
     tensors = map(splat(randn), sizes)
     result1 = ncon(tensors, indices)
     result2 = ncon(tensors, indices; backend=Matricize())
