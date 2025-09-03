@@ -3,7 +3,7 @@ module TensorAlgebraTensorOperationsExt
 using TensorAlgebra: TensorAlgebra, BlockedPermutation, Algorithm
 using TupleTools
 using TensorOperations
-using TensorOperations: AbstractBackend
+using TensorOperations: AbstractBackend, DefaultBackend
 
 """
     TensorOperationsAlgorithm(backend::AbstractBackend)
@@ -118,6 +118,33 @@ function TensorOperations.tensorcontract!(
   A′ = conjA ? conj(A) : A
   B′ = conjB ? conj(B) : B
   return TensorAlgebra.contract!(backend, C, bipermAB, A′, bipermA, B′, bipermB, α, β)
+end
+
+# For now no trace/add is supported, so simply reselect default backend from TensorOperations
+function TensorOperations.tensortrace!(
+  C::AbstractArray,
+  A::AbstractArray,
+  p::Index2Tuple,
+  q::Index2Tuple,
+  conjA::Bool,
+  α::Number,
+  β::Number,
+  ::Algorithm,
+  allocator,
+)
+  return TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, DefaultBackend(), allocator)
+end
+function TensorOperations.tensoradd!(
+  C::AbstractArray,
+  A::AbstractArray,
+  pA::Index2Tuple,
+  conjA::Bool,
+  α::Number,
+  β::Number,
+  ::Algorithm,
+  allocator,
+)
+  return TensorOperations.tensoradd!(C, A, pA, conjA, α, β, DefaultBackend(), allocator)
 end
 
 end
