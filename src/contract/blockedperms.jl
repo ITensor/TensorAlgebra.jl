@@ -10,11 +10,11 @@ function biperm(perm, ::Val{BlockLength1}) where {BlockLength1}
   return blockedperm(Tuple(perm), (BlockLength1, length(perm) - BlockLength1))
 end
 
-length_codomain(t::AbstractBlockTuple{2}) = first(blocklengths(t))
-# Assume all dimensions are in the domain by default
-length_codomain(t) = 0
+length_domain(t::AbstractBlockTuple{2}) = last(blocklengths(t))
+# Assume all dimensions are in the codomain by default
+length_domain(t) = 0
 
-length_domain(t) = length(t) - length_codomain(t)
+length_codomain(t) = length(t) - length_domain(t)
 
 function blockedperms(
   f::typeof(contract), alg::Algorithm, dimnames_dest, dimnames1, dimnames2
