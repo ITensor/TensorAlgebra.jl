@@ -3,9 +3,18 @@ module TensorAlgebraTensorOperationsExt
 using TensorAlgebra: TensorAlgebra, BlockedPermutation, Algorithm
 using TupleTools
 using TensorOperations
-using TensorOperations: AbstractBackend as TOAlgorithm
+using TensorOperations: AbstractBackend
 
-TensorAlgebra.Algorithm(backend::TOAlgorithm) = backend
+"""
+    TensorOperationsAlgorithm(backend::AbstractBackend)
+
+Wrapper type for making a TensorOperations backend work as a TensorAlgebra algorithm.
+"""
+struct TensorOperationsAlgorithm{B<:AbstractBackend} <: Algorithm
+  backend::B
+end
+
+TensorAlgebra.Algorithm(backend::AbstractBackend) = TensorOperationsAlgorithm(backend)
 
 trivtuple(n) = ntuple(identity, n)
 
@@ -24,7 +33,7 @@ _blockedpermutation(p::Index2Tuple) = TensorAlgebra.blockedpermvcat(p...)
 
 # not in-place
 function TensorAlgebra.contract(
-  backend::TOAlgorithm,
+  algorithm::TensorOperationsAlgorithm,
   bipermAB::BlockedPermutation,
   A::AbstractArray,
   bipermA::BlockedPermutation,
@@ -34,16 +43,13 @@ function TensorAlgebra.contract(
 )
   pA = _index2tuple(bipermA)
   pB = _index2tuple(bipermB)
+  pAB = _index2tuple(bipermAB)
 
-  # TODO: this assumes biperm of output because not enough information!
-  ipermAB = invperm(Tuple(bipermAB))
-  pAB = (TupleTools.getindices(ipermAB, length(ipermAB)), ())
-
-  return tensorcontract(A, pA, false, B, pB, false, pAB, α, backend)
+  return tensorcontract(A, pA, false, B, pB, false, pAB, α, algorithm.backend)
 end
 
 function TensorAlgebra.contract(
-  backend::TOAlgorithm,
+  algorithm::TensorOperationsAlgorithm,
   labelsC,
   A::AbstractArray,
   labelsA,
@@ -51,12 +57,13 @@ function TensorAlgebra.contract(
   labelsB,
   α::Number,
 )
-  return tensorcontract(labelsC, A, labelsA, B, labelsB, α; backend)
+  pA, pB, pAB = TensorOperations.contract_indices(labelsA, labelsB, labelsC)
+  return tensorcontract(A, pA, false, B, pB, false, pAB, α, algorithm.backend)
 end
 
 # in-place
 function TensorAlgebra.contract!(
-  backend::TOAlgorithm,
+  algorithm::TensorOperationsAlgorithm,
   C::AbstractArray,
   bipermAB::BlockedPermutation,
   A::AbstractArray,
@@ -69,11 +76,11 @@ function TensorAlgebra.contract!(
   pA = _index2tuple(bipermA)
   pB = _index2tuple(bipermB)
   pAB = _index2tuple(bipermAB)
-  return tensorcontract!(C, A, pA, false, B, pB, false, pAB, α, β, backend)
+  return tensorcontract!(C, A, pA, false, B, pB, false, pAB, α, β, algorithm.backend)
 end
 
 function TensorAlgebra.contract!(
-  backend::TOAlgorithm,
+  algorithm::TensorOperationsAlgorithm,
   C::AbstractArray,
   labelsC,
   A::AbstractArray,
@@ -84,7 +91,9 @@ function TensorAlgebra.contract!(
   β::Number,
 )
   pA, pB, pAB = TensorOperations.contract_indices(labelsA, labelsB, labelsC)
-  return TensorOperations.tensorcontract!(C, A, pA, false, B, pB, false, pAB, α, β, backend)
+  return TensorOperations.tensorcontract!(
+    C, A, pA, false, B, pB, false, pAB, α, β, algorithm.backend
+  )
 end
 
 # Using TensorAlgebra implementations as TensorOperations backends
