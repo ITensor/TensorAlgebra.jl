@@ -26,8 +26,9 @@ function output_axes(
 )
   axes_codomain, axes_contracted = blocks(axes(a1)[biperm1])
   axes_contracted2, axes_domain = blocks(axes(a2)[biperm2])
-  @assert axes_contracted == axes_contracted2
-  return genperm((axes_codomain..., axes_domain...), invperm(Tuple(biperm_dest)))
+  @assert length.(axes_contracted) == length.(axes_contracted2)
+  # default: flatten biperm_out
+  return genperm((axes_codomain..., axes_domain...), Tuple(biperm_dest))
 end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
@@ -42,8 +43,6 @@ function allocate_output(
   α::Number=one(Bool),
 )
   check_input(contract, a1, biperm1, a2, biperm2)
-  blocklengths(biperm_dest) == (length(biperm1[Block(1)]), length(biperm2[Block(2)])) ||
-    throw(ArgumentError("Invalid permutation for destination tensor"))
   axes_dest = output_axes(contract, biperm_dest, a1, biperm1, a2, biperm2, α)
   return similar(a1, promote_type(eltype(a1), eltype(a2), typeof(α)), axes_dest)
 end

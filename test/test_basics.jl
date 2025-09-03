@@ -5,13 +5,16 @@ using StableRNGs: StableRNG
 using TensorOperations: TensorOperations
 
 using TensorAlgebra:
+  Algorithm,
   BlockedTuple,
   blockedpermvcat,
-  permuteblockeddims,
-  permuteblockeddims!,
   contract,
   contract!,
+  length_codomain,
+  length_domain,
   matricize,
+  permuteblockeddims,
+  permuteblockeddims!,
   tuplemortar,
   unmatricize,
   unmatricize!
@@ -20,6 +23,15 @@ default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
 @testset "TensorAlgebra" begin
+  @testset "misc" begin
+    t = (1, 2, 3)
+    bt = tuplemortar(((1, 2), (3,)))
+    @test length_codomain(t) == 0
+    @test length_codomain(bt) == 2
+    @test length_domain(t) == 3
+    @test length_domain(bt) == 1
+  end
+
   @testset "permuteblockeddims (eltype=$elt)" for elt in elts
     a = randn(elt, 2, 3, 4, 5)
     a_perm = permuteblockeddims(a, blockedpermvcat((3, 1), (2, 4)))
@@ -95,9 +107,10 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test a ≈ a0
 
     bp = blockedpermvcat((4, 2), (1, 3))
-    a = unmatricize(m, map(i -> axes0[i], invperm(Tuple(bp))), bp)
+    bpinv = blockedpermvcat((3, 2), (4, 1))
+    a = unmatricize(m, map(i -> axes0[i], bp), bpinv)
     @test eltype(a) === elt
-    @test a ≈ permutedims(a0, invperm(Tuple(bp)))
+    @test a ≈ permutedims(a0, Tuple(bp))
 
     a = similar(a0)
     unmatricize!(a, m, blockedpermvcat((1, 2), (3, 4)))
@@ -109,7 +122,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
     a1 = permutedims(a0, Tuple(bp))
     a = similar(a1)
-    unmatricize!(a, m, invperm(bp))
+    unmatricize!(a, m, bpinv)
     @test a ≈ a1
 
     a = unmatricize(m, (), axes0)
@@ -129,7 +142,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test_throws ArgumentError unmatricize!(m, m, blockedpermvcat((1, 2), (3,)))
   end
 
-  using TensorOperations: TensorOperations
+  alg_tensoroperations = Algorithm(TensorOperations.StridedBLAS())
   @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
     elt_dest = promote_type(elt1, elt2)
     a1 = ones(elt1, (1, 1))
@@ -172,15 +185,13 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       a_dest, labels_dest′ = contract(a1, labels1, a2, labels2)
       @test labels_dest′ isa
         BlockedTuple{2,(length(setdiff(d1s, d2s)), length(setdiff(d2s, d1s)))}
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        Tuple(labels_dest′), a1, labels1, a2, labels2
-      )
+      a_dest_tensoroperations, = contract(alg_tensoroperations, a1, labels1, a2, labels2)
       @test a_dest ≈ a_dest_tensoroperations
 
       # Specify destination labels
       a_dest = contract(labels_dest, a1, labels1, a2, labels2)
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        labels_dest, a1, labels1, a2, labels2
+      a_dest_tensoroperations = contract(
+        alg_tensoroperations, labels_dest, a1, labels1, a2, labels2
       )
       @test a_dest ≈ a_dest_tensoroperations
 
@@ -190,8 +201,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       a_dest = contract(tuplemortar(((), labels_dest)), a1, labels1, a2, labels2)
       @test a_dest ≈ a_dest_tensoroperations
       a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        Tuple(labels_dest′), a1, labels1, a2, labels2
+      a_dest_tensoroperations = contract(
+        alg_tensoroperations, labels_dest′, a1, labels1, a2, labels2
       )
       @test a_dest ≈ a_dest_tensoroperations
 
@@ -203,13 +214,21 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       a_dest_init = randn(elt_dest, map(i -> dims[i], d_dests))
       a_dest = copy(a_dest_init)
       contract!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β)
-      a_dest_tensoroperations = TensorOperations.tensorcontract(
-        labels_dest, a1, labels1, a2, labels2
+      a_dest_tensoroperations = copy(a_dest_init)
+      contract!(
+        alg_tensoroperations,
+        a_dest_tensoroperations,
+        labels_dest,
+        a1,
+        labels1,
+        a2,
+        labels2,
+        α,
+        β,
       )
       ## Here we loosened the tolerance because of some floating point roundoff issue.
       ## with Float32 numbers
-      @test a_dest ≈ α * a_dest_tensoroperations + β * a_dest_init rtol =
-        50 * default_rtol(elt_dest)
+      @test a_dest ≈ a_dest_tensoroperations rtol = 50 * default_rtol(elt_dest)
     end
   end
   @testset "outer product contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,

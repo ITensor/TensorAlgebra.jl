@@ -11,11 +11,12 @@ function contract!(
   α::Number,
   β::Number,
 )
-  check_input(contract, a_dest, biperm_dest, a1, biperm1, a2, biperm2)
-  a_dest_mat = matricize(a_dest, biperm_dest)
+  invbiperm = biperm(invperm(biperm_dest), length_codomain(biperm1))
+
+  check_input(contract, a_dest, invbiperm, a1, biperm1, a2, biperm2)
   a1_mat = matricize(a1, biperm1)
   a2_mat = matricize(a2, biperm2)
-  mul!(a_dest_mat, a1_mat, a2_mat, α, β)
-  unmatricize!(a_dest, a_dest_mat, biperm_dest)
+  a_dest_mat = a1_mat * a2_mat
+  unmatricize_add!(a_dest, a_dest_mat, invbiperm, α, β)
   return a_dest
 end
