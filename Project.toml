@@ -1,7 +1,7 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
-version = "0.3.15"
+version = "0.3.16"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
@@ -15,7 +15,7 @@ TypeParameterAccessors = "7e5a90cf-f82e-492e-a09b-e3e26432c138"
 
 [compat]
 ArrayLayouts = "1.10.4"
-BlockArrays = "1.5.0"
+BlockArrays = "1.7.2"
 EllipsisNotation = "1.8.0"
 LinearAlgebra = "1.10"
 MatrixAlgebraKit = "0.2, 0.3"
