@@ -6,4 +6,4 @@ TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 [compat]
 Documenter = "1.8.1"
 Literate = "2.20.1"
-TensorAlgebra = "0.3.0"
+TensorAlgebra = "0.4.0"
