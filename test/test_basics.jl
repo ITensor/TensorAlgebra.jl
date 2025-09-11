@@ -11,6 +11,7 @@ using TensorAlgebra:
   permuteblockeddims!,
   contract,
   contract!,
+  contractadd!,
   matricize,
   tuplemortar,
   unmatricize,
@@ -202,7 +203,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
       β = elt_dest(2.4) # randn(elt_dest)
       a_dest_init = randn(elt_dest, map(i -> dims[i], d_dests))
       a_dest = copy(a_dest_init)
-      contract!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β)
+      contractadd!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β)
       a_dest_tensoroperations = TensorOperations.tensorcontract(
         labels_dest, a1, labels1, a2, labels2
       )

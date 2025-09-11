@@ -5,7 +5,6 @@ function output_labels(
   labels1,
   a2::AbstractArray,
   labels2,
-  α,
 )
   return output_labels(f, alg, labels1, labels2)
 end
