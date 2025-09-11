@@ -59,8 +59,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     @test a_dest ≈ a_dest_dense
 
     # outer product
-    a_dest_dense, dimnames_dest_dense = contract(a3_dense, (1, 2), a3_dense, (3, 4))
     a_dest, dimnames_dest = contract(a3, (1, 2), a3, (3, 4))
+    a_dest_dense, dimnames_dest_dense = contract(a3_dense, (1, 2), a3_dense, (3, 4))
     @test dimnames_dest == dimnames_dest_dense
     @test size(a_dest) == size(a_dest_dense)
     @test a_dest isa BlockedArray{elt}

@@ -45,27 +45,29 @@ end
 # matrix factorizations assume copy
 # maybe: copy=false kwarg
 
-function matricize(a::AbstractArray, biperm::AbstractBlockPermutation{2})
-  ndims(a) == length(biperm) || throw(ArgumentError("Invalid bipermutation"))
-  return matricize(FusionStyle(a), a, biperm)
+function matricize(a::AbstractArray, biperm_dest::AbstractBlockPermutation{2})
+  ndims(a) == length(biperm_dest) || throw(ArgumentError("Invalid bipermutation"))
+  return matricize(FusionStyle(a), a, biperm_dest)
 end
 
 function matricize(
-  style::FusionStyle, a::AbstractArray, biperm::AbstractBlockPermutation{2}
+  style::FusionStyle, a::AbstractArray, biperm_dest::AbstractBlockPermutation{2}
 )
-  a_perm = permuteblockeddims(a, biperm)
-  return matricize(style, a_perm, trivialperm(biperm))
+  a_perm = permuteblockeddims(a, biperm_dest)
+  return matricize(style, a_perm, trivialperm(biperm_dest))
 end
 
 function matricize(
-  style::FusionStyle, a::AbstractArray, biperm::BlockedTrivialPermutation{2}
+  style::FusionStyle, a::AbstractArray, biperm_dest::BlockedTrivialPermutation{2}
 )
-  return throw(MethodError(matricize, Tuple{typeof(style),typeof(a),typeof(biperm)}))
+  return throw(MethodError(matricize, Tuple{typeof(style),typeof(a),typeof(biperm_dest)}))
 end
 
 # default is reshape
-function matricize(::ReshapeFusion, a::AbstractArray, biperm::BlockedTrivialPermutation{2})
-  new_axes = fuseaxes(axes(a), biperm)
+function matricize(
+  ::ReshapeFusion, a::AbstractArray, biperm_dest::BlockedTrivialPermutation{2}
+)
+  new_axes = fuseaxes(axes(a), biperm_dest)
   return reshape(a, new_axes...)
 end
 
@@ -74,17 +76,20 @@ function matricize(a::AbstractArray, permblock1::Tuple, permblock2::Tuple)
 end
 
 # ====================================  unmatricize  =======================================
-function unmatricize(m::AbstractMatrix, axes, biperm::AbstractBlockPermutation{2})
-  length(axes) == length(biperm) || throw(ArgumentError("axes do not match permutation"))
-  return unmatricize(FusionStyle(m), m, axes, biperm)
+function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::AbstractBlockPermutation{2})
+  length(axes_dest) == length(invbiperm) ||
+    throw(ArgumentError("axes do not match permutation"))
+  return unmatricize(FusionStyle(m), m, axes_dest, invbiperm)
 end
 
 function unmatricize(
-  ::FusionStyle, m::AbstractMatrix, axes, biperm::AbstractBlockPermutation{2}
+  ::FusionStyle, m::AbstractMatrix, axes_dest, invbiperm::AbstractBlockPermutation{2}
 )
-  blocked_axes = axes[biperm]
-  a_perm = unmatricize(m, blocked_axes)
-  return permuteblockeddims(a_perm, invperm(biperm))
+  blocked_axes = axes_dest[invbiperm]
+  a12 = unmatricize(m, blocked_axes)
+  biperm_dest = biperm(invperm(invbiperm), length_codomain(axes_dest))
+
+  return permuteblockeddims(a12, biperm_dest)
 end
 
 function unmatricize(
@@ -108,10 +113,17 @@ function unmatricize(
   return unmatricize(m, blocked_axes)
 end
 
-function unmatricize!(a, m::AbstractMatrix, biperm::AbstractBlockPermutation{2})
-  ndims(a) == length(biperm) ||
+function unmatricize!(a_dest, m::AbstractMatrix, invbiperm::AbstractBlockPermutation{2})
+  ndims(a_dest) == length(invbiperm) ||
     throw(ArgumentError("destination does not match permutation"))
-  blocked_axes = axes(a)[biperm]
+  blocked_axes = axes(a_dest)[invbiperm]
   a_perm = unmatricize(m, blocked_axes)
-  return permuteblockeddims!(a, a_perm, invperm(biperm))
+  biperm_dest = biperm(invperm(invbiperm), length_codomain(axes(a_dest)))
+  return permuteblockeddims!(a_dest, a_perm, biperm_dest)
+end
+
+function unmatricize_add!(a_dest, a_dest_mat, invbiperm, α, β)
+  a12 = unmatricize(a_dest_mat, axes(a_dest), invbiperm)
+  a_dest .= α .* a12 .+ β .* a_dest
+  return a_dest
 end
