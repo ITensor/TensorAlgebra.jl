@@ -1,8 +1,4 @@
 using LinearAlgebra: LinearAlgebra, norm, diag
-using Test: @test, @testset
-
-using TestExtras: @constinferred
-
 using MatrixAlgebraKit: truncrank
 using TensorAlgebra:
   contract,
@@ -21,6 +17,8 @@ using TensorAlgebra:
   right_polar,
   svd,
   svdvals
+using Test: @test, @testset
+using TestExtras: @constinferred
 
 elts = (Float64, ComplexF64)
 
