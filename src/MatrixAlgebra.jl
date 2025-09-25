@@ -17,8 +17,7 @@ export eigen,
   svd,
   svd!,
   svdvals,
-  svdvals!,
-  truncerr
+  svdvals!
 
 using LinearAlgebra: LinearAlgebra, norm
 using MatrixAlgebraKit
@@ -142,43 +141,6 @@ for (factorize, orth_f) in ((:factorize, :(MatrixAlgebra.orth)), (:factorize!, :
 end
 
 using MatrixAlgebraKit: MatrixAlgebraKit, TruncationStrategy
-
-struct TruncationError{T<:Real} <: TruncationStrategy
-  atol::T
-  rtol::T
-  p::Int
-end
-
-"""
-    truncerr(; atol::Real=0, rtol::Real=0, p::Int=2)
-
-Create a truncation strategy for truncating such that the error in the factorization
-is smaller than `max(atol, rtol * norm)`, where the error is determined using the `p`-norm.
-"""
-function truncerr(; atol::Real=0, rtol::Real=0, p::Int=2)
-  return TruncationError(promote(atol, rtol)..., p)
-end
-
-function MatrixAlgebraKit.findtruncated(values::AbstractVector, strategy::TruncationError)
-  Base.require_one_based_indexing(values)
-  issorted(values; rev=true) || error("Not sorted.")
-  # norm(values, p) ^ p
-  normᵖ = sum(Base.Fix2(^, strategy.p) ∘ abs, values)
-  ϵᵖ = max(strategy.atol ^ strategy.p, strategy.rtol ^ strategy.p * normᵖ)
-  if ϵᵖ ≥ normᵖ
-    return Base.OneTo(0)
-  end
-  truncerrᵖ = zero(real(eltype(values)))
-  rank = length(values)
-  for i in reverse(eachindex(values))
-    truncerrᵖ += abs(values[i]) ^ strategy.p
-    if truncerrᵖ ≥ ϵᵖ
-      rank = i
-      break
-    end
-  end
-  return Base.OneTo(rank)
-end
 
 struct TruncationDegenerate{Strategy<:TruncationStrategy,T<:Real} <: TruncationStrategy
   strategy::Strategy
