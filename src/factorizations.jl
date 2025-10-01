@@ -2,27 +2,27 @@ using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
 for f in (
-  :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth, :factorize
-)
-  @eval begin
-    function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-      biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-      return $f(A, biperm; kwargs...)
-    end
-    function $f(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-      # tensor to matrix
-      A_mat = matricize(A, biperm)
+        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth, :factorize,
+    )
+    @eval begin
+        function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
+            biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            return $f(A, biperm; kwargs...)
+        end
+        function $f(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
+            # tensor to matrix
+            A_mat = matricize(A, biperm)
 
-      # factorization
-      X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
+            # factorization
+            X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
 
-      # matrix to tensor
-      axes_codomain, axes_domain = blocks(axes(A)[biperm])
-      axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
-      axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
-      return unmatricize(X, axes_X), unmatricize(Y, axes_Y)
+            # matrix to tensor
+            axes_codomain, axes_domain = blocks(axes(A)[biperm])
+            axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
+            axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
+            return unmatricize(X, axes_X), unmatricize(Y, axes_Y)
+        end
     end
-  end
 end
 
 """
@@ -160,20 +160,20 @@ See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlg
 `MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
 """
 function eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return eigen(A, biperm; kwargs...)
+    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return eigen(A, biperm; kwargs...)
 end
 function eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = matricize(A, biperm)
+    # tensor to matrix
+    A_mat = matricize(A, biperm)
 
-  # factorization
-  D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
+    # factorization
+    D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
 
-  # matrix to tensor
-  axes_codomain, = blocks(axes(A)[biperm])
-  axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
-  return D, unmatricize(V, axes_V)
+    # matrix to tensor
+    axes_codomain, = blocks(axes(A)[biperm])
+    axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
+    return D, unmatricize(V, axes_V)
 end
 
 """
@@ -193,12 +193,12 @@ their labels, or directly through a `biperm`. The output is a vector of eigenval
 See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
 function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return eigvals(A, biperm; kwargs...)
+    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return eigvals(A, biperm; kwargs...)
 end
 function eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  A_mat = matricize(A, biperm)
-  return MatrixAlgebra.eigvals!(A_mat; kwargs...)
+    A_mat = matricize(A, biperm)
+    return MatrixAlgebra.eigvals!(A_mat; kwargs...)
 end
 
 """
@@ -219,21 +219,21 @@ their labels, or directly through a `biperm`.
 See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
 """
 function svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return svd(A, biperm; kwargs...)
+    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return svd(A, biperm; kwargs...)
 end
 function svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  # tensor to matrix
-  A_mat = matricize(A, biperm)
+    # tensor to matrix
+    A_mat = matricize(A, biperm)
 
-  # factorization
-  U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
+    # factorization
+    U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
 
-  # matrix to tensor
-  axes_codomain, axes_domain = blocks(axes(A)[biperm])
-  axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
-  axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
-  return unmatricize(U, axes_U), S, unmatricize(Vᴴ, axes_Vᴴ)
+    # matrix to tensor
+    axes_codomain, axes_domain = blocks(axes(A)[biperm])
+    axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
+    axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
+    return unmatricize(U, axes_U), S, unmatricize(Vᴴ, axes_Vᴴ)
 end
 
 """
@@ -247,12 +247,12 @@ their labels, or directly through a `biperm`. The output is a vector of singular
 See also `MatrixAlgebraKit.svd_vals!`.
 """
 function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return svdvals(A, biperm)
+    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return svdvals(A, biperm)
 end
 function svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2})
-  A_mat = matricize(A, biperm)
-  return MatrixAlgebra.svdvals!(A_mat)
+    A_mat = matricize(A, biperm)
+    return MatrixAlgebra.svdvals!(A_mat)
 end
 
 """
@@ -273,15 +273,15 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
   The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
 function left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return left_null(A, biperm; kwargs...)
+    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return left_null(A, biperm; kwargs...)
 end
 function left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  A_mat = matricize(A, biperm)
-  N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
-  axes_codomain = first(blocks(axes(A)[biperm]))
-  axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
-  return unmatricize(N, axes_N)
+    A_mat = matricize(A, biperm)
+    N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
+    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
+    return unmatricize(N, axes_N)
 end
 
 """
@@ -302,13 +302,13 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
   The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
 function right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-  biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-  return right_null(A, biperm; kwargs...)
+    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return right_null(A, biperm; kwargs...)
 end
 function right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-  A_mat = matricize(A, biperm)
-  Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
-  axes_domain = last(blocks((axes(A)[biperm])))
-  axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
-  return unmatricize(Nᴴ, axes_Nᴴ)
+    A_mat = matricize(A, biperm)
+    Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
+    axes_domain = last(blocks((axes(A)[biperm])))
+    axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
+    return unmatricize(Nᴴ, axes_Nᴴ)
 end

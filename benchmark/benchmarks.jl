@@ -15,12 +15,12 @@ Ts = (Float64, ComplexF64)
 algs = (TensorAlgebra.Matricize(),)
 
 for alg in algs
-  alg_suite = contraction_suite[alg] = BenchmarkGroup()
-  for T in Ts
-    alg_suite[T] = BenchmarkGroup()
+    alg_suite = contraction_suite[alg] = BenchmarkGroup()
+    for T in Ts
+        alg_suite[T] = BenchmarkGroup()
 
-    for (i, line) in enumerate(eachline(CONTRACTIONS_PATH))
-      alg_suite[T][i] = generate_contract_benchmark(line; T, alg)
+        for (i, line) in enumerate(eachline(CONTRACTIONS_PATH))
+            alg_suite[T][i] = generate_contract_benchmark(line; T, alg)
+        end
     end
-  end
 end
