@@ -1,7 +1,9 @@
 using TensorAlgebra: TensorAlgebra
 using Documenter: Documenter, DocMeta, deploydocs, makedocs
 
-DocMeta.setdocmeta!(TensorAlgebra, :DocTestSetup, :(using TensorAlgebra); recursive = true)
+DocMeta.setdocmeta!(
+    TensorAlgebra, :DocTestSetup, :(using TensorAlgebra); recursive = true
+)
 
 include("make_index.jl")
 
