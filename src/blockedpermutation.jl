@@ -8,7 +8,7 @@ function istrivialperm(t::Tuple)
     return t == trivialperm(length(t))
 end
 
-value(::Val{N}) where {N} = N
+unval(::Val{N}) where {N} = N
 
 _flatten_tuples(t::Tuple) = t
 function _flatten_tuples(t1::Tuple, t2::Tuple, trest::Tuple...)
@@ -87,7 +87,7 @@ function blockedpermvcat(
 end
 
 function blockedpermvcat(len::Val, permblocks::Tuple{Vararg{Int}}...)
-    value(len) != sum(length.(permblocks); init = 0) &&
+    unval(len) != sum(length.(permblocks); init = 0) &&
         throw(ArgumentError("Invalid total length"))
     return permmortar(Tuple(permblocks))
 end
@@ -97,7 +97,7 @@ function _blockedperm_length(::Nothing, specified_perm::Tuple{Vararg{Int}})
 end
 
 function _blockedperm_length(vallength::Val, ::Tuple{Vararg{Int}})
-    return value(vallength)
+    return unval(vallength)
 end
 
 # blockedpermvcat((4, 3), .., 1) == blockedpermvcat((4, 3), (2,), (1,))
@@ -199,8 +199,11 @@ end
 
 blockedperm(tp::BlockedTrivialPermutation) = tp
 
+function blockedtrivialperm(blocklengths::Tuple{Vararg{Val}})
+    return BlockedTrivialPermutation{length(blocklengths), unval.(blocklengths)}()
+end
 function blockedtrivialperm(blocklengths::Tuple{Vararg{Int}})
-    return BlockedTrivialPermutation{length(blocklengths), blocklengths}()
+    return blockedtrivialperm(Val.(blocklengths))
 end
 
 function trivialperm(blockedperm::AbstractBlockTuple)

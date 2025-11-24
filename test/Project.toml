@@ -14,6 +14,9 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestExtras = "5ed8adda-3752-4e41-b88a-e8b09835ee3a"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
+[sources]
+TensorAlgebra = {path = ".."}
+
 [compat]
 Aqua = "0.8.9"
 BlockArrays = "1.6.1"
