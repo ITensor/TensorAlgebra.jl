@@ -1,7 +1,7 @@
 using LinearAlgebra: mul!
 
 function contractadd!(
-        ::Matricize,
+        alg::Matricize,
         a_dest::AbstractArray,
         biperm_dest::AbstractBlockPermutation{2},
         a1::AbstractArray,
@@ -12,11 +12,10 @@ function contractadd!(
         β::Number,
     )
     invbiperm = biperm(invperm(biperm_dest), length_codomain(biperm1))
-
     check_input(contract, a_dest, invbiperm, a1, biperm1, a2, biperm2)
-    a1_mat = matricize(a1, biperm1)
-    a2_mat = matricize(a2, biperm2)
+    a1_mat = matricize(alg.fusion_style, a1, biperm1)
+    a2_mat = matricize(alg.fusion_style, a2, biperm2)
     a_dest_mat = a1_mat * a2_mat
-    unmatricizeadd!(a_dest, a_dest_mat, invbiperm, α, β)
+    unmatricizeadd!(alg.fusion_style, a_dest, a_dest_mat, invbiperm, α, β)
     return a_dest
 end

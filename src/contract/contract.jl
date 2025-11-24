@@ -4,9 +4,29 @@ abstract type Algorithm end
 
 Algorithm(alg::Algorithm) = alg
 
-struct Matricize <: Algorithm end
+struct Matricize{Style} <: Algorithm
+    fusion_style::Style
+end
+Matricize() = Matricize(ReshapeFusion())
 
-default_contract_alg() = Matricize()
+function default_contract_alg(a1::AbstractArray, labels1, a2::AbstractArray, labels2)
+    style1 = FusionStyle(a1)
+    style2 = FusionStyle(a2)
+    style1 == style2 || error("Styles must match.")
+    return Matricize(style1)
+end
+function default_contractadd!_alg(
+        a_dest::AbstractArray, labels_dest,
+        a1::AbstractArray, labels1,
+        a2::AbstractArray, labels2,
+        α::Number, β::Number,
+    )
+    style_dest = FusionStyle(a_dest)
+    style1 = FusionStyle(a1)
+    style2 = FusionStyle(a2)
+    style_dest == style1 == style2 || error("Styles must match.")
+    return Matricize(style_dest)
+end
 
 # Required interface if not using
 # matricized contraction.
@@ -29,7 +49,7 @@ function contract(
         labels1,
         a2::AbstractArray,
         labels2;
-        alg = default_contract_alg(),
+        alg = default_contract_alg(a1, labels1, a2, labels2),
         kwargs...,
     )
     return contract(Algorithm(alg), a1, labels1, a2, labels2; kwargs...)
@@ -48,7 +68,7 @@ function contract(
         labels1,
         a2::AbstractArray,
         labels2;
-        alg = default_contract_alg(),
+        alg = default_contract_alg(a1, labels1, a2, labels2),
         kwargs...,
     )
     return contract(Algorithm(alg), labels_dest, a1, labels1, a2, labels2; kwargs...)
@@ -75,7 +95,7 @@ function contractadd!(
         labels2,
         α::Number,
         β::Number;
-        alg = default_contract_alg(),
+        alg = default_contractadd!_alg(a_dest, labels_dest, a1, labels1, a2, labels2, α, β),
         kwargs...,
     )
     contractadd!(
