@@ -158,7 +158,7 @@ function unmatricize(
         MethodError(
             unmatricize,
             Tuple{
-                typeof(style), typeof(m), typeof(codomain_axes), typeof(domain_axes)
+                typeof(style), typeof(m), typeof(codomain_axes), typeof(domain_axes),
             },
         )
     )
