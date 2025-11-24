@@ -7,6 +7,7 @@ Algorithm(alg::Algorithm) = alg
 struct Matricize{Style} <: Algorithm
     fusion_style::Style
 end
+Matricize() = Matricize(ReshapeFusion())
 
 function default_contract_alg(a1::AbstractArray, labels1, a2::AbstractArray, labels2)
     style1 = FusionStyle(a1)
