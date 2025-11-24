@@ -3,6 +3,9 @@ Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 
+[sources]
+TensorAlgebra = {path = ".."}
+
 [compat]
 Documenter = "1.8.1"
 Literate = "2.20.1"

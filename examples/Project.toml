@@ -1,5 +1,8 @@
 [deps]
 TensorAlgebra = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 
+[sources]
+TensorAlgebra = {path = ".."}
+
 [compat]
 TensorAlgebra = "0.5"
