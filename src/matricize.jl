@@ -8,13 +8,8 @@ using .BaseExtensions: _permutedims, _permutedims!
 # =====================================  FusionStyle  ======================================
 abstract type FusionStyle end
 
-struct ReshapeFusion <: FusionStyle end
-
 FusionStyle(x) = FusionStyle(typeof(x))
 FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
-
-# Defaults to ReshapeFusion, a simple reshape
-FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
 
 # =======================================  misc  ========================================
 trivial_axis(::Tuple{}) = Base.OneTo(1)
@@ -135,11 +130,6 @@ function matricize(
     return matricize(style, a, blocks(biperm_dest)...)
 end
 
-# default is reshape
-function matricize(::ReshapeFusion, a::AbstractArray, length1::Val, length2::Val)
-    return reshape(a, fuseaxes(axes(a), length1, length2)...)
-end
-
 # ====================================  unmatricize  =======================================
 function unmatricize(
         m::AbstractMatrix,
@@ -162,15 +152,6 @@ function unmatricize(
             },
         )
     )
-end
-
-# Implementation using reshape.
-function unmatricize(
-        style::ReshapeFusion, m::AbstractMatrix,
-        codomain_axes::Tuple{Vararg{AbstractUnitRange}},
-        domain_axes::Tuple{Vararg{AbstractUnitRange}},
-    )
-    return reshape(m, (codomain_axes..., domain_axes...))
 end
 
 function unmatricize(
@@ -279,4 +260,18 @@ function unmatricizeadd!(
     return unmatricizeadd!(
         style, a_dest, m, blocks(invbiperm)..., α, β
     )
+end
+
+# Defaults to ReshapeFusion, a simple reshape
+struct ReshapeFusion <: FusionStyle end
+FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
+function matricize(style::ReshapeFusion, a::AbstractArray, length1::Val, length2::Val)
+    return reshape(a, fuseaxes(axes(a), length1, length2))
+end
+function unmatricize(
+        style::ReshapeFusion, m::AbstractMatrix,
+        codomain_axes::Tuple{Vararg{AbstractUnitRange}},
+        domain_axes::Tuple{Vararg{AbstractUnitRange}},
+    )
+    return reshape(m, (codomain_axes..., domain_axes...))
 end
