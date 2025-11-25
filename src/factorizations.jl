@@ -52,6 +52,7 @@ end
 """
     qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
     qr(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> Q, R
     qr(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
@@ -71,6 +72,7 @@ qr
 """
     lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
     lq(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> L, Q
     lq(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
@@ -90,6 +92,7 @@ lq
 """
     left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
     left_polar(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> W, P
+    left_polar(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> W, P
     left_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -107,6 +110,7 @@ left_polar
 """
     right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
     right_polar(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> P, W
+    right_polar(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> P, W
     right_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -124,6 +128,7 @@ right_polar
 """
     left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
     left_orth(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> V, C
+    left_orth(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> V, C
     left_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -141,6 +146,7 @@ left_orth
 """
     right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
     right_orth(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> C, V
+    right_orth(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> C, V
     right_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -158,6 +164,7 @@ right_orth
 """
     factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
     factorize(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> X, Y
+    factorize(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> X, Y
     factorize(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
 
 Compute the decomposition of a generic N-dimensional array, by interpreting it as
@@ -175,6 +182,7 @@ factorize
 """
     eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
     eigen(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eigen(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> D, V
     eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
@@ -211,6 +219,7 @@ end
 """
     eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
     eigvals(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> D
+    eigvals(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> D
     eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
@@ -237,6 +246,7 @@ end
 """
     svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
     svd(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> U, S, Vᴴ
     svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
 
 Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
@@ -273,6 +283,7 @@ end
 """
     svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> S
     svdvals(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}) -> S
+    svdvals(A::AbstractArray, codomain_length::Val, domain_length::Val) -> S
     svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as
@@ -292,6 +303,7 @@ end
 """
     left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> N
     left_null(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> N
+    left_null(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> N
     left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
@@ -323,6 +335,7 @@ end
 """
     right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
     right_null(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> Nᴴ
+    right_null(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> Nᴴ
     right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
