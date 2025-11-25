@@ -148,7 +148,7 @@ end
     labels_Vᴴ = (:d, :c)
 
     Acopy = deepcopy(A)
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = true)
+    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = Val(true))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
@@ -156,18 +156,18 @@ end
     @test size(U, 1) * size(U, 2) == size(U, 3) # U is unitary
     @test size(Vᴴ, 1) == size(Vᴴ, 2) * size(Vᴴ, 3) # V is unitary
 
-    U, S, Vᴴ = svd(A, (2, 1), (4, 3); full = true)
+    U, S, Vᴴ = svd(A, (2, 1), (4, 3); full = Val(true))
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     @test A ≈ contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = true)
+    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = Val(true))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_A..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v,))
     @test A ≈ A′
     @test size(Vᴴ, 1) == 1
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full = true)
+    U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full = Val(true))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (:u,), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_A...))
@@ -182,7 +182,7 @@ end
     labels_Vᴴ = (:d, :c)
 
     Acopy = deepcopy(A)
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = false)
+    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = Val(false))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
@@ -193,14 +193,14 @@ end
     Svals = @constinferred svdvals(A, labels_A, labels_U, labels_Vᴴ)
     @test Svals ≈ diag(S)
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = false)
+    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = Val(false))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_A..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v,))
     @test A ≈ A′
     @test size(U, ndims(U)) == 1 == size(Vᴴ, 1)
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full = false)
+    U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full = Val(false))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (:u,), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_A...))
