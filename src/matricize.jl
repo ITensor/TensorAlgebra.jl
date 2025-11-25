@@ -50,12 +50,12 @@ function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm
     return permuteblockeddims!(a_dest, a_src, perm1, perm2)
 end
 function bipermutedims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
-    return permuteblockeddims(a, biperm)
+    return bipermutedims(a, blocks(biperm)...)
 end
 function bipermutedims!(
         a_dest::AbstractArray, a_src::AbstractArray, biperm::AbstractBlockPermutation{2}
     )
-    return permuteblockeddims!(a_dest, a_src, biperm)
+    return bipermutedims!(a_dest, a_src, blocks(biperm)...)
 end
 
 # Older interface.
