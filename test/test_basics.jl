@@ -14,6 +14,8 @@ using TensorAlgebra:
     length_codomain,
     length_domain,
     matricize,
+    bipermutedims,
+    bipermutedims!,
     permuteblockeddims,
     permuteblockeddims!,
     tuplemortar,
@@ -33,15 +35,29 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         @test length_domain(bt) == 1
     end
 
-    @testset "permuteblockeddims (eltype=$elt)" for elt in elts
-        a = randn(elt, 2, 3, 4, 5)
-        a_perm = permuteblockeddims(a, blockedpermvcat((3, 1), (2, 4)))
-        @test a_perm == permutedims(a, (3, 1, 2, 4))
+    @testset "bipermutedims/permuteblockeddims (eltype=$elt)" for f in
+            (:bipermutedims, :permuteblockeddims),
+            elt in elts
+        f! = Symbol(f, :!)
+        @eval begin
+            a = randn($elt, 2, 3, 4, 5)
+            a_perm = $f(a, blockedpermvcat((3, 1), (2, 4)))
+            @test a_perm == permutedims(a, (3, 1, 2, 4))
 
-        a = randn(elt, 2, 3, 4, 5)
-        a_perm = Array{elt}(undef, (4, 2, 3, 5))
-        permuteblockeddims!(a_perm, a, blockedpermvcat((3, 1), (2, 4)))
-        @test a_perm == permutedims(a, (3, 1, 2, 4))
+            a = randn($elt, 2, 3, 4, 5)
+            a_perm = $f(a, (3, 1), (2, 4))
+            @test a_perm == permutedims(a, (3, 1, 2, 4))
+
+            a = randn($elt, 2, 3, 4, 5)
+            a_perm = Array{$elt}(undef, (4, 2, 3, 5))
+            $f!(a_perm, a, blockedpermvcat((3, 1), (2, 4)))
+            @test a_perm == permutedims(a, (3, 1, 2, 4))
+
+            a = randn($elt, 2, 3, 4, 5)
+            a_perm = Array{$elt}(undef, (4, 2, 3, 5))
+            $f!(a_perm, a, (3, 1), (2, 4))
+            @test a_perm == permutedims(a, (3, 1, 2, 4))
+        end
     end
     @testset "matricize (eltype=$elt)" for elt in elts
         a = randn(elt, 2, 3, 4, 5)

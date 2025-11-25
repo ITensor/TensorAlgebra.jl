@@ -14,9 +14,12 @@ using Test: @test, @testset
                     TensorAlgebra.$f(a, (3, 2), (4, 1)),
                     TensorAlgebra.$f(a, biperm((3, 2, 4, 1), Val(2))),
                 )
-                fa′ = reshape($f(reshape(permutedims(a, (3, 2, 4, 1)), (4, 4))), (2, 2, 2, 2))
+                local fa′ = reshape($f(reshape(permutedims(a, (3, 2, 4, 1)), (4, 4))), (2, 2, 2, 2))
                 @test fa ≈ fa′
             end
+            fa = TensorAlgebra.$f(a, Val(2), Val(2))
+            fa′ = reshape($f(reshape(a, (4, 4))), (2, 2, 2, 2))
+            @test fa ≈ fa′
         end
     end
 end

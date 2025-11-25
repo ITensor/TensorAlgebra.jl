@@ -75,14 +75,34 @@ for (svd, svd_trunc, svd_full, svd_compact) in (
         (:svd, :svd_trunc, :svd_full, :svd_compact),
         (:svd!, :svd_trunc!, :svd_full!, :svd_compact!),
     )
+    _svd = Symbol(:_, svd)
     @eval begin
-        function $svd(A::AbstractMatrix; full::Bool = false, trunc = nothing, kwargs...)
-            return if !isnothing(trunc)
-                @assert !full "Specified both full and truncation, currently not supported"
-                $svd_trunc(A; trunc, kwargs...)
-            else
-                (full ? $svd_full : $svd_compact)(A; kwargs...)
-            end
+        function $svd(
+                A::AbstractMatrix;
+                full::Union{Bool, Val} = Val(false),
+                trunc = nothing,
+                kwargs...,
+            )
+            return $_svd(full, trunc, A; kwargs...)
+        end
+        function $_svd(full::Bool, trunc, A::AbstractMatrix; kwargs...)
+            return $_svd(Val(full), trunc, A; kwargs...)
+        end
+        function $_svd(full::Val{false}, trunc::Nothing, A::AbstractMatrix; kwargs...)
+            return $svd_compact(A; kwargs...)
+        end
+        function $_svd(full::Val{false}, trunc, A::AbstractMatrix; kwargs...)
+            return $svd_trunc(A; trunc, kwargs...)
+        end
+        function $_svd(full::Val{true}, trunc::Nothing, A::AbstractMatrix; kwargs...)
+            return $svd_full(A; kwargs...)
+        end
+        function $_svd(full::Val{true}, trunc, A::AbstractMatrix; kwargs...)
+            return throw(
+                ArgumentError(
+                    "Specified both full and truncation, currently not supported"
+                )
+            )
         end
     end
 end
