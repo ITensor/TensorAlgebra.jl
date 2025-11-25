@@ -39,15 +39,34 @@ function fuseaxes(
 end
 
 # Inner version takes a list of sub-permutations, overload this one if needed.
+# TODO: Remove _permutedims once support for Julia 1.10 is dropped
+# define permutedims with a BlockedPermuation. Default is to flatten it.
+# TODO: Deprecate `permuteblockeddims` in favor of `bipermutedims`.
+# Keeping it here for backwards compatibility.
+function bipermutedims(a::AbstractArray, perm1, perm2)
+    return permuteblockeddims(a, perm1, perm2)
+end
+function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
+    return permuteblockeddims!(a_dest, a_src, perm1, perm2)
+end
+function bipermutedims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
+    return permuteblockeddims(a, biperm)
+end
+function bipermutedims!(
+        a_dest::AbstractArray, a_src::AbstractArray, biperm::AbstractBlockPermutation{2}
+    )
+    return permuteblockeddims!(a_dest, a_src, biperm)
+end
+
+# Older interface.
+# TODO: Deprecate in favor of `bipermutedims` (or decide if we want to keep it
+# in case there are applications of more general partitionings).
 function permuteblockeddims(a::AbstractArray, perm1, perm2)
     return _permutedims(a, (perm1..., perm2...))
 end
 function permuteblockeddims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
     return _permutedims!(a_dest, a_src, (perm1..., perm2...))
 end
-
-# TODO remove _permutedims once support for Julia 1.10 is dropped
-# define permutedims with a BlockedPermuation. Default is to flatten it.
 function permuteblockeddims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
     return permuteblockeddims(a, blocks(biperm)...)
 end
@@ -87,7 +106,7 @@ function matricize(
     ) where {N1, N2}
     ndims(a) == length(permblock1) + length(permblock2) ||
         throw(ArgumentError("Invalid bipermutation"))
-    a_perm = permuteblockeddims(a, permblock1, permblock2)
+    a_perm = bipermutedims(a, permblock1, permblock2)
     return matricize(style, a_perm, Val(length(permblock1)), Val(length(permblock2)))
 end
 
@@ -179,7 +198,7 @@ function unmatricize(
     blocked_axes = axes_dest[invbiperm]
     a12 = unmatricize(style, m, blocked_axes)
     biperm_dest = biperm(invperm(invbiperm), length_codomain(axes_dest))
-    return permuteblockeddims(a12, biperm_dest)
+    return bipermutedims(a12, biperm_dest)
 end
 
 function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::AbstractBlockPermutation{2})
@@ -208,7 +227,7 @@ function unmatricize!(
     blocked_axes = axes(a_dest)[invbiperm]
     a_perm = unmatricize(style, m, blocked_axes)
     biperm_dest = biperm(invperm(invbiperm), length_codomain(axes(a_dest)))
-    return permuteblockeddims!(a_dest, a_perm, biperm_dest)
+    return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
 function unmatricize!(

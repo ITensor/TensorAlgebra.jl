@@ -48,7 +48,7 @@ for f in MATRIX_FUNCTIONS
                 codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
                 kwargs...,
             )
-            a_perm = permuteblockeddims(a, codomain_perm, domain_perm)
+            a_perm = bipermutedims(a, codomain_perm, domain_perm)
             return $f(a_perm, Val(length(codomain_perm)), Val(length(domain_perm)); kwargs...)
         end
         function $f(a::AbstractArray, labels_a, labels_codomain, labels_domain; kwargs...)
