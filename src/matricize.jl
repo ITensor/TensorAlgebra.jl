@@ -187,7 +187,7 @@ function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::AbstractBlockPermu
 end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
-        invbiperm::AbstractBlockPermutation{2}
+        invbiperm::AbstractBlockPermutation{2},
     )
     return unmatricize(style, m, axes_dest, blocks(invbiperm)...)
 end
