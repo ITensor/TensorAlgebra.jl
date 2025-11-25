@@ -39,6 +39,9 @@ elts = (Float64, ComplexF64)
 
     Q, R = qr(A, (2, 1), (4, 3); full = true)
     @test A ≈ contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
+
+    Q, R = qr(A, Val(2), Val(2); full = true)
+    @test A ≈ contract((:a, :b, :c, :d), Q, (:a, :b, :q), R, (:q, :c, :d))
 end
 
 @testset "Compact QR ($T)" for T in elts
