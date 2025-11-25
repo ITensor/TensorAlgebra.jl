@@ -154,16 +154,11 @@ function unmatricize(
     )
 end
 
-function unmatricize(
-        m::AbstractMatrix,
-        blocked_axes::BlockedTuple{2, <:Any, <:Tuple{Vararg{AbstractUnitRange}}},
-    )
+function unmatricize(m::AbstractMatrix, blocked_axes::AbstractBlockTuple{2})
     return unmatricize(FusionStyle(m), m, blocked_axes)
 end
 function unmatricize(
-        style::FusionStyle,
-        m::AbstractMatrix,
-        blocked_axes::BlockedTuple{2, <:Any, <:Tuple{Vararg{AbstractUnitRange}}},
+        style::FusionStyle, m::AbstractMatrix, blocked_axes::AbstractBlockTuple{2}
     )
     return unmatricize(style, m, blocks(blocked_axes)...)
 end

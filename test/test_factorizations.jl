@@ -36,6 +36,9 @@ elts = (Float64, ComplexF64)
     A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
     @test A ≈ A′
     @test size(Q, 1) * size(Q, 2) == size(Q, 3) # Q is unitary
+
+    Q, R = qr(A, (2, 1), (4, 3); full = true)
+    @test A ≈ contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
 end
 
 @testset "Compact QR ($T)" for T in elts
@@ -66,6 +69,9 @@ end
     A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
     @test A ≈ A′
     @test size(Q, 1) == size(Q, 2) * size(Q, 3) # Q is unitary
+
+    L, Q = lq(A, (2, 1), (4, 3); full = true)
+    @test A ≈ contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
 end
 
 @testset "Compact LQ ($T)" for T in elts
@@ -146,6 +152,10 @@ end
     @test A ≈ A′
     @test size(U, 1) * size(U, 2) == size(U, 3) # U is unitary
     @test size(Vᴴ, 1) == size(Vᴴ, 2) * size(Vᴴ, 3) # V is unitary
+
+    U, S, Vᴴ = svd(A, (2, 1), (4, 3); full = true)
+    US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
+    @test A ≈ contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
 
     U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = true)
     @test A == Acopy # should not have altered initial array
@@ -325,5 +335,8 @@ end
         A′ = contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
         @test A ≈ A′
         @test size(X, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+
+        X, Y = factorize(A, (2, 1), (4, 3); orth)
+        @test A ≈ contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
     end
 end
