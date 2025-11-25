@@ -11,6 +11,7 @@ using Test: @test, @testset
             a = randn(rng, $elt, (2, 2, 2, 2))
             for fa in (
                     TensorAlgebra.$f(a, (:a, :b, :c, :d), (:c, :b), (:d, :a)),
+                    TensorAlgebra.$f(a, (3, 2), (4, 1)),
                     TensorAlgebra.$f(a, biperm((3, 2, 4, 1), Val(2))),
                 )
                 fa′ = reshape($f(reshape(permutedims(a, (3, 2, 4, 1)), (4, 4))), (2, 2, 2, 2))
