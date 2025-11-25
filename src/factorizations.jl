@@ -23,6 +23,14 @@ for f in (
             axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
             return unmatricize(X, axes_X), unmatricize(Y, axes_Y)
         end
+    end
+end
+
+for f in (
+        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth, :factorize,
+        :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
+    )
+    @eval begin
         function $f(
                 A::AbstractArray,
                 codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
@@ -183,26 +191,18 @@ their labels or directly through a bi-permutation.
 See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlgebraKit.eig_vals!`,
 `MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
 """
-function eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return eigen(A, blocks(biperm)...; kwargs...)
-end
-function eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-    return eigen(A, blocks(biperm)...; kwargs...)
-end
 function eigen(
         A::AbstractArray,
-        codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+        codomain_length::Val, domain_length::Val;
         kwargs...,
     )
     # tensor to matrix
-    A_mat = matricize(A, codomain_perm, domain_perm)
-
+    A_mat = matricize(A, codomain_length, domain_length)
     # factorization
     D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
 
     # matrix to tensor
-    biperm = permmortar((codomain_perm, domain_perm))
+    biperm = blockedtrivialperm((codomain_length, domain_length))
     axes_codomain, = blocks(axes(A)[biperm])
     axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
     return D, unmatricize(V, axes_V)
@@ -225,19 +225,12 @@ their labels or directly through a bi-permutation. The output is a vector of eig
 
 See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
-function eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return eigvals(A, blocks(biperm)...; kwargs...)
-end
-function eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-    return eigvals(A, blocks(biperm)...; kwargs...)
-end
 function eigvals(
         A::AbstractArray,
-        codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+        codomain_length::Val, domain_length::Val;
         kwargs...,
     )
-    A_mat = matricize(A, codomain_perm, domain_perm)
+    A_mat = matricize(A, codomain_length, domain_length)
     return MatrixAlgebra.eigvals!(A_mat; kwargs...)
 end
 
@@ -259,26 +252,18 @@ their labels or directly through a bi-permutation.
 
 See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
 """
-function svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return svd(A, blocks(biperm)...; kwargs...)
-end
-function svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-    return svd(A, blocks(biperm)...; kwargs...)
-end
 function svd(
         A::AbstractArray,
-        codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+        codomain_length::Val, domain_length::Val;
         kwargs...,
     )
     # tensor to matrix
-    A_mat = matricize(A, codomain_perm, domain_perm)
-
+    A_mat = matricize(A, codomain_length, domain_length)
     # factorization
     U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
 
     # matrix to tensor
-    biperm = permmortar((codomain_perm, domain_perm))
+    biperm = blockedtrivialperm((codomain_length, domain_length))
     axes_codomain, axes_domain = blocks(axes(A)[biperm])
     axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
     axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
@@ -296,18 +281,11 @@ their labels or directly through a bi-permutation. The output is a vector of sin
 
 See also `MatrixAlgebraKit.svd_vals!`.
 """
-function svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain)
-    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return svdvals(A, blocks(biperm)...)
-end
-function svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2})
-    return svdvals(A, blocks(biperm)...)
-end
 function svdvals(
         A::AbstractArray,
-        codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}
+        codomain_length::Val, domain_length::Val
     )
-    A_mat = matricize(A, codomain_perm, domain_perm)
+    A_mat = matricize(A, codomain_length, domain_length)
     return MatrixAlgebra.svdvals!(A_mat)
 end
 
@@ -329,21 +307,14 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
   The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
   The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
-function left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return left_null(A, blocks(biperm)...; kwargs...)
-end
-function left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-    return left_null(A, blocks(biperm)...; kwargs...)
-end
 function left_null(
         A::AbstractArray,
-        codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+        codomain_length::Val, domain_length::Val;
         kwargs...,
     )
-    A_mat = matricize(A, codomain_perm, domain_perm)
+    A_mat = matricize(A, codomain_length, domain_length)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
-    biperm = permmortar((codomain_perm, domain_perm))
+    biperm = blockedtrivialperm((codomain_length, domain_length))
     axes_codomain = first(blocks(axes(A)[biperm]))
     axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
     return unmatricize(N, axes_N)
@@ -367,21 +338,14 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
   The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
   The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
-function right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-    biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return right_null(A, blocks(biperm)...; kwargs...)
-end
-function right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-    return right_null(A, blocks(biperm)...; kwargs...)
-end
 function right_null(
         A::AbstractArray,
-        codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+        codomain_length::Val, domain_length::Val;
         kwargs...,
     )
-    A_mat = matricize(A, codomain_perm, domain_perm)
+    A_mat = matricize(A, codomain_length, domain_length)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
-    biperm = permmortar((codomain_perm, domain_perm))
+    biperm = blockedtrivialperm((codomain_length, domain_length))
     axes_domain = last(blocks((axes(A)[biperm])))
     axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
     return unmatricize(Nᴴ, axes_Nᴴ)
