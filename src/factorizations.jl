@@ -7,21 +7,29 @@ for f in (
     @eval begin
         function $f(
                 A::AbstractArray,
-                codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+                codomain_length::Val, domain_length::Val;
                 kwargs...,
             )
             # tensor to matrix
-            A_mat = matricize(A, codomain_perm, domain_perm)
+            A_mat = matricize(A, codomain_length, domain_length)
 
             # factorization
             X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
 
             # matrix to tensor
-            biperm = permmortar((codomain_perm, domain_perm))
+            biperm = blockedtrivialperm((codomain_length, domain_length))
             axes_codomain, axes_domain = blocks(axes(A)[biperm])
             axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
             axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
             return unmatricize(X, axes_X), unmatricize(Y, axes_Y)
+        end
+        function $f(
+                A::AbstractArray,
+                codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+                kwargs...,
+            )
+            A_perm = permuteblockeddims(A, codomain_perm, domain_perm)
+            return $f(A_perm, Val(length(codomain_perm)), Val(length(domain_perm)); kwargs...)
         end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
             biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
