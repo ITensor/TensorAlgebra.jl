@@ -5,8 +5,8 @@ using StableRNGs: StableRNG
 using TensorOperations: TensorOperations
 
 using TensorAlgebra:
-    Algorithm,
     BlockedTuple,
+    ContractAlgorithm,
     blockedpermvcat,
     contract,
     contract!,
@@ -159,7 +159,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         @test_throws ArgumentError unmatricize!(m, m, blockedpermvcat((1, 2), (3,)))
     end
 
-    alg_tensoroperations = Algorithm(TensorOperations.StridedBLAS())
+    alg_tensoroperations = ContractAlgorithm(TensorOperations.StridedBLAS())
     @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
         elt_dest = promote_type(elt1, elt2)
         a1 = ones(elt1, (1, 1))

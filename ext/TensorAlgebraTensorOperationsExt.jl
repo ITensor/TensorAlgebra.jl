@@ -1,6 +1,6 @@
 module TensorAlgebraTensorOperationsExt
 
-using TensorAlgebra: TensorAlgebra, BlockedPermutation, Algorithm, blocklengths
+using TensorAlgebra: TensorAlgebra, BlockedPermutation, ContractAlgorithm, blocklengths
 using TupleTools: TupleTools
 using TensorOperations: TensorOperations, AbstractBackend, DefaultBackend, Index2Tuple
 
@@ -9,11 +9,13 @@ using TensorOperations: TensorOperations, AbstractBackend, DefaultBackend, Index
 
 Wrapper type for making a TensorOperations backend work as a TensorAlgebra algorithm.
 """
-struct TensorOperationsAlgorithm{B <: AbstractBackend} <: Algorithm
+struct TensorOperationsAlgorithm{B <: AbstractBackend} <: ContractAlgorithm
     backend::B
 end
 
-TensorAlgebra.Algorithm(backend::AbstractBackend) = TensorOperationsAlgorithm(backend)
+function TensorAlgebra.ContractAlgorithm(backend::AbstractBackend)
+    return TensorOperationsAlgorithm(backend)
+end
 
 trivtuple(n) = ntuple(identity, n)
 
@@ -111,7 +113,7 @@ function TensorOperations.tensorcontract!(
         pAB::Index2Tuple,
         α::Number,
         β::Number,
-        backend::Algorithm,
+        backend::ContractAlgorithm,
         allocator,
     )
     bipermA = _blockedpermutation(pA)
@@ -131,7 +133,7 @@ function TensorOperations.tensortrace!(
         conjA::Bool,
         α::Number,
         β::Number,
-        ::Algorithm,
+        ::ContractAlgorithm,
         allocator,
     )
     return TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, DefaultBackend(), allocator)
@@ -143,7 +145,7 @@ function TensorOperations.tensoradd!(
         conjA::Bool,
         α::Number,
         β::Number,
-        ::Algorithm,
+        ::ContractAlgorithm,
         allocator,
     )
     return TensorOperations.tensoradd!(C, A, pA, conjA, α, β, DefaultBackend(), allocator)

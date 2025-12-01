@@ -13,7 +13,7 @@ function default_contract_algorithm(A1::Type{<:AbstractArray}, A2::Type{<:Abstra
     style1 = FusionStyle(A1)
     style2 = FusionStyle(A2)
     style1 == style2 || error("Styles must match.")
-    return style1
+    return Matricize(style1)
 end
 
 # Required interface if not using
