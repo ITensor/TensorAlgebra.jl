@@ -1,6 +1,6 @@
 function output_labels(
         f::typeof(contract),
-        alg::Algorithm,
+        alg::ContractAlgorithm,
         a1::AbstractArray,
         labels1,
         a2::AbstractArray,
@@ -9,7 +9,7 @@ function output_labels(
     return output_labels(f, alg, labels1, labels2)
 end
 
-function output_labels(f::typeof(contract), ::Algorithm, labels1, labels2)
+function output_labels(f::typeof(contract), ::ContractAlgorithm, labels1, labels2)
     return output_labels(f, labels1, labels2)
 end
 
