@@ -17,7 +17,7 @@ length_domain(t) = 0
 length_codomain(t) = length(t) - length_domain(t)
 
 function blockedperms(
-        f::typeof(contract), alg::Algorithm, dimnames_dest, dimnames1, dimnames2
+        f::typeof(contract), alg::ContractAlgorithm, dimnames_dest, dimnames1, dimnames2
     )
     return blockedperms(f, dimnames_dest, dimnames1, dimnames2)
 end

@@ -1,7 +1,7 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
-version = "0.5.3"
+version = "0.5.4"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
