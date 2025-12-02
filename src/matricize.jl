@@ -23,10 +23,10 @@ trivial_axis(::Type{<:AbstractBlockedUnitRange}) = blockedrange([1])
 tensor_product(::FusionStyle, ax1, ax2) = ax1 ⊗ ax2
 
 # Inner version takes a list of sub-permutations, overload this one if needed.
-function matricize_axes(style::FusionStyle, a::AbstractArray, length_codomain::Val)
-    unval(length_codomain) ≤ ndims(a) ||
+function matricize_axes(style::FusionStyle, a::AbstractArray, ndims_codomain::Val)
+    unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
-    biperm = trivialbiperm(length_codomain, Val(ndims(a)))
+    biperm = trivialbiperm(ndims_codomain, Val(ndims(a)))
     axesblocks = blocks(axes(a)[biperm])
     init_axis = trivial_axis(axis_type(a))
     return map(axesblocks) do axesblock
@@ -35,8 +35,8 @@ function matricize_axes(style::FusionStyle, a::AbstractArray, length_codomain::V
         end
     end
 end
-function matricize_axes(a::AbstractArray, length_codomain::Val)
-    return matricize_axes(FusionStyle(a), a, length_codomain)
+function matricize_axes(a::AbstractArray, ndims_codomain::Val)
+    return matricize_axes(FusionStyle(a), a, ndims_codomain)
 end
 
 # Inner version takes a list of sub-permutations, overload this one if needed.
@@ -82,17 +82,17 @@ end
 # matrix factorizations assume copy
 # maybe: copy=false kwarg
 
-function matricize(a::AbstractArray, length_codomain::Val)
-    return matricize(FusionStyle(a), a, length_codomain)
+function matricize(a::AbstractArray, ndims_codomain::Val)
+    return matricize(FusionStyle(a), a, ndims_codomain)
 end
 # This is the primary function that should be overloaded for new fusion styles.
 # This assumes the permutation was already performed.
 function matricize(
-        style::FusionStyle, a::AbstractArray, length_codomain::Val
+        style::FusionStyle, a::AbstractArray, ndims_codomain::Val
     )
     return throw(
         MethodError(
-            matricize, Tuple{typeof(style), typeof(a), typeof(length_codomain)}
+            matricize, Tuple{typeof(style), typeof(a), typeof(ndims_codomain)}
         )
     )
 end
@@ -288,8 +288,8 @@ end
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
-function matricize(style::ReshapeFusion, a::AbstractArray, length_codomain::Val)
-    return reshape(a, matricize_axes(style, a, length_codomain))
+function matricize(style::ReshapeFusion, a::AbstractArray, ndims_codomain::Val)
+    return reshape(a, matricize_axes(style, a, ndims_codomain))
 end
 function unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,

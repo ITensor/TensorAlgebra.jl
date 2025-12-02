@@ -33,14 +33,10 @@ const MATRIX_FUNCTIONS = [
 
 for f in MATRIX_FUNCTIONS
     @eval begin
-        function $f(
-                a::AbstractArray,
-                length_codomain::Val;
-                kwargs...,
-            )
-            a_mat = matricize(a, length_codomain)
+        function $f(a::AbstractArray, ndims_codomain::Val; kwargs...)
+            a_mat = matricize(a, ndims_codomain)
             fa_mat = Base.$f(a_mat; kwargs...)
-            biperm = trivialbiperm(length_codomain, Val(ndims(a)))
+            biperm = trivialbiperm(ndims_codomain, Val(ndims(a)))
             return unmatricize(fa_mat, axes(a)[biperm])
         end
         function $f(
