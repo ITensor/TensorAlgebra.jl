@@ -17,7 +17,7 @@ using Test: @test, @testset
                 local fa′ = reshape($f(reshape(permutedims(a, (3, 2, 4, 1)), (4, 4))), (2, 2, 2, 2))
                 @test fa ≈ fa′
             end
-            fa = TensorAlgebra.$f(a, Val(2), Val(2))
+            fa = TensorAlgebra.$f(a, Val(2))
             fa′ = reshape($f(reshape(a, (4, 4))), (2, 2, 2, 2))
             @test fa ≈ fa′
         end
