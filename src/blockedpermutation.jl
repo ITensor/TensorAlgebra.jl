@@ -206,6 +206,11 @@ function blockedtrivialperm(blocklengths::Tuple{Vararg{Int}})
     return blockedtrivialperm(Val.(blocklengths))
 end
 
+function trivialbiperm(length_codomain::Val, length::Val)
+    length_domain = Val(unval(length) - unval(length_codomain))
+    return blockedtrivialperm((length_codomain, length_domain))
+end
+
 function trivialperm(blockedperm::AbstractBlockTuple)
     return blockedtrivialperm(blocklengths(blockedperm))
 end

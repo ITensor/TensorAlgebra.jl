@@ -2,22 +2,14 @@ using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
 for f in (
-        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth, :factorize,
+        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
+        :factorize,
     )
     @eval begin
-        function $f(
-                A::AbstractArray,
-                codomain_length::Val, domain_length::Val;
-                kwargs...,
-            )
-            # tensor to matrix
-            A_mat = matricize(A, codomain_length, domain_length)
-
-            # factorization
+        function $f(A::AbstractArray, length_codomain::Val; kwargs...)
+            A_mat = matricize(A, length_codomain)
             X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
-
-            # matrix to tensor
-            biperm = blockedtrivialperm((codomain_length, domain_length))
+            biperm = trivialbiperm(length_codomain, Val(ndims(A)))
             axes_codomain, axes_domain = blocks(axes(A)[biperm])
             axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
             axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
@@ -27,17 +19,17 @@ for f in (
 end
 
 for f in (
-        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth, :factorize,
-        :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
+        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
+        :factorize, :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
     )
     @eval begin
         function $f(
                 A::AbstractArray,
-                codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}};
+                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
                 kwargs...,
             )
-            A_perm = bipermutedims(A, codomain_perm, domain_perm)
-            return $f(A_perm, Val(length(codomain_perm)), Val(length(domain_perm)); kwargs...)
+            A_perm = bipermutedims(A, perm_codomain, perm_domain)
+            return $f(A_perm, Val(length(perm_codomain)); kwargs...)
         end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
             biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
@@ -51,8 +43,8 @@ end
 
 """
     qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> Q, R
-    qr(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> Q, R
+    qr(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr(A::AbstractArray, length_codomain::Val; kwargs...) -> Q, R
     qr(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
@@ -71,8 +63,8 @@ qr
 
 """
     lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> L, Q
-    lq(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> L, Q
+    lq(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq(A::AbstractArray, length_codomain::Val; kwargs...) -> L, Q
     lq(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
@@ -91,8 +83,8 @@ lq
 
 """
     left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
-    left_polar(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> W, P
-    left_polar(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> W, P
+    left_polar(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> W, P
+    left_polar(A::AbstractArray, length_codomain::Val; kwargs...) -> W, P
     left_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -109,8 +101,8 @@ left_polar
 
 """
     right_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
-    right_polar(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> P, W
-    right_polar(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> P, W
+    right_polar(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P, W
+    right_polar(A::AbstractArray, length_codomain::Val; kwargs...) -> P, W
     right_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -127,8 +119,8 @@ right_polar
 
 """
     left_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
-    left_orth(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> V, C
-    left_orth(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> V, C
+    left_orth(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> V, C
+    left_orth(A::AbstractArray, length_codomain::Val; kwargs...) -> V, C
     left_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -145,8 +137,8 @@ left_orth
 
 """
     right_orth(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
-    right_orth(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> C, V
-    right_orth(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> C, V
+    right_orth(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> C, V
+    right_orth(A::AbstractArray, length_codomain::Val; kwargs...) -> C, V
     right_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -163,8 +155,8 @@ right_orth
 
 """
     factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    factorize(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> X, Y
-    factorize(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> X, Y
+    factorize(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X, Y
+    factorize(A::AbstractArray, length_codomain::Val; kwargs...) -> X, Y
     factorize(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
 
 Compute the decomposition of a generic N-dimensional array, by interpreting it as
@@ -181,8 +173,8 @@ factorize
 
 """
     eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eigen(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> D, V
-    eigen(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> D, V
+    eigen(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eigen(A::AbstractArray, length_codomain::Val; kwargs...) -> D, V
     eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
@@ -199,18 +191,11 @@ their labels or directly through a bi-permutation.
 See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlgebraKit.eig_vals!`,
 `MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
 """
-function eigen(
-        A::AbstractArray,
-        codomain_length::Val, domain_length::Val;
-        kwargs...,
-    )
+function eigen(A::AbstractArray, length_codomain::Val; kwargs...)
     # tensor to matrix
-    A_mat = matricize(A, codomain_length, domain_length)
-    # factorization
+    A_mat = matricize(A, length_codomain)
     D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
-
-    # matrix to tensor
-    biperm = blockedtrivialperm((codomain_length, domain_length))
+    biperm = trivialbiperm(length_codomain, Val(ndims(A)))
     axes_codomain, = blocks(axes(A)[biperm])
     axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
     return D, unmatricize(V, axes_V)
@@ -218,8 +203,8 @@ end
 
 """
     eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eigvals(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> D
-    eigvals(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> D
+    eigvals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eigvals(A::AbstractArray, length_codomain::Val; kwargs...) -> D
     eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
@@ -234,19 +219,15 @@ their labels or directly through a bi-permutation. The output is a vector of eig
 
 See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
-function eigvals(
-        A::AbstractArray,
-        codomain_length::Val, domain_length::Val;
-        kwargs...,
-    )
-    A_mat = matricize(A, codomain_length, domain_length)
+function eigvals(A::AbstractArray, length_codomain::Val; kwargs...)
+    A_mat = matricize(A, length_codomain)
     return MatrixAlgebra.eigvals!(A_mat; kwargs...)
 end
 
 """
     svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
-    svd(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> U, S, Vᴴ
+    svd(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd(A::AbstractArray, length_codomain::Val; kwargs...) -> U, S, Vᴴ
     svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
 
 Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
@@ -262,18 +243,10 @@ their labels or directly through a bi-permutation.
 
 See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
 """
-function svd(
-        A::AbstractArray,
-        codomain_length::Val, domain_length::Val;
-        kwargs...,
-    )
-    # tensor to matrix
-    A_mat = matricize(A, codomain_length, domain_length)
-    # factorization
+function svd(A::AbstractArray, length_codomain::Val; kwargs...)
+    A_mat = matricize(A, length_codomain)
     U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
-
-    # matrix to tensor
-    biperm = blockedtrivialperm((codomain_length, domain_length))
+    biperm = trivialbiperm(length_codomain, Val(ndims(A)))
     axes_codomain, axes_domain = blocks(axes(A)[biperm])
     axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
     axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
@@ -282,8 +255,8 @@ end
 
 """
     svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> S
-    svdvals(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}) -> S
-    svdvals(A::AbstractArray, codomain_length::Val, domain_length::Val) -> S
+    svdvals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> S
+    svdvals(A::AbstractArray, length_codomain::Val) -> S
     svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as
@@ -292,18 +265,15 @@ their labels or directly through a bi-permutation. The output is a vector of sin
 
 See also `MatrixAlgebraKit.svd_vals!`.
 """
-function svdvals(
-        A::AbstractArray,
-        codomain_length::Val, domain_length::Val
-    )
-    A_mat = matricize(A, codomain_length, domain_length)
+function svdvals(A::AbstractArray, length_codomain::Val)
+    A_mat = matricize(A, length_codomain)
     return MatrixAlgebra.svdvals!(A_mat)
 end
 
 """
     left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> N
-    left_null(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> N
-    left_null(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> N
+    left_null(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> N
+    left_null(A::AbstractArray, length_codomain::Val; kwargs...) -> N
     left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
@@ -319,14 +289,10 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
   The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
   The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
-function left_null(
-        A::AbstractArray,
-        codomain_length::Val, domain_length::Val;
-        kwargs...,
-    )
-    A_mat = matricize(A, codomain_length, domain_length)
+function left_null(A::AbstractArray, length_codomain::Val; kwargs...)
+    A_mat = matricize(A, length_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
-    biperm = blockedtrivialperm((codomain_length, domain_length))
+    biperm = trivialbiperm(length_codomain, Val(ndims(A)))
     axes_codomain = first(blocks(axes(A)[biperm]))
     axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
     return unmatricize(N, axes_N)
@@ -334,8 +300,8 @@ end
 
 """
     right_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
-    right_null(A::AbstractArray, codomain_perm::Tuple{Vararg{Int}}, domain_perm::Tuple{Vararg{Int}}; kwargs...) -> Nᴴ
-    right_null(A::AbstractArray, codomain_length::Val, domain_length::Val; kwargs...) -> Nᴴ
+    right_null(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Nᴴ
+    right_null(A::AbstractArray, length_codomain::Val::Val; kwargs...) -> Nᴴ
     right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
@@ -351,14 +317,10 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
   The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
   The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
-function right_null(
-        A::AbstractArray,
-        codomain_length::Val, domain_length::Val;
-        kwargs...,
-    )
-    A_mat = matricize(A, codomain_length, domain_length)
+function right_null(A::AbstractArray, length_codomain::Val; kwargs...)
+    A_mat = matricize(A, length_codomain)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
-    biperm = blockedtrivialperm((codomain_length, domain_length))
+    biperm = trivialbiperm(length_codomain, Val(ndims(A)))
     axes_domain = last(blocks((axes(A)[biperm])))
     axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
     return unmatricize(Nᴴ, axes_Nᴴ)

@@ -12,30 +12,31 @@ FusionStyle(x) = FusionStyle(typeof(x))
 FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
 
 # =======================================  misc  ========================================
-trivial_axis(::Tuple{}) = Base.OneTo(1)
-trivial_axis(::Tuple{Vararg{AbstractUnitRange}}) = Base.OneTo(1)
-trivial_axis(::Tuple{Vararg{AbstractBlockedUnitRange}}) = blockedrange([1])
+axis_type(a::AbstractArray) = eltype(axes(a))
+axis_type(a::AbstractArray{<:Any, 0}) = Base.OneTo{Int}
+trivial_axis(::Type{<:AbstractUnitRange}) = Base.OneTo(1)
+trivial_axis(::Type{<:AbstractBlockedUnitRange}) = blockedrange([1])
+
+# Fallback to `TensorProducts.⊗`.
+# TODO: Remove dependency on TensorProducts.jl, update downstream packages:
+# BlockSparseArrays.jl, GradedArrays.jl, FusionTensors.jl.
+tensor_product(::FusionStyle, ax1, ax2) = ax1 ⊗ ax2
 
 # Inner version takes a list of sub-permutations, overload this one if needed.
-function fuseaxes(
-        axes::Tuple{Vararg{AbstractUnitRange}}, lengths::Val...
-    )
-    axesblocks = blocks(axes[blockedtrivialperm(lengths)])
-    return map(block -> isempty(block) ? trivial_axis(axes) : ⊗(block...), axesblocks)
+function matricize_axes(style::FusionStyle, a::AbstractArray, length_codomain::Val)
+    unval(length_codomain) ≤ ndims(a) ||
+        throw(ArgumentError("Codomain length exceeds number of dimensions."))
+    biperm = trivialbiperm(length_codomain, Val(ndims(a)))
+    axesblocks = blocks(axes(a)[biperm])
+    init_axis = trivial_axis(axis_type(a))
+    return map(axesblocks) do axesblock
+        return reduce(axesblock; init = init_axis) do ax1, ax2
+            return tensor_product(style, ax1, ax2)
+        end
+    end
 end
-
-# Inner version takes a list of sub-permutations, overload this one if needed.
-function fuseaxes(
-        axes::Tuple{Vararg{AbstractUnitRange}}, permblocks::Tuple{Vararg{Int}}...
-    )
-    axes′ = map(d -> axes[d], permmortar(permblocks))
-    return fuseaxes(axes′, Val.(length.(permblocks))...)
-end
-
-function fuseaxes(
-        axes::Tuple{Vararg{AbstractUnitRange}}, blockedperm::AbstractBlockPermutation
-    )
-    return fuseaxes(axes, blocks(blockedperm)...)
+function matricize_axes(a::AbstractArray, length_codomain::Val)
+    return matricize_axes(FusionStyle(a), a, length_codomain)
 end
 
 # Inner version takes a list of sub-permutations, overload this one if needed.
@@ -81,33 +82,36 @@ end
 # matrix factorizations assume copy
 # maybe: copy=false kwarg
 
-function matricize(a::AbstractArray, length1::Val, length2::Val)
-    return matricize(FusionStyle(a), a, length1, length2)
+function matricize(a::AbstractArray, length_codomain::Val)
+    return matricize(FusionStyle(a), a, length_codomain)
 end
 # This is the primary function that should be overloaded for new fusion styles.
 # This assumes the permutation was already performed.
-function matricize(style::FusionStyle, a::AbstractArray, length1::Val, length2::Val)
+function matricize(
+        style::FusionStyle, a::AbstractArray, length_codomain::Val
+    )
     return throw(
         MethodError(
-            matricize, Tuple{typeof(style), typeof(a), typeof(length1), typeof(length2)}
+            matricize, Tuple{typeof(style), typeof(a), typeof(length_codomain)}
         )
     )
 end
 
 function matricize(
-        a::AbstractArray, permblock1::Tuple{Vararg{Int}}, permblock2::Tuple{Vararg{Int}}
+        a::AbstractArray,
+        permblock_codomain::Tuple{Vararg{Int}}, permblock_domain::Tuple{Vararg{Int}}
     )
-    return matricize(FusionStyle(a), a, permblock1, permblock2)
+    return matricize(FusionStyle(a), a, permblock_codomain, permblock_domain)
 end
 # This is a more advanced version to overload where the permutation is actually performed.
 function matricize(
         style::FusionStyle, a::AbstractArray,
-        permblock1::NTuple{N1, Int}, permblock2::NTuple{N2, Int}
-    ) where {N1, N2}
-    ndims(a) == length(permblock1) + length(permblock2) ||
+        permblock_codomain::Tuple{Vararg{Int}}, permblock_domain::Tuple{Vararg{Int}}
+    )
+    ndims(a) == length(permblock_codomain) + length(permblock_domain) ||
         throw(ArgumentError("Invalid bipermutation"))
-    a_perm = bipermutedims(a, permblock1, permblock2)
-    return matricize(style, a_perm, Val(length(permblock1)), Val(length(permblock2)))
+    a_perm = bipermutedims(a, permblock_codomain, permblock_domain)
+    return matricize(style, a_perm, Val(length(permblock_codomain)))
 end
 
 # Process inputs such as `EllipsisNotation.Ellipsis`.
@@ -133,11 +137,14 @@ function to_permblocks(
     permblocks2 = tuplesetcomplement(ntuple(identity, ndims(a)), permblocks[1])
     return (permblocks[1], permblocks2)
 end
-function matricize(a::AbstractArray, permblock1, permblock2)
-    return matricize(FusionStyle(a), a, permblock1, permblock2)
+
+function matricize(a::AbstractArray, permblock_codomain, permblock_domain)
+    return matricize(FusionStyle(a), a, permblock_codomain, permblock_domain)
 end
-function matricize(style::FusionStyle, a::AbstractArray, permblock1, permblock2)
-    return matricize(style, a, to_permblocks(a, (permblock1, permblock2))...)
+function matricize(
+        style::FusionStyle, a::AbstractArray, permblock_codomain, permblock_domain
+    )
+    return matricize(style, a, to_permblocks(a, (permblock_codomain, permblock_domain))...)
 end
 
 function matricize(a::AbstractArray, biperm_dest::AbstractBlockPermutation{2})
@@ -152,22 +159,22 @@ end
 # ====================================  unmatricize  =======================================
 function unmatricize(
         m::AbstractMatrix,
-        codomain_axes::Tuple{Vararg{AbstractUnitRange}},
-        domain_axes::Tuple{Vararg{AbstractUnitRange}},
+        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}},
     )
-    return unmatricize(FusionStyle(m), m, codomain_axes, domain_axes)
+    return unmatricize(FusionStyle(m), m, axes_codomain, axes_domain)
 end
 # This is the primary function that should be overloaded for new fusion styles.
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix,
-        codomain_axes::Tuple{Vararg{AbstractUnitRange}},
-        domain_axes::Tuple{Vararg{AbstractUnitRange}},
+        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}},
     )
     return throw(
         MethodError(
             unmatricize,
             Tuple{
-                typeof(style), typeof(m), typeof(codomain_axes), typeof(domain_axes),
+                typeof(style), typeof(m), typeof(axes_codomain), typeof(axes_domain),
             },
         )
     )
@@ -190,9 +197,9 @@ function unmatricize(
 end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
     )
-    invbiperm = permmortar((invperm1, invperm2))
+    invbiperm = permmortar((invperm_codomain, invperm_domain))
     length(axes_dest) == length(invbiperm) ||
         throw(ArgumentError("axes do not match permutation"))
     blocked_axes = axes_dest[invbiperm]
@@ -213,15 +220,15 @@ end
 
 function unmatricize!(
         a_dest::AbstractArray, m::AbstractMatrix,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
     )
-    return unmatricize!(FusionStyle(m), a_dest, m, invperm1, invperm2)
+    return unmatricize!(FusionStyle(m), a_dest, m, invperm_codomain, invperm_domain)
 end
 function unmatricize!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
     )
-    invbiperm = permmortar((invperm1, invperm2))
+    invbiperm = permmortar((invperm_codomain, invperm_domain))
     ndims(a_dest) == length(invbiperm) ||
         throw(ArgumentError("destination does not match permutation"))
     blocked_axes = axes(a_dest)[invbiperm]
@@ -244,17 +251,19 @@ end
 
 function unmatricizeadd!(
         a_dest::AbstractArray, m::AbstractMatrix,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
         α::Number, β::Number
     )
-    return unmatricizeadd!(FusionStyle(a_dest), a_dest, m, invperm1, invperm2, α, β)
+    return unmatricizeadd!(
+        FusionStyle(a_dest), a_dest, m, invperm_codomain, invperm_domain, α, β
+    )
 end
 function unmatricizeadd!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
         α::Number, β::Number,
     )
-    a12 = unmatricize(style, m, axes(a_dest), invperm1, invperm2)
+    a12 = unmatricize(style, m, axes(a_dest), invperm_codomain, invperm_domain)
     a_dest .= α .* a12 .+ β .* a_dest
     return a_dest
 end
@@ -279,13 +288,13 @@ end
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
-function matricize(style::ReshapeFusion, a::AbstractArray, length1::Val, length2::Val)
-    return reshape(a, fuseaxes(axes(a), length1, length2))
+function matricize(style::ReshapeFusion, a::AbstractArray, length_codomain::Val)
+    return reshape(a, matricize_axes(style, a, length_codomain))
 end
 function unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,
-        codomain_axes::Tuple{Vararg{AbstractUnitRange}},
-        domain_axes::Tuple{Vararg{AbstractUnitRange}},
+        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}},
     )
-    return reshape(m, (codomain_axes..., domain_axes...))
+    return reshape(m, (axes_codomain..., axes_domain...))
 end
