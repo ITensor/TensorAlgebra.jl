@@ -8,7 +8,7 @@ FusionStyle(x) = FusionStyle(typeof(x))
 FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
 
 # =======================================  misc  ========================================
-trivial_axis(::FusionStyle) = trivial_axis(ReshapeFusion())
+trivial_axis(style::FusionStyle, a::AbstractArray) = trivial_axis(ReshapeFusion(), a)
 
 # Tensor product two spaces (ranges) together based on a fusion style.
 function tensor_product_axis(::FusionStyle, r1::AbstractUnitRange, r2::AbstractUnitRange)
@@ -26,7 +26,7 @@ function matricize_axes(style::FusionStyle, a::AbstractArray, ndims_codomain::Va
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
     biperm = trivialbiperm(ndims_codomain, Val(ndims(a)))
     axesblocks = blocks(axes(a)[biperm])
-    init_axis = trivial_axis(style)
+    init_axis = trivial_axis(style, a)
     return map(axesblocks) do axesblock
         return reduce(axesblock; init = init_axis) do ax1, ax2
             return tensor_product_axis(style, ax1, ax2)
@@ -257,7 +257,7 @@ end
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
-trivial_axis(::ReshapeFusion) = Base.OneTo(1)
+trivial_axis(::ReshapeFusion, a::AbstractArray) = Base.OneTo(1)
 function tensor_product_axis(::ReshapeFusion, r1::AbstractUnitRange, r2::AbstractUnitRange)
     isone(first(r1)) || isone(first(r2)) ||
         throw(ArgumentError("Only one-based axes are supported"))

@@ -4,7 +4,7 @@ using BlockArrays: AbstractBlockArray, AbstractBlockedUnitRange, BlockedArray, b
 struct BlockReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractBlockArray}) = BlockReshapeFusion()
 
-trivial_axis(::BlockReshapeFusion) = blockedrange([1])
+trivial_axis(::BlockReshapeFusion, a::AbstractArray) = blockedrange([1])
 function mortar_axis(axs)
     all(isone ∘ first, axs) ||
         throw(ArgumentError("Only one-based axes are supported"))
