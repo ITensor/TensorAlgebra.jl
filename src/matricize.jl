@@ -1,9 +1,5 @@
-using LinearAlgebra: Diagonal
-
-using BlockArrays: AbstractBlockedUnitRange, blockedrange
-
-using TensorProducts: ⊗
 using .BaseExtensions: _permutedims, _permutedims!
+using LinearAlgebra: Diagonal
 
 # =====================================  FusionStyle  ======================================
 abstract type FusionStyle end
@@ -15,14 +11,18 @@ FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
 axis_type(a::AbstractArray) = eltype(axes(a))
 axis_type(a::AbstractArray{<:Any, 0}) = Base.OneTo{Int}
 trivial_axis(::Type{<:AbstractUnitRange}) = Base.OneTo(1)
-trivial_axis(::Type{<:AbstractBlockedUnitRange}) = blockedrange([1])
 
-# Fallback to `TensorProducts.⊗`.
-# TODO: Remove dependency on TensorProducts.jl, update downstream packages:
-# BlockSparseArrays.jl, GradedArrays.jl, FusionTensors.jl.
-tensor_product(::FusionStyle, ax1, ax2) = ax1 ⊗ ax2
+# Tensor product two spaces (ranges) together based on a fusion style.
+function tensor_product_axis(::FusionStyle, r1::AbstractUnitRange, r2::AbstractUnitRange)
+    return tensor_product_axis(ReshapeFusion(), r1, r2)
+end
+function tensor_product_axis(r1::AbstractUnitRange, r2::AbstractUnitRange)
+    style1 = FusionStyle(r1)
+    style2 = FusionStyle(r2)
+    style1 == style2 || error("Styles must match.")
+    return tensor_product_axis(style1, r1, r2)
+end
 
-# Inner version takes a list of sub-permutations, overload this one if needed.
 function matricize_axes(style::FusionStyle, a::AbstractArray, ndims_codomain::Val)
     unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
@@ -31,7 +31,7 @@ function matricize_axes(style::FusionStyle, a::AbstractArray, ndims_codomain::Va
     init_axis = trivial_axis(axis_type(a))
     return map(axesblocks) do axesblock
         return reduce(axesblock; init = init_axis) do ax1, ax2
-            return tensor_product(style, ax1, ax2)
+            return tensor_product_axis(style, ax1, ax2)
         end
     end
 end
@@ -45,10 +45,10 @@ end
 # TODO: Deprecate `permuteblockeddims` in favor of `bipermutedims`.
 # Keeping it here for backwards compatibility.
 function bipermutedims(a::AbstractArray, perm1, perm2)
-    return permuteblockeddims(a, perm1, perm2)
+    return _permutedims(a, (perm1..., perm2...))
 end
 function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
-    return permuteblockeddims!(a_dest, a_src, perm1, perm2)
+    return _permutedims!(a_dest, a_src, (perm1..., perm2...))
 end
 function bipermutedims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
     return bipermutedims(a, blocks(biperm)...)
@@ -57,24 +57,6 @@ function bipermutedims!(
         a_dest::AbstractArray, a_src::AbstractArray, biperm::AbstractBlockPermutation{2}
     )
     return bipermutedims!(a_dest, a_src, blocks(biperm)...)
-end
-
-# Older interface.
-# TODO: Deprecate in favor of `bipermutedims` (or decide if we want to keep it
-# in case there are applications of more general partitionings).
-function permuteblockeddims(a::AbstractArray, perm1, perm2)
-    return _permutedims(a, (perm1..., perm2...))
-end
-function permuteblockeddims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
-    return _permutedims!(a_dest, a_src, (perm1..., perm2...))
-end
-function permuteblockeddims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
-    return permuteblockeddims(a, blocks(biperm)...)
-end
-function permuteblockeddims!(
-        a_dest::AbstractArray, a_src::AbstractArray, biperm::AbstractBlockPermutation{2}
-    )
-    return permuteblockeddims!(a_dest, a_src, blocks(biperm)...)
 end
 
 # =====================================  matricize  ========================================
@@ -90,11 +72,7 @@ end
 function matricize(
         style::FusionStyle, a::AbstractArray, ndims_codomain::Val
     )
-    return throw(
-        MethodError(
-            matricize, Tuple{typeof(style), typeof(a), typeof(ndims_codomain)}
-        )
-    )
+    return matricize(ReshapeFusion(), a, ndims_codomain)
 end
 
 function matricize(
@@ -170,14 +148,7 @@ function unmatricize(
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
         axes_domain::Tuple{Vararg{AbstractUnitRange}},
     )
-    return throw(
-        MethodError(
-            unmatricize,
-            Tuple{
-                typeof(style), typeof(m), typeof(axes_codomain), typeof(axes_domain),
-            },
-        )
-    )
+    return unmatricize(ReshapeFusion(), m, axes_codomain, axes_domain)
 end
 
 function unmatricize(m::AbstractMatrix, blocked_axes::AbstractBlockTuple{2})
@@ -288,6 +259,11 @@ end
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
+function tensor_product_axis(::ReshapeFusion, r1::AbstractUnitRange, r2::AbstractUnitRange)
+    isone(first(r1)) || isone(first(r2)) ||
+        throw(ArgumentError("Only one-based axes are supported"))
+    return Base.OneTo(length(r1) * length(r2))
+end
 function matricize(style::ReshapeFusion, a::AbstractArray, ndims_codomain::Val)
     return reshape(a, matricize_axes(style, a, ndims_codomain))
 end
