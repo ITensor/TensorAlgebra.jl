@@ -259,7 +259,7 @@ struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
 trivial_axis(::ReshapeFusion, a::AbstractArray) = Base.OneTo(1)
 function tensor_product_axis(::ReshapeFusion, r1::AbstractUnitRange, r2::AbstractUnitRange)
-    isone(first(r1)) || isone(first(r2)) ||
+    (isone(first(r1)) && isone(first(r2))) ||
         throw(ArgumentError("Only one-based axes are supported"))
     return Base.OneTo(length(r1) * length(r2))
 end
