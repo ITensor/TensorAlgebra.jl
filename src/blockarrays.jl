@@ -4,14 +4,21 @@ using BlockArrays: AbstractBlockArray, AbstractBlockedUnitRange, BlockedArray, b
 struct BlockReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractBlockArray}) = BlockReshapeFusion()
 
-trivial_axis(::BlockReshapeFusion, a::AbstractArray) = blockedrange([1])
+function trivial_axis(
+        style::BlockReshapeFusion, side::Val{:codomain}, a::AbstractArray,
+        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+    )
+    return blockedrange([1])
+end
 function mortar_axis(axs)
     all(isone ∘ first, axs) ||
         throw(ArgumentError("Only one-based axes are supported"))
     return blockedrange(length.(axs))
 end
 function tensor_product_axis(
-        ::BlockReshapeFusion, r1::AbstractUnitRange, r2::AbstractUnitRange
+        style::BlockReshapeFusion, side::Val{:codomain},
+        r1::AbstractUnitRange, r2::AbstractUnitRange,
     )
     (isone(first(r1)) && isone(first(r2))) ||
         throw(ArgumentError("Only one-based axes are supported"))
@@ -29,35 +36,33 @@ function matricize(style::BlockReshapeFusion, a::AbstractArray, ndims_codomain::
 end
 using BlockArrays: blocklengths
 function unmatricize(
-        ::BlockReshapeFusion,
-        m::AbstractMatrix,
-        codomain_axes::Tuple{Vararg{AbstractUnitRange}},
-        domain_axes::Tuple{Vararg{AbstractUnitRange}},
+        ::BlockReshapeFusion, m::AbstractMatrix,
+        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}},
     )
-    ax = (codomain_axes..., domain_axes...)
+    ax = (axes_codomain..., axes_domain...)
     reshaped_blocks_m = reshape(blocks(m), blocklength.(ax))
     bs = map(CartesianIndices(reshaped_blocks_m)) do I
         block_axes_I = BlockedTuple(
             map(ntuple(identity, length(ax))) do i
                 return Base.axes1(ax[i][Block(I[i])])
             end,
-            (length(codomain_axes), length(domain_axes)),
+            (length(axes_codomain), length(axes_domain)),
         )
         return unmatricize(reshaped_blocks_m[I], block_axes_I)
     end
     return mortar(bs, ax)
 end
 
-struct BlockedReshapeFusion <: FusionStyle end
-FusionStyle(::Type{<:BlockedArray}) = BlockedReshapeFusion()
+FusionStyle(::Type{<:BlockedArray}) = ReshapeFusion()
 unblock(a::BlockedArray) = a.blocks
 unblock(a::AbstractBlockArray) = a[Base.OneTo.(size(a))...]
 unblock(a::AbstractArray) = a
-function matricize(::BlockedReshapeFusion, a::AbstractArray, ndims_codomain::Val)
+function matricize(::ReshapeFusion, a::BlockedArray, ndims_codomain::Val)
     return matricize(ReshapeFusion(), unblock(a), ndims_codomain)
 end
-function unmatricize(
-        style::BlockedReshapeFusion, m::AbstractMatrix,
+function unmatricize_blocked(
+        style::ReshapeFusion, m::AbstractMatrix,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
         axes_domain::Tuple{Vararg{AbstractUnitRange}},
     )
@@ -66,4 +71,25 @@ function unmatricize(
         Base.OneTo.(length.(axes_codomain)), Base.OneTo.(length.(axes_domain)),
     )
     return BlockedArray(a, (axes_codomain..., axes_domain...))
+end
+function unmatricize(
+        style::ReshapeFusion, m::AbstractMatrix,
+        axes_codomain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
+        axes_domain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
+    )
+    return unmatricize_blocked(style, m, axes_codomain, axes_domain)
+end
+function unmatricize(
+        style::ReshapeFusion, m::AbstractMatrix,
+        axes_codomain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractBlockedUnitRange}},
+    )
+    return unmatricize_blocked(style, m, axes_codomain, axes_domain)
+end
+function unmatricize(
+        style::ReshapeFusion, m::AbstractMatrix,
+        axes_codomain::Tuple{Vararg{AbstractBlockedUnitRange}},
+        axes_domain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
+    )
+    return unmatricize_blocked(style, m, axes_codomain, axes_domain)
 end
