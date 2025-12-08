@@ -6,14 +6,17 @@ for f in (
         :factorize,
     )
     @eval begin
-        function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
-            A_mat = matricize(A, ndims_codomain)
+        function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+            A_mat = matricize(style, A, ndims_codomain)
             X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
             biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
             axes_codomain, axes_domain = blocks(axes(A)[biperm])
             axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
             axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
-            return unmatricize(X, axes_X), unmatricize(Y, axes_Y)
+            return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
+        end
+        function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
+            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
         end
     end
 end
@@ -24,6 +27,14 @@ for f in (
     )
     @eval begin
         function $f(
+                style::FusionStyle, A::AbstractArray,
+                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                kwargs...,
+            )
+            A_perm = bipermutedims(A, perm_codomain, perm_domain)
+            return $f(style, A_perm, Val(length(perm_codomain)); kwargs...)
+        end
+        function $f(
                 A::AbstractArray,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
                 kwargs...,
@@ -31,9 +42,24 @@ for f in (
             A_perm = bipermutedims(A, perm_codomain, perm_domain)
             return $f(A_perm, Val(length(perm_codomain)); kwargs...)
         end
+
+        function $f(
+                style::FusionStyle, A::AbstractArray,
+                labels_A, labels_codomain, labels_domain; kwargs...,
+            )
+            biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            return $f(style, A, blocks(biperm)...; kwargs...)
+        end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
             biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
             return $f(A, blocks(biperm)...; kwargs...)
+        end
+
+        function $f(
+                style::FusionStyle, A::AbstractArray,
+                biperm::AbstractBlockPermutation{2}; kwargs...,
+            )
+            return $f(style, A, blocks(biperm)...; kwargs...)
         end
         function $f(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
             return $f(A, blocks(biperm)...; kwargs...)
@@ -191,14 +217,20 @@ their labels or directly through a bi-permutation.
 See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlgebraKit.eig_vals!`,
 `MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
 """
-function eigen(A::AbstractArray, ndims_codomain::Val; kwargs...)
+eigen
+
+function eigen(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     # tensor to matrix
-    A_mat = matricize(A, ndims_codomain)
+    A_mat = matricize(style, A, ndims_codomain)
     D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain, = blocks(axes(A)[biperm])
     axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
-    return D, unmatricize(V, axes_V)
+    # TODO: Make sure `D` has the same basis as `V`.
+    return D, unmatricize(style, V, axes_V)
+end
+function eigen(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return eigen(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """
@@ -219,9 +251,14 @@ their labels or directly through a bi-permutation. The output is a vector of eig
 
 See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
-function eigvals(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(A, ndims_codomain)
+eigvals
+
+function eigvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
     return MatrixAlgebra.eigvals!(A_mat; kwargs...)
+end
+function eigvals(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return eigvals(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """
@@ -243,14 +280,19 @@ their labels or directly through a bi-permutation.
 
 See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
 """
-function svd(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(A, ndims_codomain)
+svd
+
+function svd(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
     U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain, axes_domain = blocks(axes(A)[biperm])
     axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
     axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
-    return unmatricize(U, axes_U), S, unmatricize(Vᴴ, axes_Vᴴ)
+    return unmatricize(style, U, axes_U), S, unmatricize(style, Vᴴ, axes_Vᴴ)
+end
+function svd(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return svd(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """
@@ -265,9 +307,14 @@ their labels or directly through a bi-permutation. The output is a vector of sin
 
 See also `MatrixAlgebraKit.svd_vals!`.
 """
-function svdvals(A::AbstractArray, ndims_codomain::Val)
-    A_mat = matricize(A, ndims_codomain)
+svdvals
+
+function svdvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val)
+    A_mat = matricize(style, A, ndims_codomain)
     return MatrixAlgebra.svdvals!(A_mat)
+end
+function svdvals(A::AbstractArray, ndims_codomain::Val)
+    return svdvals(FusionStyle(A), A, ndims_codomain)
 end
 
 """
@@ -289,13 +336,18 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
   The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
   The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
-function left_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(A, ndims_codomain)
+left_null
+
+function left_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain = first(blocks(axes(A)[biperm]))
     axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
-    return unmatricize(N, axes_N)
+    return unmatricize(style, N, axes_N)
+end
+function left_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return left_null(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """
@@ -317,11 +369,16 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
   The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
   The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
-function right_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(A, ndims_codomain)
+right_null
+
+function right_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_domain = last(blocks((axes(A)[biperm])))
     axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
-    return unmatricize(Nᴴ, axes_Nᴴ)
+    return unmatricize(style, Nᴴ, axes_Nᴴ)
+end
+function right_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return right_null(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
