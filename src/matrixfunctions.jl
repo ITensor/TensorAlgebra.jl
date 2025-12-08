@@ -57,7 +57,7 @@ for f in MATRIX_FUNCTIONS
                 kwargs...,
             )
             a_perm = bipermutedims(a, perm_codomain, perm_domain)
-            return $f(a_perm, perm_codomain, perm_domain; kwargs...)
+            return $f(a_perm, Val(length(perm_codomain)); kwargs...)
         end
 
         function $f(
@@ -72,7 +72,7 @@ for f in MATRIX_FUNCTIONS
                 labels_a, labels_codomain, labels_domain; kwargs...,
             )
             biperm = blockedperm_indexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
-            return $f(a, labels_a, labels_codomain, labels_domain; kwargs...)
+            return $f(a, blocks(biperm)...; kwargs...)
         end
 
         function $f(

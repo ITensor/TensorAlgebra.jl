@@ -40,7 +40,7 @@ for f in (
                 kwargs...,
             )
             A_perm = bipermutedims(A, perm_codomain, perm_domain)
-            return $f(A_perm, perm_codomain, perm_domain; kwargs...)
+            return $f(A_perm, Val(length(perm_codomain)); kwargs...)
         end
 
         function $f(
