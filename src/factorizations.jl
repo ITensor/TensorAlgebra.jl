@@ -39,7 +39,8 @@ for f in (
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
                 kwargs...,
             )
-            return $f(FusionStyle(A), A, perm_codomain, perm_domain; kwargs...)
+            A_perm = bipermutedims(A, perm_codomain, perm_domain)
+            return $f(A_perm, perm_codomain, perm_domain; kwargs...)
         end
 
         function $f(
@@ -50,7 +51,8 @@ for f in (
             return $f(style, A, blocks(biperm)...; kwargs...)
         end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-            return $f(FusionStyle(A), A, labels_A, labels_codomain, labels_domain; kwargs...)
+            biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            return $f(A, blocks(biperm)...; kwargs...)
         end
 
         function $f(
@@ -60,7 +62,7 @@ for f in (
             return $f(style, A, blocks(biperm)...; kwargs...)
         end
         function $f(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
-            return $f(FusionStyle(A), A, biperm; kwargs...)
+            return $f(A, blocks(biperm)...; kwargs...)
         end
     end
 end
