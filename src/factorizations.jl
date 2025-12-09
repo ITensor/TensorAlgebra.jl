@@ -1,14 +1,21 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-for f in (
-        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
-        :factorize,
+for (f, f_mat) in (
+        (:qr, :(MatrixAlgebra.qr)),
+        (:lq, :(MatrixAlgebra.lq)),
+        (:left_polar, :(MatrixAlgebraKit.left_polar)),
+        (:right_polar, :(MatrixAlgebraKit.right_polar)),
+        (:polar, :(MatrixAlgebra.polar)),
+        (:left_orth, :(MatrixAlgebraKit.left_orth)),
+        (:right_orth, :(MatrixAlgebraKit.right_orth)),
+        (:orth, :(MatrixAlgebra.orth)),
+        (:factorize, :(MatrixAlgebra.factorize)),
     )
     @eval begin
         function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
-            X, Y = MatrixAlgebra.$f(A_mat; kwargs...)
+            X, Y = $f_mat(A_mat; kwargs...)
             biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
             axes_codomain, axes_domain = blocks(axes(A)[biperm])
             axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
