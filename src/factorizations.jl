@@ -219,18 +219,25 @@ See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlg
 """
 eigen
 
-function eigen(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+function eigen!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     # tensor to matrix
     A_mat = matricize(style, A, ndims_codomain)
-    D, V = MatrixAlgebra.eigen!(A_mat; kwargs...)
+    D, V = MatrixAlgebra.eigen!!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain, = blocks(axes(A)[biperm])
     axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
     # TODO: Make sure `D` has the same basis as `V`.
     return D, unmatricize(style, V, axes_V)
 end
+function eigen!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return eigen!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function eigen(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return eigen!!(style, copy(A), ndims_codomain; kwargs...)
+end
 function eigen(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigen(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return eigen!!(copy(A), ndims_codomain; kwargs...)
 end
 
 """
@@ -253,12 +260,19 @@ See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
 eigvals
 
-function eigvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+function eigvals!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
-    return MatrixAlgebra.eigvals!(A_mat; kwargs...)
+    return MatrixAlgebra.eigvals!!(A_mat; kwargs...)
+end
+function eigvals!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return eigvals!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function eigvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return eigvals!!(style, copy(A), ndims_codomain; kwargs...)
 end
 function eigvals(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigvals(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return eigvals!!(copy(A), ndims_codomain; kwargs...)
 end
 
 """
@@ -282,17 +296,24 @@ See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `Mat
 """
 svd
 
-function svd(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+function svd!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
-    U, S, Vᴴ = MatrixAlgebra.svd!(A_mat; kwargs...)
+    U, S, Vᴴ = MatrixAlgebra.svd!!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain, axes_domain = blocks(axes(A)[biperm])
     axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
     axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
     return unmatricize(style, U, axes_U), S, unmatricize(style, Vᴴ, axes_Vᴴ)
 end
+function svd!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return svd!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function svd(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return svd!!(style, copy(A), ndims_codomain; kwargs...)
+end
 function svd(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return svd(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return svd!!(copy(A), ndims_codomain; kwargs...)
 end
 
 """
@@ -309,12 +330,19 @@ See also `MatrixAlgebraKit.svd_vals!`.
 """
 svdvals
 
-function svdvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val)
+function svdvals!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val)
     A_mat = matricize(style, A, ndims_codomain)
-    return MatrixAlgebra.svdvals!(A_mat)
+    return MatrixAlgebra.svdvals!!(A_mat)
+end
+function svdvals!!(A::AbstractArray, ndims_codomain::Val)
+    return svdvals!!(FusionStyle(A), A, ndims_codomain)
+end
+
+function svdvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val)
+    return svdvals!!(style, copy(A), ndims_codomain)
 end
 function svdvals(A::AbstractArray, ndims_codomain::Val)
-    return svdvals(FusionStyle(A), A, ndims_codomain)
+    return svdvals!!(copy(A), ndims_codomain)
 end
 
 """
@@ -338,7 +366,7 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 """
 left_null
 
-function left_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+function left_null!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
@@ -346,8 +374,15 @@ function left_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kw
     axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
     return unmatricize(style, N, axes_N)
 end
+function left_null!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return left_null!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function left_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return left_null!!(style, copy(A), ndims_codomain; kwargs...)
+end
 function left_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return left_null(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return left_null!!(copy(A), ndims_codomain; kwargs...)
 end
 
 """
@@ -371,7 +406,7 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 """
 right_null
 
-function right_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+function right_null!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
@@ -379,6 +414,13 @@ function right_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; k
     axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
     return unmatricize(style, Nᴴ, axes_Nᴴ)
 end
+function right_null!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return right_null!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function right_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return right_null!!(style, copy(A), ndims_codomain; kwargs...)
+end
 function right_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return right_null(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return right_null!!(copy(A), ndims_codomain; kwargs...)
 end

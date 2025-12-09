@@ -1,59 +1,58 @@
 module MatrixAlgebra
 
 export eigen,
-    eigen!,
+    eigen!!,
     eigvals,
-    eigvals!,
+    eigvals!!,
     factorize,
-    factorize!,
+    factorize!!,
     lq,
-    lq!,
+    lq!!,
     orth,
-    orth!,
+    orth!!,
     polar,
-    polar!,
+    polar!!,
     qr,
-    qr!,
+    qr!!,
     svd,
-    svd!,
+    svd!!,
     svdvals,
-    svdvals!
+    svdvals!!
 
 using LinearAlgebra: LinearAlgebra, norm
-using MatrixAlgebraKit
+import MatrixAlgebraKit as MAK
 
 for (f, f_full, f_compact) in (
         (:qr, :qr_full, :qr_compact),
-        (:qr!, :qr_full!, :qr_compact!),
+        (:qr!!, :qr_full!, :qr_compact!),
         (:lq, :lq_full, :lq_compact),
-        (:lq!, :lq_full!, :lq_compact!),
+        (:lq!!, :lq_full!, :lq_compact!),
     )
     @eval begin
         function $f(A::AbstractMatrix; full::Bool = false, kwargs...)
-            f = full ? $f_full : $f_compact
-            return f(A; kwargs...)
+            return full ? MAK.$f_full(A; kwargs...) : MAK.$f_compact(A; kwargs...)
         end
     end
 end
 
 for (eigen, eigh_full, eig_full, eigh_trunc, eig_trunc) in (
         (:eigen, :eigh_full, :eig_full, :eigh_trunc, :eig_trunc),
-        (:eigen!, :eigh_full!, :eig_full!, :eigh_trunc!, :eig_trunc!),
+        (:eigen!!, :eigh_full!, :eig_full!, :eigh_trunc!, :eig_trunc!),
     )
     @eval begin
         function $eigen(A::AbstractMatrix; trunc = nothing, ishermitian = nothing, kwargs...)
             ishermitian = @something ishermitian LinearAlgebra.ishermitian(A)
             return if !isnothing(trunc)
                 if ishermitian
-                    $eigh_trunc(A; trunc, kwargs...)
+                    MAK.$eigh_trunc(A; trunc, kwargs...)
                 else
-                    $eig_trunc(A; trunc, kwargs...)
+                    MAK.$eig_trunc(A; trunc, kwargs...)
                 end
             else
                 if ishermitian
-                    $eigh_full(A; kwargs...)
+                    MAK.$eigh_full(A; kwargs...)
                 else
-                    $eig_full(A; kwargs...)
+                    MAK.$eig_full(A; kwargs...)
                 end
             end
         end
@@ -61,26 +60,23 @@ for (eigen, eigh_full, eig_full, eigh_trunc, eig_trunc) in (
 end
 
 for (eigvals, eigh_vals, eig_vals) in
-    ((:eigvals, :eigh_vals, :eig_vals), (:eigvals!, :eigh_vals!, :eig_vals!))
+    ((:eigvals, :eigh_vals, :eig_vals), (:eigvals!!, :eigh_vals!, :eig_vals!))
     @eval begin
         function $eigvals(A::AbstractMatrix; ishermitian = nothing, kwargs...)
             ishermitian = @something ishermitian LinearAlgebra.ishermitian(A)
-            f = (ishermitian ? $eigh_vals : $eig_vals)
-            return f(A; kwargs...)
+            return ishermitian ? MAK.$eigh_vals(A; kwargs...) : MAK.$eig_vals(A; kwargs...)
         end
     end
 end
 
 for (svd, svd_trunc, svd_full, svd_compact) in (
         (:svd, :svd_trunc, :svd_full, :svd_compact),
-        (:svd!, :svd_trunc!, :svd_full!, :svd_compact!),
+        (:svd!!, :svd_trunc!, :svd_full!, :svd_compact!),
     )
     _svd = Symbol(:_, svd)
     @eval begin
         function $svd(
-                A::AbstractMatrix;
-                full::Union{Bool, Val} = Val(false),
-                trunc = nothing,
+                A::AbstractMatrix; full::Union{Bool, Val} = Val(false), trunc = nothing,
                 kwargs...,
             )
             return $_svd(full, trunc, A; kwargs...)
@@ -89,13 +85,13 @@ for (svd, svd_trunc, svd_full, svd_compact) in (
             return $_svd(Val(full), trunc, A; kwargs...)
         end
         function $_svd(full::Val{false}, trunc::Nothing, A::AbstractMatrix; kwargs...)
-            return $svd_compact(A; kwargs...)
+            return MAK.$svd_compact(A; kwargs...)
         end
         function $_svd(full::Val{false}, trunc, A::AbstractMatrix; kwargs...)
-            return $svd_trunc(A; trunc, kwargs...)
+            return MAK.$svd_trunc(A; trunc, kwargs...)
         end
         function $_svd(full::Val{true}, trunc::Nothing, A::AbstractMatrix; kwargs...)
-            return $svd_full(A; kwargs...)
+            return MAK.$svd_full(A; kwargs...)
         end
         function $_svd(full::Val{true}, trunc, A::AbstractMatrix; kwargs...)
             return throw(
@@ -107,55 +103,52 @@ for (svd, svd_trunc, svd_full, svd_compact) in (
     end
 end
 
-for (svdvals, svd_vals) in ((:svdvals, :svd_vals), (:svdvals!, :svd_vals!))
+for (svdvals, svd_vals) in ((:svdvals, :svd_vals), (:svdvals!!, :svd_vals!))
     @eval begin
         function $svdvals(A::AbstractMatrix; ishermitian = nothing, kwargs...)
-            return $svd_vals(A; kwargs...)
+            return MAK.$svd_vals(A; kwargs...)
         end
     end
 end
 
 for (polar, left_polar, right_polar) in
-    ((:polar, :left_polar, :right_polar), (:polar!, :left_polar!, :right_polar!))
+    ((:polar, :left_polar, :right_polar), (:polar!!, :left_polar!, :right_polar!))
     @eval begin
         function $polar(A::AbstractMatrix; side = :left, kwargs...)
-            f = if side == :left
-                $left_polar
+            return if side == :left
+                MAK.$left_polar(A; kwargs...)
             elseif side == :right
-                $right_polar
+                MAK.$right_polar(A; kwargs...)
             else
-                throw(ArgumentError("`side=$side` not supported."))
+                throw(ArgumentError("`side = $side` not supported."))
             end
-            return f(A; kwargs...)
         end
     end
 end
 
 for (orth, left_orth, right_orth) in
-    ((:orth, :left_orth, :right_orth), (:orth!, :left_orth!, :right_orth!))
+    ((:orth, :left_orth, :right_orth), (:orth!!, :left_orth!, :right_orth!))
     @eval begin
         function $orth(A::AbstractMatrix; side = :left, kwargs...)
-            f = if side == :left
-                $left_orth
+            return if side == :left
+                MAK.$left_orth(A; kwargs...)
             elseif side == :right
-                $right_orth
+                MAK.$right_orth(A; kwargs...)
             else
-                throw(ArgumentError("`side=$side` not supported."))
+                throw(ArgumentError("`side = $side` not supported."))
             end
-            return f(A; kwargs...)
         end
     end
 end
 
-for (factorize, orth_f) in ((:factorize, :(MatrixAlgebra.orth)), (:factorize!, :orth!))
+for (factorize, orth_f) in ((:factorize, :(MatrixAlgebra.orth)), (:factorize!!, :orth!!))
     @eval begin
         function $factorize(A::AbstractMatrix; orth = :left, kwargs...)
-            f = if orth in (:left, :right)
-                $orth_f
+            return if orth in (:left, :right)
+                $orth_f(A; side = orth, kwargs...)
             else
-                throw(ArgumentError("`orth=$orth` not supported."))
+                throw(ArgumentError("`orth = $orth` not supported."))
             end
-            return f(A; side = orth, kwargs...)
         end
     end
 end
@@ -190,7 +183,6 @@ function truncdegen(strategy::TruncationStrategy; atol::Real = 0, rtol::Real = 0
 end
 
 using MatrixAlgebraKit: findtruncated
-
 function MatrixAlgebraKit.findtruncated(
         values::AbstractVector, strategy::TruncationDegenerate
     )
