@@ -10,10 +10,7 @@ end
 Matricize() = Matricize(ReshapeFusion())
 
 function default_contract_algorithm(A1::Type{<:AbstractArray}, A2::Type{<:AbstractArray})
-    style1 = FusionStyle(A1)
-    style2 = FusionStyle(A2)
-    style1 == style2 || error("Styles must match.")
-    return Matricize(style1)
+    return Matricize(FusionStyle(FusionStyle(A1), FusionStyle(A2)))
 end
 
 # Required interface if not using
