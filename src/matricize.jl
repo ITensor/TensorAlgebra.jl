@@ -6,6 +6,8 @@ abstract type FusionStyle end
 
 FusionStyle(x) = FusionStyle(typeof(x))
 FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
+FusionStyle(style1::Style, style2::Style) where {Style <: FusionStyle} = Style()
+FusionStyle(style1::FusionStyle, style2::FusionStyle) = ReshapeFusion()
 
 # =======================================  misc  ========================================
 function trivial_axis(
@@ -72,10 +74,7 @@ function tensor_product_axis(r1::AbstractUnitRange, r2::AbstractUnitRange)
     return tensor_product_axis(style, r1, r2)
 end
 function tensor_product_fusionstyle(r1::AbstractUnitRange, r2::AbstractUnitRange)
-    style1 = FusionStyle(r1)
-    style2 = FusionStyle(r2)
-    style1 == style2 || error("Styles must match.")
-    return style1
+    return FusionStyle(FusionStyle(r1), FusionStyle(r2))
 end
 
 function fused_axis(
