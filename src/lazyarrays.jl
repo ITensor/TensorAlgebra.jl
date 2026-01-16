@@ -71,6 +71,11 @@ end
 function LazyArrayStyle{N, Style}(::Val{M}) where {M, N, Style <: BC.AbstractArrayStyle{N}}
     return LazyArrayStyle(Style(Val(M)))
 end
+# TODO: This is required in some Julia versions below v1.12, delete these once we
+# drop support for those versions.
+function LazyArrayStyle{N, Style}() where {N, Style <: BC.AbstractArrayStyle{N}}
+    return LazyArrayStyle{N, Style}(Style())
+end
 function BC.BroadcastStyle(style1::LazyArrayStyle, style2::LazyArrayStyle)
     style = BC.BroadcastStyle(style1.style, style2.style)
     style ≡ BC.Unknown() && return BC.Unknown()
