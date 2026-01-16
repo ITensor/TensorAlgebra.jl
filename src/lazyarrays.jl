@@ -1,4 +1,3 @@
-# TODO: Move this file to TensorAlgebra.jl.
 import Base.Broadcast as BC
 import LinearAlgebra as LA
 import StridedViews as SV
@@ -402,10 +401,12 @@ end
 +ₗ(a::AbstractArray, b::AbstractArray) = AddArray(a, b)
 addends(a::AbstractArray) = (a,)
 addends_type(arrayt::Type{<:AbstractArray}) = Tuple{arrayt}
-add_eltype(args::AbstractArray{<:Any, N}...) where {N} = Base.promote_op(+, eltype.(args)...)
+add_eltype(args::AbstractArray...) = Base.promote_op(+, eltype.(args)...)
+add_ndims(args::AbstractArray...) = allequal(ndims, args) ? ndims(first(args)) :
+    error("All addends must have the same number of dimensions.")
 
 # Base overloads for AddArrays.
-add_axes(args::AbstractArray{<:Any, N}...) where {N} = BC.combine_axes(args...)
+add_axes(args::AbstractArray...) = BC.combine_axes(args...)
 axes_add(a::AbstractArray) = add_axes(addends(a)...)
 size_add(a::AbstractArray) = length.(axes_add(a))
 similar_add(a::AbstractArray) = similar(a, eltype(a))
@@ -455,8 +456,9 @@ macro addarray_type(AddArray, AbstractArray = :AbstractArray)
             struct $AddArray{T, N, Args <: Tuple{Vararg{AbstractArray{<:Any, N}}}} <:
                 $AbstractArray{T, N}
                 args::Args
-                function $AddArray(args::AbstractArray{<:Any, N}...) where {N}
+                function $AddArray(args::AbstractArray...)
                     T = TensorAlgebra.add_eltype(args...)
+                    N = TensorAlgebra.add_ndims(args...)
                     return new{T, N, typeof(args)}(args)
                 end
             end
