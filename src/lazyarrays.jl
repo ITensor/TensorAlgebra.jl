@@ -1,4 +1,5 @@
 import Base.Broadcast as BC
+import FunctionImplementations as FI
 import LinearAlgebra as LA
 import StridedViews as SV
 
@@ -138,6 +139,10 @@ copyto!_scaled(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, 
 show_scaled(io::IO, a::AbstractArray) = show_lazy(io, a)
 show_scaled(io::IO, mime::MIME"text/plain", a::AbstractArray) = show_lazy(io, mime, a)
 
+# Base overloads of adjoint and transpose for ScaledArrays.
+adjoint_scaled(a::AbstractArray) = coeff(a) *ₗ adjoint(unscaled(a))
+transpose_scaled(a::AbstractArray) = coeff(a) *ₗ transpose(unscaled(a))
+
 # Base.Broadcast overloads for ScaledArrays.
 materialize_scaled(a::AbstractArray) = copy(a)
 BroadcastStyle_scaled(arrayt::Type{<:AbstractArray}) =
@@ -162,6 +167,9 @@ iscall_scaled(::AbstractArray) = true
 operation_scaled(::AbstractArray) = *
 arguments_scaled(a::AbstractArray) = (coeff(a), unscaled(a))
 
+# FunctionImplementations overloads for ScaledArrays.
+permuteddims_scaled(a::AbstractArray, perm) = coeff(a) *ₗ FI.permuteddims(unscaled(a), perm)
+
 macro scaledarray_type(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
@@ -170,15 +178,15 @@ macro scaledarray_type(ScaledArray, AbstractArray = :AbstractArray)
                 coeff::C
                 parent::P
                 function $ScaledArray(coeff::Number, a::AbstractArray)
-                    T = TensorAlgebra.scaled_eltype(coeff, a)
+                    T = $TensorAlgebra.scaled_eltype(coeff, a)
                     return new{T, ndims(a), typeof(a), typeof(coeff)}(coeff, a)
                 end
             end
-            TensorAlgebra.unscaled(a::$ScaledArray) = a.parent
-            TensorAlgebra.unscaled_type(arrayt::Type{<:$ScaledArray}) =
+            $TensorAlgebra.unscaled(a::$ScaledArray) = a.parent
+            $TensorAlgebra.unscaled_type(arrayt::Type{<:$ScaledArray}) =
                 fieldtype(arrayt, :parent)
-            TensorAlgebra.coeff(a::$ScaledArray) = a.coeff
-            TensorAlgebra.coeff_type(arrayt::Type{<:$ScaledArray}) =
+            $TensorAlgebra.coeff(a::$ScaledArray) = a.coeff
+            $TensorAlgebra.coeff_type(arrayt::Type{<:$ScaledArray}) =
                 fieldtype(arrayt, :coeff)
         end
     )
@@ -188,25 +196,38 @@ macro scaledarray_base(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
             Base.axes(a::$ScaledArray) =
-                TensorAlgebra.axes_scaled(a)
+                $TensorAlgebra.axes_scaled(a)
             Base.size(a::$ScaledArray) =
-                TensorAlgebra.size_scaled(a)
+                $TensorAlgebra.size_scaled(a)
             Base.similar(a::$ScaledArray) =
-                TensorAlgebra.similar_scaled(a)
+                $TensorAlgebra.similar_scaled(a)
             Base.similar(a::$ScaledArray, elt::Type) =
-                TensorAlgebra.similar_scaled(a, elt)
+                $TensorAlgebra.similar_scaled(a, elt)
             Base.similar(a::$ScaledArray, ax) =
-                TensorAlgebra.similar_scaled(a, ax)
+                $TensorAlgebra.similar_scaled(a, ax)
+            Base.similar(a::$ScaledArray, ax::Tuple) =
+                $TensorAlgebra.similar_scaled(a, ax)
             Base.similar(a::$ScaledArray, elt::Type, ax) =
-                TensorAlgebra.similar_scaled(a, elt, ax)
+                $TensorAlgebra.similar_scaled(a, elt, ax)
             Base.similar(a::$ScaledArray, elt::Type, ax::Dims) =
-                TensorAlgebra.similar_scaled(a, elt, ax)
+                $TensorAlgebra.similar_scaled(a, elt, ax)
             Base.copyto!(dest::$AbstractArray, src::$ScaledArray) =
-                TensorAlgebra.copyto!_scaled(dest, src)
+                $TensorAlgebra.copyto!_scaled(dest, src)
             Base.show(io::IO, a::$ScaledArray) =
-                TensorAlgebra.show_scaled(io, a)
+                $TensorAlgebra.show_scaled(io, a)
             Base.show(io::IO, mime::MIME"text/plain", a::$ScaledArray) =
-                TensorAlgebra.show_scaled(io, mime, a)
+                $TensorAlgebra.show_scaled(io, mime, a)
+        end
+    )
+end
+
+macro scaledarray_adjtrans(ScaledArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            Base.adjoint(a::$ScaledArray) =
+                $TensorAlgebra.adjoint_scaled(a)
+            Base.transpose(a::$ScaledArray) =
+                $TensorAlgebra.transpose_scaled(a)
         end
     )
 end
@@ -215,9 +236,9 @@ macro scaledarray_broadcast(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
             Base.Broadcast.materialize(a::$ScaledArray) =
-                TensorAlgebra.materialize_scaled(a)
+                $TensorAlgebra.materialize_scaled(a)
             Base.Broadcast.BroadcastStyle(arrayt::Type{<:$ScaledArray}) =
-                TensorAlgebra.BroadcastStyle_scaled(arrayt)
+                $TensorAlgebra.BroadcastStyle_scaled(arrayt)
         end
     )
 end
@@ -225,29 +246,29 @@ end
 macro scaledarray_linearalgebra(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            function TensorAlgebra.LA.mul!(
+            function $TensorAlgebra.LA.mul!(
                     dest::$AbstractArray{<:Any, 2},
                     a::$ScaledArray{<:Any, 2},
                     b::$ScaledArray{<:Any, 2},
                     α::Number, β::Number,
                 )
-                return TensorAlgebra.mul!_scaled(dest, a, b, α, β)
+                return $TensorAlgebra.mul!_scaled(dest, a, b, α, β)
             end
-            function TensorAlgebra.LA.mul!(
+            function $TensorAlgebra.LA.mul!(
                     dest::$AbstractArray{<:Any, 2},
                     a::$AbstractArray{<:Any, 2},
                     b::$ScaledArray{<:Any, 2},
                     α::Number, β::Number,
                 )
-                return TensorAlgebra.mul!_scaled(dest, a, b, α, β)
+                return $TensorAlgebra.mul!_scaled(dest, a, b, α, β)
             end
-            function TensorAlgebra.LA.mul!(
+            function $TensorAlgebra.LA.mul!(
                     dest::$AbstractArray{<:Any, 2},
                     a::$ScaledArray{<:Any, 2},
                     b::$AbstractArray{<:Any, 2},
                     α::Number, β::Number,
                 )
-                return TensorAlgebra.mul!_scaled(dest, a, b, α, β)
+                return $TensorAlgebra.mul!_scaled(dest, a, b, α, β)
             end
         end
     )
@@ -256,16 +277,16 @@ end
 macro scaledarray_lazy(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.:(*ₗ)(α::Number, a::$ScaledArray) =
-                TensorAlgebra.mulled_scaled(α, a)
-            TensorAlgebra.:(*ₗ)(a::$ScaledArray, b::$ScaledArray) =
-                TensorAlgebra.mulled_scaled(a, b)
-            TensorAlgebra.:(*ₗ)(a::$AbstractArray, b::$ScaledArray) =
-                TensorAlgebra.mulled_scaled(a, b)
-            TensorAlgebra.:(*ₗ)(a::$ScaledArray, b::$AbstractArray) =
-                TensorAlgebra.mulled_scaled(a, b)
-            TensorAlgebra.conjed(a::$ScaledArray) =
-                TensorAlgebra.conjed_scaled(a)
+            $TensorAlgebra.:*ₗ(α::Number, a::$ScaledArray) =
+                $TensorAlgebra.mulled_scaled(α, a)
+            $TensorAlgebra.:*ₗ(a::$ScaledArray, b::$ScaledArray) =
+                $TensorAlgebra.mulled_scaled(a, b)
+            $TensorAlgebra.:*ₗ(a::$AbstractArray, b::$ScaledArray) =
+                $TensorAlgebra.mulled_scaled(a, b)
+            $TensorAlgebra.:*ₗ(a::$ScaledArray, b::$AbstractArray) =
+                $TensorAlgebra.mulled_scaled(a, b)
+            $TensorAlgebra.conjed(a::$ScaledArray) =
+                $TensorAlgebra.conjed_scaled(a)
         end
     )
 end
@@ -273,10 +294,10 @@ end
 macro scaledarray_tensoralgebra(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            function TensorAlgebra.add!(
+            function $TensorAlgebra.add!(
                     dest::$AbstractArray, src::$ScaledArray, α::Number, β::Number
                 )
-                return TensorAlgebra.add!_scaled(dest, src, α, β)
+                return $TensorAlgebra.add!_scaled(dest, src, α, β)
             end
         end
     )
@@ -285,9 +306,18 @@ end
 macro scaledarray_terminterface(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.iscall(a::$ScaledArray) = TensorAlgebra.iscall_scaled(a)
-            TensorAlgebra.operation(a::$ScaledArray) = TensorAlgebra.operation_scaled(a)
-            TensorAlgebra.arguments(a::$ScaledArray) = TensorAlgebra.arguments_scaled(a)
+            $TensorAlgebra.iscall(a::$ScaledArray) = $TensorAlgebra.iscall_scaled(a)
+            $TensorAlgebra.operation(a::$ScaledArray) = $TensorAlgebra.operation_scaled(a)
+            $TensorAlgebra.arguments(a::$ScaledArray) = $TensorAlgebra.arguments_scaled(a)
+        end
+    )
+end
+
+macro scaledarray_functionimplementations(ScaledArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            $TensorAlgebra.FI.permuteddims(a::$ScaledArray, perm) =
+                $TensorAlgebra.permuteddims_scaled(a, perm)
         end
     )
 end
@@ -295,19 +325,21 @@ end
 macro scaledarray(ScaledArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.@scaledarray_base $ScaledArray $AbstractArray
-            TensorAlgebra.@scaledarray_broadcast $ScaledArray $AbstractArray
-            TensorAlgebra.@scaledarray_lazy $ScaledArray $AbstractArray
-            TensorAlgebra.@scaledarray_linearalgebra $ScaledArray $AbstractArray
-            TensorAlgebra.@scaledarray_tensoralgebra $ScaledArray $AbstractArray
-            TensorAlgebra.@scaledarray_terminterface $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_base $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_adjtrans $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_broadcast $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_lazy $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_linearalgebra $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_tensoralgebra $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_terminterface $ScaledArray $AbstractArray
+            $TensorAlgebra.@scaledarray_functionimplementations $ScaledArray $AbstractArray
         end
     )
 end
 
 # Generic constructors for ConjArrays.
 conjed(a::AbstractArray) = ConjArray(a)
-conjed_type(arrayt::Type{<:AbstractArray}) = Base.promote_op(conj, arrayt)
+conjed_type(arrayt::Type{<:AbstractArray}) = Base.promote_op(conjed, arrayt)
 
 # Base overloads for ConjArrays.
 axes_conj(a::AbstractArray) = axes(conjed(a))
@@ -318,6 +350,10 @@ similar_conj(a::AbstractArray, ax) = similar(conjed(a), ax)
 copyto!_conj(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, false)
 show_conj(io::IO, a::AbstractArray) = show_lazy(io, a)
 show_conj(io::IO, mime::MIME"text/plain", a::AbstractArray) = show_lazy(io, mime, a)
+
+# Base overloads of adjoint and transpose for ConjArrays.
+adjoint_conj(a::AbstractArray) = transpose(conjed(a))
+transpose_conj(a::AbstractArray) = adjoint(conjed(a))
 
 # Base.Broadcast overloads for ConjArrays.
 materialize_conj(a::AbstractArray) = copy(a)
@@ -333,13 +369,16 @@ iscall_conj(::AbstractArray) = true
 operation_conj(::AbstractArray) = conj
 arguments_conj(a::AbstractArray) = (conjed(a),)
 
+# FunctionImplementations overloads for ConjArrays.
+permuteddims_conj(a::AbstractArray, perm) = conjed(FI.permuteddims(conjed(a), perm))
+
 macro conjarray_type(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
             struct $ConjArray{T, N, P <: AbstractArray{T, N}} <: $AbstractArray{T, N}
                 parent::P
             end
-            TensorAlgebra.conjed(a::$ConjArray) = a.parent
+            $TensorAlgebra.conjed(a::$ConjArray) = a.parent
         end
     )
 end
@@ -347,15 +386,32 @@ end
 macro conjarray_base(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.axes(a::$ConjArray) = axes_conj(a)
-            Base.size(a::$ConjArray) = size_conj(a)
-            Base.similar(a::$ConjArray, elt::Type) = similar_conj(a, elt)
-            Base.similar(a::$ConjArray, elt::Type, ax) = similar_conj(a, elt, ax)
-            Base.similar(a::$ConjArray, elt::Type, ax::Dims) = similar_conj(a, elt, ax)
-            Base.copyto!(dest::$AbstractArray, src::$ConjArray) = copyto!_conj(dest, src)
-            Base.show(io::IO, a::$ConjArray) = show_conj(io, a)
+            Base.axes(a::$ConjArray) =
+                $TensorAlgebra.axes_conj(a)
+            Base.size(a::$ConjArray) =
+                $TensorAlgebra.size_conj(a)
+            Base.similar(a::$ConjArray, elt::Type) =
+                $TensorAlgebra.similar_conj(a, elt)
+            Base.similar(a::$ConjArray, elt::Type, ax) =
+                $TensorAlgebra.similar_conj(a, elt, ax)
+            Base.similar(a::$ConjArray, elt::Type, ax::Dims) =
+                $TensorAlgebra.similar_conj(a, elt, ax)
+            Base.copyto!(dest::$AbstractArray, src::$ConjArray) =
+                $TensorAlgebra.copyto!_conj(dest, src)
+            Base.show(io::IO, a::$ConjArray) = $TensorAlgebra.show_conj(io, a)
             Base.show(io::IO, mime::MIME"text/plain", a::$ConjArray) =
-                show_conj(io, mime, a)
+                $TensorAlgebra.show_conj(io, mime, a)
+        end
+    )
+end
+
+macro conjarray_adjtrans(ConjArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            Base.adjoint(a::$ConjArray) =
+                $TensorAlgebra.adjoint_conj(a)
+            Base.transpose(a::$ConjArray) =
+                $TensorAlgebra.transpose_conj(a)
         end
     )
 end
@@ -363,9 +419,9 @@ end
 macro conjarray_broadcast(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.Broadcast.materialize(a::$ConjArray) = materialize_conj(a)
+            Base.Broadcast.materialize(a::$ConjArray) = $TensorAlgebra.materialize_conj(a)
             Base.Broadcast.BroadcastStyle(arrayt::Type{<:$ConjArray}) =
-                BroadcastStyle_conj(arrayt)
+                $TensorAlgebra.BroadcastStyle_conj(arrayt)
         end
     )
 end
@@ -373,10 +429,10 @@ end
 macro conjarray_stridedviews(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.SV.isstrided(a::$ConjArray) =
-                TensorAlgebra.isstrided_conj(a)
-            TensorAlgebra.SV.StridedView(a::$ConjArray) =
-                TensorAlgebra.StridedView_conj(a)
+            $TensorAlgebra.SV.isstrided(a::$ConjArray) =
+                $TensorAlgebra.isstrided_conj(a)
+            $TensorAlgebra.SV.StridedView(a::$ConjArray) =
+                $TensorAlgebra.StridedView_conj(a)
         end
     )
 end
@@ -384,9 +440,18 @@ end
 macro conjarray_terminterface(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.iscall(a::$ConjArray) = TensorAlgebra.iscall_conj(a)
-            TensorAlgebra.operation(a::$ConjArray) = TensorAlgebra.operation_conj(a)
-            TensorAlgebra.arguments(a::$ConjArray) = TensorAlgebra.arguments_conj(a)
+            $TensorAlgebra.iscall(a::$ConjArray) = $TensorAlgebra.iscall_conj(a)
+            $TensorAlgebra.operation(a::$ConjArray) = $TensorAlgebra.operation_conj(a)
+            $TensorAlgebra.arguments(a::$ConjArray) = $TensorAlgebra.arguments_conj(a)
+        end
+    )
+end
+
+macro conjarray_functionimplementations(ConjArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            $TensorAlgebra.FI.permuteddims(a::$ConjArray, perm) =
+                $TensorAlgebra.permuteddims_conj(a, perm)
         end
     )
 end
@@ -394,10 +459,12 @@ end
 macro conjarray(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.@conjarray_base $ConjArray $AbstractArray
-            TensorAlgebra.@conjarray_broadcast $ConjArray $AbstractArray
-            TensorAlgebra.@conjarray_stridedviews $ConjArray $AbstractArray
-            TensorAlgebra.@conjarray_terminterface $ConjArray $AbstractArray
+            $TensorAlgebra.@conjarray_base $ConjArray $AbstractArray
+            $TensorAlgebra.@conjarray_adjtrans $ConjArray $AbstractArray
+            $TensorAlgebra.@conjarray_broadcast $ConjArray $AbstractArray
+            $TensorAlgebra.@conjarray_stridedviews $ConjArray $AbstractArray
+            $TensorAlgebra.@conjarray_terminterface $ConjArray $AbstractArray
+            $TensorAlgebra.@conjarray_functionimplementations $ConjArray $AbstractArray
         end
     )
 end
@@ -423,6 +490,10 @@ copyto!_add(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, fal
 show_add(io::IO, a::AbstractArray) = show_lazy(io, a)
 show_add(io::IO, mime::MIME"text/plain", a::AbstractArray) = show_lazy(io, mime, a)
 
+# Base overloads of adjoint and transpose for AddArrays.
+adjoint_add(a::AbstractArray) = +ₗ(adjoint.(addends(a))...)
+transpose_add(a::AbstractArray) = +ₗ(transpose.(addends(a))...)
+
 # Base.Broadcast overloads for AddArrays.
 materialize_add(a::AbstractArray) = copy(a)
 function BroadcastStyle_add(arrayt::Type{<:AbstractArray})
@@ -444,7 +515,8 @@ end
 # Lazy operations for AddArrays.
 added_add(a::AbstractArray, b::AbstractArray) = AddArray((addends(a)..., addends(b)...)...)
 mulled_add(α::Number, a::AbstractArray) = +ₗ((α .*ₗ addends(a))...)
-## TODO: Define these by expanding all combinations treating both inputs as AddArrays.
+## TODO: Define multiplication of added arrays by expanding all combinations, treating
+## both inputs as AddArrays.
 ## mulled_add(a::AbstractArray, b::AbstractArray) = +ₗ((Ref(a) .*ₗ addends(b))...)
 ## mulled_add(a::AddArray, b::AbstractArray) = +ₗ((addends(a) .*ₗ Ref(b))...)
 ## mulled_add(a::AddArray, b::AddArray) = +ₗ((Ref(a) .*ₗ addends(b))...)
@@ -455,6 +527,10 @@ iscall_add(::AbstractArray) = true
 operation_add(::AbstractArray) = +
 arguments_add(a::AbstractArray) = addends(a)
 
+# FunctionImplementations overloads for AddArrays.
+permuteddims_add(a::AbstractArray, perm) =
+    +ₗ(Base.Fix2(FI.permuteddims, perm).(addends(a))...)
+
 macro addarray_type(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
@@ -462,13 +538,13 @@ macro addarray_type(AddArray, AbstractArray = :AbstractArray)
                 $AbstractArray{T, N}
                 args::Args
                 function $AddArray(args::AbstractArray...)
-                    T = TensorAlgebra.add_eltype(args...)
-                    N = TensorAlgebra.add_ndims(args...)
+                    T = $TensorAlgebra.add_eltype(args...)
+                    N = $TensorAlgebra.add_ndims(args...)
                     return new{T, N, typeof(args)}(args)
                 end
             end
-            TensorAlgebra.addends(a::$AddArray) = a.args
-            TensorAlgebra.addends_type(arrayt::Type{<:$AddArray}) =
+            $TensorAlgebra.addends(a::$AddArray) = a.args
+            $TensorAlgebra.addends_type(arrayt::Type{<:$AddArray}) =
                 fieldtype(arrayt, :args)
         end
     )
@@ -477,27 +553,38 @@ end
 macro addarray_base(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.axes(a::$AddArray) = TensorAlgebra.axes_add(a)
-            Base.size(a::$AddArray) = TensorAlgebra.size_add(a)
-            Base.similar(a::$AddArray) = TensorAlgebra.similar_add(a)
-            Base.similar(a::$AddArray, ax::Tuple) = TensorAlgebra.similar_add(a, ax)
-            Base.similar(a::$AddArray, elt::Type) = TensorAlgebra.similar_add(a, elt)
+            Base.axes(a::$AddArray) = $TensorAlgebra.axes_add(a)
+            Base.size(a::$AddArray) = $TensorAlgebra.size_add(a)
+            Base.similar(a::$AddArray) = $TensorAlgebra.similar_add(a)
+            Base.similar(a::$AddArray, ax::Tuple) = $TensorAlgebra.similar_add(a, ax)
+            Base.similar(a::$AddArray, elt::Type) = $TensorAlgebra.similar_add(a, elt)
             function Base.similar(
                     a::$AddArray, elt::Type,
                     ax::Tuple{Union{Integer, Base.OneTo}, Vararg{Union{Integer, Base.OneTo}}},
                 )
-                return TensorAlgebra.similar_add(a, elt, ax)
+                return $TensorAlgebra.similar_add(a, elt, ax)
             end
             Base.similar(a::$AddArray, elt::Type, ax::Dims) =
-                TensorAlgebra.similar_add(a, elt, ax)
+                $TensorAlgebra.similar_add(a, elt, ax)
             Base.similar(a::$AddArray, elt::Type, ax) =
-                TensorAlgebra.similar_add(a, elt, ax)
+                $TensorAlgebra.similar_add(a, elt, ax)
             Base.copyto!(dest::$AbstractArray, src::$AddArray) =
-                TensorAlgebra.copyto!_add(dest, src)
+                $TensorAlgebra.copyto!_add(dest, src)
             Base.show(io::IO, a::$AddArray) =
-                TensorAlgebra.show_add(io, a)
+                $TensorAlgebra.show_add(io, a)
             Base.show(io::IO, mime::MIME"text/plain", a::$AddArray) =
-                TensorAlgebra.show_add(io, mime, a)
+                $TensorAlgebra.show_add(io, mime, a)
+        end
+    )
+end
+
+macro addarray_adjtrans(AddArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            Base.adjoint(a::$AddArray) =
+                $TensorAlgebra.adjoint_add(a)
+            Base.transpose(a::$AddArray) =
+                $TensorAlgebra.transpose_add(a)
         end
     )
 end
@@ -505,9 +592,9 @@ end
 macro addarray_broadcast(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.Broadcast.materialize(a::$AddArray) = TensorAlgebra.materialize_add(a)
+            Base.Broadcast.materialize(a::$AddArray) = $TensorAlgebra.materialize_add(a)
             Base.Broadcast.BroadcastStyle(arrayt::Type{<:$AddArray}) =
-                TensorAlgebra.BroadcastStyle_add(arrayt)
+                $TensorAlgebra.BroadcastStyle_add(arrayt)
         end
     )
 end
@@ -515,22 +602,22 @@ end
 macro addarray_lazy(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.:(+ₗ)(a::$AbstractArray, b::$AddArray) =
-                TensorAlgebra.added_add(a, b)
-            TensorAlgebra.:(+ₗ)(a::$AddArray, b::$AbstractArray) =
-                TensorAlgebra.added_add(a, b)
-            TensorAlgebra.:(+ₗ)(a::$AddArray, b::$AddArray) =
-                TensorAlgebra.added_add(a, b)
-            TensorAlgebra.:(*ₗ)(α::Number, a::$AddArray) =
-                TensorAlgebra.mulled_add(α, a)
-            TensorAlgebra.:(*ₗ)(a::$AbstractArray, b::$AddArray) =
-                TensorAlgebra.mulled_add(a, b)
-            TensorAlgebra.:(*ₗ)(a::$AddArray, b::$AbstractArray) =
-                TensorAlgebra.mulled_add(a, b)
-            TensorAlgebra.:(*ₗ)(a::$AddArray, b::$AddArray) =
-                TensorAlgebra.mulled_add(a, b)
-            TensorAlgebra.conjed(a::$AddArray) =
-                TensorAlgebra.conjed_add(a)
+            $TensorAlgebra.:+ₗ(a::$AbstractArray, b::$AddArray) =
+                $TensorAlgebra.added_add(a, b)
+            $TensorAlgebra.:+ₗ(a::$AddArray, b::$AbstractArray) =
+                $TensorAlgebra.added_add(a, b)
+            $TensorAlgebra.:+ₗ(a::$AddArray, b::$AddArray) =
+                $TensorAlgebra.added_add(a, b)
+            $TensorAlgebra.:*ₗ(α::Number, a::$AddArray) =
+                $TensorAlgebra.mulled_add(α, a)
+            $TensorAlgebra.:*ₗ(a::$AbstractArray, b::$AddArray) =
+                $TensorAlgebra.mulled_add(a, b)
+            $TensorAlgebra.:*ₗ(a::$AddArray, b::$AbstractArray) =
+                $TensorAlgebra.mulled_add(a, b)
+            $TensorAlgebra.:*ₗ(a::$AddArray, b::$AddArray) =
+                $TensorAlgebra.mulled_add(a, b)
+            $TensorAlgebra.conjed(a::$AddArray) =
+                $TensorAlgebra.conjed_add(a)
         end
     )
 end
@@ -538,10 +625,10 @@ end
 macro addarray_tensoralgebra(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            function TensorAlgebra.add!(
+            function $TensorAlgebra.add!(
                     dest::$AbstractArray, src::$AddArray, α::Number, β::Number
                 )
-                return TensorAlgebra.add!_add(dest, src, α, β)
+                return $TensorAlgebra.add!_add(dest, src, α, β)
             end
         end
     )
@@ -550,9 +637,18 @@ end
 macro addarray_terminterface(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.iscall(a::$AddArray) = TensorAlgebra.iscall_add(a)
-            TensorAlgebra.operation(a::$AddArray) = TensorAlgebra.operation_add(a)
-            TensorAlgebra.arguments(a::$AddArray) = TensorAlgebra.arguments_add(a)
+            $TensorAlgebra.iscall(a::$AddArray) = $TensorAlgebra.iscall_add(a)
+            $TensorAlgebra.operation(a::$AddArray) = $TensorAlgebra.operation_add(a)
+            $TensorAlgebra.arguments(a::$AddArray) = $TensorAlgebra.arguments_add(a)
+        end
+    )
+end
+
+macro addarray_functionimplementations(AddArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            $TensorAlgebra.FI.permuteddims(a::$AddArray, perm) =
+                $TensorAlgebra.permuteddims_add(a, perm)
         end
     )
 end
@@ -560,11 +656,13 @@ end
 macro addarray(AddArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.@addarray_base $AddArray $AbstractArray
-            TensorAlgebra.@addarray_broadcast $AddArray $AbstractArray
-            TensorAlgebra.@addarray_lazy $AddArray $AbstractArray
-            TensorAlgebra.@addarray_tensoralgebra $AddArray $AbstractArray
-            TensorAlgebra.@addarray_terminterface $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_base $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_adjtrans $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_broadcast $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_lazy $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_tensoralgebra $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_terminterface $AddArray $AbstractArray
+            $TensorAlgebra.@addarray_functionimplementations $AddArray $AbstractArray
         end
     )
 end
@@ -592,6 +690,10 @@ similar_mul(a::AbstractArray, elt::Type, ax) = similar(last(factors(a)), elt, ax
 copyto!_mul(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, false)
 show_mul(io::IO, a::AbstractArray) = show_lazy(io, a)
 show_mul(io::IO, mime::MIME"text/plain", a::AbstractArray) = show_lazy(io, mime, a)
+
+# Base overloads of adjoint and transpose for MulArrays.
+adjoint_mul(a::AbstractArray) = *ₗ(reverse(adjoint.(factors(a)))...)
+transpose_mul(a::AbstractArray) = *ₗ(reverse(transpose.(factors(a)))...)
 
 # Base.Broadcast overloads for MulArrays.
 materialize_mul(a::AbstractArray) = copy(a)
@@ -628,13 +730,13 @@ macro mularray_type(MulArray, AbstractArray = :AbstractArray)
                 a::A
                 b::B
                 function $MulArray(a::AbstractArray, b::AbstractArray)
-                    T = TensorAlgebra.mul_eltype(a, b)
-                    N = TensorAlgebra.mul_ndims(a, b)
+                    T = $TensorAlgebra.mul_eltype(a, b)
+                    N = $TensorAlgebra.mul_ndims(a, b)
                     return new{T, N, typeof(a), typeof(b)}(a, b)
                 end
             end
-            TensorAlgebra.factors(a::$MulArray) = (a.a, a.b)
-            TensorAlgebra.factor_types(arrayt::Type{<:$MulArray}) =
+            $TensorAlgebra.factors(a::$MulArray) = (a.a, a.b)
+            $TensorAlgebra.factor_types(arrayt::Type{<:$MulArray}) =
                 (fieldtype(arrayt, :a), fieldtype(arrayt, :b))
         end
     )
@@ -643,25 +745,36 @@ end
 macro mularray_base(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.eltype(a::$MulArray) = TensorAlgebra.eltype_mul(a)
-            Base.axes(a::$MulArray) = TensorAlgebra.axes_mul(a)
-            Base.size(a::$MulArray) = TensorAlgebra.size_mul(a)
-            Base.similar(a::$MulArray) = TensorAlgebra.similar_mul(a)
-            Base.similar(a::$MulArray, ax::Tuple) = TensorAlgebra.similar_mul(a, ax)
-            Base.similar(a::$MulArray, elt::Type) = TensorAlgebra.similar_mul(a, elt)
+            Base.eltype(a::$MulArray) = $TensorAlgebra.eltype_mul(a)
+            Base.axes(a::$MulArray) = $TensorAlgebra.axes_mul(a)
+            Base.size(a::$MulArray) = $TensorAlgebra.size_mul(a)
+            Base.similar(a::$MulArray) = $TensorAlgebra.similar_mul(a)
+            Base.similar(a::$MulArray, ax::Tuple) = $TensorAlgebra.similar_mul(a, ax)
+            Base.similar(a::$MulArray, elt::Type) = $TensorAlgebra.similar_mul(a, elt)
             Base.similar(
                 a::$MulArray, elt::Type,
                 ax::Tuple{Union{Integer, Base.OneTo}, Vararg{Union{Integer, Base.OneTo}}},
-            ) = TensorAlgebra.similar_mul(a, elt, ax)
+            ) = $TensorAlgebra.similar_mul(a, elt, ax)
             Base.similar(a::$MulArray, elt::Type, ax) =
-                TensorAlgebra.similar_mul(a, elt, ax)
+                $TensorAlgebra.similar_mul(a, elt, ax)
             Base.similar(a::$MulArray, elt::Type, ax::Dims) =
-                TensorAlgebra.similar_mul(a, elt, ax)
+                $TensorAlgebra.similar_mul(a, elt, ax)
             Base.copyto!(dest::$AbstractArray, src::$MulArray) =
-                TensorAlgebra.copyto!_mul(dest, src)
-            Base.show(io::IO, a::$MulArray) = TensorAlgebra.show_mul(io, a)
+                $TensorAlgebra.copyto!_mul(dest, src)
+            Base.show(io::IO, a::$MulArray) = $TensorAlgebra.show_mul(io, a)
             Base.show(io::IO, mime::MIME"text/plain", a::$MulArray) =
-                TensorAlgebra.show_mul(io, mime, a)
+                $TensorAlgebra.show_mul(io, mime, a)
+        end
+    )
+end
+
+macro mularray_adjtrans(MulArray, AbstractArray = :AbstractArray)
+    return esc(
+        quote
+            Base.adjoint(a::$MulArray) =
+                $TensorAlgebra.adjoint_mul(a)
+            Base.transpose(a::$MulArray) =
+                $TensorAlgebra.transpose_mul(a)
         end
     )
 end
@@ -669,9 +782,9 @@ end
 macro mularray_broadcast(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.Broadcast.materialize(a::$MulArray) = TensorAlgebra.materialize_mul(a)
+            Base.Broadcast.materialize(a::$MulArray) = $TensorAlgebra.materialize_mul(a)
             Base.Broadcast.BroadcastStyle(arrayt::Type{<:$MulArray}) =
-                TensorAlgebra.BroadcastStyle_mul(arrayt)
+                $TensorAlgebra.BroadcastStyle_mul(arrayt)
         end
     )
 end
@@ -679,9 +792,9 @@ end
 macro mularray_lazy(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.conjed(a::$MulArray) = TensorAlgebra.conjed_mul(a)
-            TensorAlgebra.to_broadcasted(a::$MulArray) =
-                TensorAlgebra.to_broadcasted_mul(a)
+            $TensorAlgebra.conjed(a::$MulArray) = $TensorAlgebra.conjed_mul(a)
+            $TensorAlgebra.to_broadcasted(a::$MulArray) =
+                $TensorAlgebra.to_broadcasted_mul(a)
         end
     )
 end
@@ -689,10 +802,10 @@ end
 macro mularray_tensoralgebra(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            function TensorAlgebra.add!(
+            function $TensorAlgebra.add!(
                     dest::$AbstractArray, src::$MulArray, α::Number, β::Number
                 )
-                return TensorAlgebra.add!_mul(dest, src, α, β)
+                return $TensorAlgebra.add!_mul(dest, src, α, β)
             end
         end
     )
@@ -701,9 +814,9 @@ end
 macro mularray_terminterface(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.iscall(a::$MulArray) = TensorAlgebra.iscall_mul(a)
-            TensorAlgebra.operation(a::$MulArray) = TensorAlgebra.operation_mul(a)
-            TensorAlgebra.arguments(a::$MulArray) = TensorAlgebra.arguments_mul(a)
+            $TensorAlgebra.iscall(a::$MulArray) = $TensorAlgebra.iscall_mul(a)
+            $TensorAlgebra.operation(a::$MulArray) = $TensorAlgebra.operation_mul(a)
+            $TensorAlgebra.arguments(a::$MulArray) = $TensorAlgebra.arguments_mul(a)
         end
     )
 end
@@ -711,11 +824,12 @@ end
 macro mularray(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            TensorAlgebra.@mularray_base $MulArray $AbstractArray
-            TensorAlgebra.@mularray_broadcast $MulArray $AbstractArray
-            TensorAlgebra.@mularray_lazy $MulArray $AbstractArray
-            TensorAlgebra.@mularray_tensoralgebra $MulArray $AbstractArray
-            TensorAlgebra.@mularray_terminterface $MulArray $AbstractArray
+            $TensorAlgebra.@mularray_base $MulArray $AbstractArray
+            $TensorAlgebra.@mularray_adjtrans $MulArray $AbstractArray
+            $TensorAlgebra.@mularray_broadcast $MulArray $AbstractArray
+            $TensorAlgebra.@mularray_lazy $MulArray $AbstractArray
+            $TensorAlgebra.@mularray_tensoralgebra $MulArray $AbstractArray
+            $TensorAlgebra.@mularray_terminterface $MulArray $AbstractArray
         end
     )
 end
