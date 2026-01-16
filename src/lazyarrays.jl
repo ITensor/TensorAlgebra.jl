@@ -347,15 +347,21 @@ end
 macro conjarray_base(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.axes(a::$ConjArray) = axes_conj(a)
-            Base.size(a::$ConjArray) = size_conj(a)
-            Base.similar(a::$ConjArray, elt::Type) = similar_conj(a, elt)
-            Base.similar(a::$ConjArray, elt::Type, ax) = similar_conj(a, elt, ax)
-            Base.similar(a::$ConjArray, elt::Type, ax::Dims) = similar_conj(a, elt, ax)
-            Base.copyto!(dest::$AbstractArray, src::$ConjArray) = copyto!_conj(dest, src)
-            Base.show(io::IO, a::$ConjArray) = show_conj(io, a)
+            Base.axes(a::$ConjArray) =
+                $TensorAlgebra.axes_conj(a)
+            Base.size(a::$ConjArray) =
+                $TensorAlgebra.size_conj(a)
+            Base.similar(a::$ConjArray, elt::Type) =
+                $TensorAlgebra.similar_conj(a, elt)
+            Base.similar(a::$ConjArray, elt::Type, ax) =
+                $TensorAlgebra.similar_conj(a, elt, ax)
+            Base.similar(a::$ConjArray, elt::Type, ax::Dims) =
+                $TensorAlgebra.similar_conj(a, elt, ax)
+            Base.copyto!(dest::$AbstractArray, src::$ConjArray) =
+                $TensorAlgebra.copyto!_conj(dest, src)
+            Base.show(io::IO, a::$ConjArray) = $TensorAlgebra.show_conj(io, a)
             Base.show(io::IO, mime::MIME"text/plain", a::$ConjArray) =
-                show_conj(io, mime, a)
+                $TensorAlgebra.show_conj(io, mime, a)
         end
     )
 end
@@ -363,9 +369,9 @@ end
 macro conjarray_broadcast(ConjArray, AbstractArray = :AbstractArray)
     return esc(
         quote
-            Base.Broadcast.materialize(a::$ConjArray) = materialize_conj(a)
+            Base.Broadcast.materialize(a::$ConjArray) = $TensorAlgebra.materialize_conj(a)
             Base.Broadcast.BroadcastStyle(arrayt::Type{<:$ConjArray}) =
-                BroadcastStyle_conj(arrayt)
+                $TensorAlgebra.BroadcastStyle_conj(arrayt)
         end
     )
 end
