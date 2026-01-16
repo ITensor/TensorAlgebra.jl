@@ -1,7 +1,12 @@
 using FunctionImplementations: permuteddims
-using Strided: StridedView, isstrided
+import StridedViews as SV
 
-maybestrided(as::AbstractArray...) = all(isstrided, as) ? StridedView.(as) : as
+# Specify if an array is on CPU. This is helpful for backends that don't support
+# operations on GPU, such as Strided.jl.
+iscpu(::AbstractArray) = true
+# Convert to StridedView only if all arrays are strided and on CPU.
+maybestrided(as::AbstractArray...) =
+    all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
 
 """
     add!(dest, src)
@@ -18,10 +23,12 @@ Equivalent to `dest .= β .* dest .+ α .* src`, but maybe with a more optimized
 implementation.
 """
 function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
-    return _add!(maybestrided(dest, src)..., α, β)
+    add!_broadcast(maybestrided(dest, src)..., α, β)
+    return dest
 end
 
-function _add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
+# Broadcasting implementation of add!.
+function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
     if iszero(β)
         dest .= α .* src
     else
@@ -38,15 +45,5 @@ end
 function permutedimsadd!(
         dest::AbstractArray, src::AbstractArray, perm, α::Number, β::Number
     )
-    dest′, src′ = maybestrided(dest, src)
-    permutedimsadd!_view(dest′, src′, perm, α, β)
-    return dest′
-end
-
-function permutedimsadd!_view(
-        dest::AbstractArray, src::AbstractArray, perm, α::Number, β::Number
-    )
-    src_permuted = permuteddims(src, perm)
-    add!(dest, src_permuted, α, β)
-    return dest
+    return add!(dest, permuteddims(src, perm), α, β)
 end
