@@ -1,14 +1,11 @@
 module TensorAlgebraGPUArraysCoreExt
 
-using TensorAlgebra: TensorAlgebra, permutedimsadd!_view
+import TensorAlgebra as TA
 using GPUArraysCore: AbstractGPUArray
 
 # Overload to avoid converting to StridedView, which doesn't support GPU arrays.
-function TensorAlgebra.permutedimsadd!(
-        dest::AbstractGPUArray, src::AbstractGPUArray, perm, α::Number, β::Number
-    )
-    permutedimsadd!_view(dest, src, perm, α, β)
-    return dest
+function TA.add!(dest::AbstractGPUArray, src::AbstractGPUArray, α::Number, β::Number)
+    return TA._add!(dest, src, perm, α, β)
 end
 
 end
