@@ -4,11 +4,24 @@ using Strided: StridedView, isstrided
 maybestrided(as::AbstractArray...) = all(isstrided, as) ? StridedView.(as) : as
 
 """
+    add!(dest, src)
+
+Equivalent to `dest .+= src`, but maybe with a more optimized/specialized implementation.
+Generally calls `add!(dest, src, true, true)`.
+"""
+add!(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, true)
+
+"""
     add!(dest, src, α, β)
 
-`dest = β * dest + α * src`.
+Equivalent to `dest .= β .* dest .+ α .* src`, but maybe with a more optimized/specialized
+implementation.
 """
 function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
+    return _add!(maybestrided(dest, src)..., α, β)
+end
+
+function _add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
     if iszero(β)
         dest .= α .* src
     else
