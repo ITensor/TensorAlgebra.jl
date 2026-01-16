@@ -68,13 +68,13 @@ to_broadcasted(bc::BC.Broadcasted) = BC.Broadcasted(bc.f, to_broadcasted.(bc.arg
 struct LazyArrayStyle{N, Style <: BC.AbstractArrayStyle{N}} <: BC.AbstractArrayStyle{N}
     style::Style
 end
-function LazyArrayStyle{N, Style}(::Val{M}) where {M, N, Style <: BC.AbstractArrayStyle{N}}
-    return LazyArrayStyle(Style(Val(M)))
-end
-# TODO: This is required in some Julia versions below v1.12, delete these once we
-# drop support for those versions.
+# TODO: This empty constructor is required in some Julia versions below v1.12 (such as
+# Julia v1.10), try deleting it once we drop support for those versions.
 function LazyArrayStyle{N, Style}() where {N, Style <: BC.AbstractArrayStyle{N}}
     return LazyArrayStyle{N, Style}(Style())
+end
+function LazyArrayStyle{N, Style}(::Val{M}) where {M, N, Style <: BC.AbstractArrayStyle{N}}
+    return LazyArrayStyle(Style(Val(M)))
 end
 function BC.BroadcastStyle(style1::LazyArrayStyle, style2::LazyArrayStyle)
     style = BC.BroadcastStyle(style1.style, style2.style)
