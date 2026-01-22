@@ -39,7 +39,9 @@ function contract!(
         a2::AbstractArray, labels2;
         kwargs...,
     )
-    return contractadd!(a_dest, labels_dest, a1, labels1, a2, labels2, true, false; kwargs...)
+    return contractadd!(
+        a_dest, labels_dest, a1, labels1, a2, labels2, true, false; kwargs...
+    )
 end
 
 # contractadd!
