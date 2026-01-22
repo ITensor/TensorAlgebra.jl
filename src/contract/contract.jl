@@ -60,7 +60,7 @@ function contractadd!(
         α::Number, β::Number;
         alg = DefaultContractAlgorithm(), kwargs...,
     )
-    check_input(contractadd!, a_dest, biperm_dest, a1, biperm1, a2, biperm2)
+    check_input(contract!, a_dest, biperm_dest, a1, biperm1, a2, biperm2)
     alg′ = select_contract_algorithm(alg, a1, a2; kwargs...)
     return contractadd!(alg′, a_dest, biperm_dest, a1, biperm1, a2, biperm2, α, β)
 end
