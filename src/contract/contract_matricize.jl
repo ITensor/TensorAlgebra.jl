@@ -18,7 +18,7 @@ function contractadd!_matricize(
         α::Number, β::Number,
     )
     invbiperm = biperm(invperm(biperm_dest), length_codomain(biperm1))
-    check_input(contract, a_dest, invbiperm, a1, biperm1, a2, biperm2)
+    check_input(contract!, a_dest, invbiperm, a1, biperm1, a2, biperm2)
     a1_mat = matricize(alg.fusion_style, a1, biperm1)
     a2_mat = matricize(alg.fusion_style, a2, biperm2)
     a_dest_mat = a1_mat * a2_mat

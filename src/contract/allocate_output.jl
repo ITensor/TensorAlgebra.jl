@@ -7,7 +7,7 @@ function check_input(::typeof(contract), a1, labels1, a2, labels2)
         throw(ArgumentError("Invalid permutation for right tensor"))
 end
 
-function check_input(::typeof(contract), a_dest, labels_dest, a1, labels1, a2, labels2)
+function check_input(::typeof(contract!), a_dest, labels_dest, a1, labels1, a2, labels2)
     ndims(a_dest) == length(labels_dest) ||
         throw(ArgumentError("Invalid permutation for destination tensor"))
     return check_input(contract, a1, labels1, a2, labels2)
