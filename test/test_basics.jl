@@ -195,13 +195,15 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             a_dest, labels_dest′ = contract(a1, labels1, a2, labels2)
             @test labels_dest′ isa
                 BlockedTuple{2, (length(setdiff(d1s, d2s)), length(setdiff(d2s, d1s)))}
-            a_dest_tensoroperations, = contract(alg_tensoroperations, a1, labels1, a2, labels2)
+            a_dest_tensoroperations, = contract(
+                a1, labels1, a2, labels2; alg = alg_tensoroperations
+            )
             @test a_dest ≈ a_dest_tensoroperations
 
             # Specify destination labels
             a_dest = contract(labels_dest, a1, labels1, a2, labels2)
             a_dest_tensoroperations = contract(
-                alg_tensoroperations, labels_dest, a1, labels1, a2, labels2
+                labels_dest, a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
             @test a_dest ≈ a_dest_tensoroperations
 
@@ -212,7 +214,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             @test a_dest ≈ a_dest_tensoroperations
             a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
             a_dest_tensoroperations = contract(
-                alg_tensoroperations, labels_dest′, a1, labels1, a2, labels2
+                labels_dest′, a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
             @test a_dest ≈ a_dest_tensoroperations
 
@@ -226,15 +228,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             contractadd!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β)
             a_dest_tensoroperations = copy(a_dest_init)
             contractadd!(
-                alg_tensoroperations,
-                a_dest_tensoroperations,
-                labels_dest,
-                a1,
-                labels1,
-                a2,
-                labels2,
-                α,
-                β,
+                a_dest_tensoroperations, labels_dest, a1, labels1, a2, labels2, α, β;
+                alg = alg_tensoroperations,
             )
             ## Here we loosened the tolerance because of some floating point roundoff issue.
             ## with Float32 numbers
