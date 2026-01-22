@@ -16,12 +16,6 @@ length_domain(t) = 0
 
 length_codomain(t) = length(t) - length_domain(t)
 
-function blockedperms(
-        f::typeof(contract), alg::ContractAlgorithm, dimnames_dest, dimnames1, dimnames2
-    )
-    return blockedperms(f, dimnames_dest, dimnames1, dimnames2)
-end
-
 # codomain <-- domain
 function blockedperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
     dimnames = collect(Iterators.flatten((dimnames_dest, dimnames1, dimnames2)))

@@ -28,6 +28,10 @@ abstract type AbstractBlockPermutation{BlockLength} <: AbstractBlockTuple{BlockL
 
 widened_constructorof(::Type{<:AbstractBlockPermutation}) = BlockedTuple
 
+# Otherwise it will convert to a BlockTuple since the default `Base.deepcopy` implementation
+# calls `map`.
+Base.deepcopy(bp::AbstractBlockPermutation) = bp
+
 # Block a permutation based on the specified lengths.
 # blockperm((4, 3, 2, 1), (2, 2)) == blockedperm((4, 3), (2, 1))
 # TODO: Optimize with StaticNumbers.jl or generated functions, see:
