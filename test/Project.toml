@@ -17,8 +17,8 @@ TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestExtras = "5ed8adda-3752-4e41-b88a-e8b09835ee3a"
 
-[sources]
-TensorAlgebra = {path = ".."}
+[sources.TensorAlgebra]
+path = ".."
 
 [compat]
 Adapt = "4"
@@ -29,6 +29,7 @@ FunctionImplementations = "0.3, 0.4"
 JLArrays = "0.3"
 LinearAlgebra = "<0.0.1, 1"
 MatrixAlgebraKit = "0.2, 0.3, 0.4, 0.5, 0.6"
+Mooncake = "0.4"
 Random = "1.10"
 SafeTestsets = "0.1"
 StableRNGs = "1.0.2"
