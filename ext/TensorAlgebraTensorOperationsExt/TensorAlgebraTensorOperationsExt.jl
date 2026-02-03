@@ -1,7 +1,5 @@
 module TensorAlgebraTensorOperationsExt
 
-## using TensorAlgebra: TensorAlgebra, BlockedPermutation, ContractAlgorithm, blocklengths
-## using TupleTools: TupleTools
 using TensorAlgebra: TensorAlgebra as TA
 using TensorOperations: TensorOperations as TO
 
@@ -98,9 +96,6 @@ function TO.tensorcontract!(
         backend::TA.ContractAlgorithm,
         allocator,
     )
-    ## bipermA = _blockedpermutation(pA)
-    ## bipermB = _blockedpermutation(pB)
-    ## bipermAB = _blockedpermutation(pAB)
     # TODO: FIXME: Use `conjed` to do the conjugation lazily.
     a1′ = conj1 ? conj(a1) : a1
     a2′ = conj2 ? conj(a2) : a2
