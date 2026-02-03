@@ -9,4 +9,4 @@ TensorAlgebra = {path = ".."}
 [compat]
 Documenter = "1.8.1"
 Literate = "2.20.1"
-TensorAlgebra = "0.6"
+TensorAlgebra = "0.7"
