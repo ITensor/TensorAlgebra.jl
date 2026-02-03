@@ -1,5 +1,5 @@
 abstract type ContractAlgorithm end
-ContractAlgorithm(alg::ContractAlgorithm) = alg
+ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 
 struct DefaultContractAlgorithm <: ContractAlgorithm end
 
@@ -8,14 +8,16 @@ struct Matricize{Style} <: ContractAlgorithm
 end
 Matricize() = Matricize(ReshapeFusion())
 
-function select_contract_algorithm(alg, a1::AbstractArray, a2::AbstractArray)
+function select_contract_algorithm(algorithm, a1::AbstractArray, a2::AbstractArray)
     return error("Not implemented.")
 end
-function select_contract_algorithm(alg::ContractAlgorithm, a1::AbstractArray, a2::AbstractArray)
-    return alg
+function select_contract_algorithm(
+        algorithm::ContractAlgorithm, a1::AbstractArray, a2::AbstractArray
+    )
+    return algorithm
 end
 function select_contract_algorithm(
-        alg::DefaultContractAlgorithm, a1::AbstractArray, a2::AbstractArray
+        algorithm::DefaultContractAlgorithm, a1::AbstractArray, a2::AbstractArray
     )
     return default_contract_algorithm(a1, a2)
 end

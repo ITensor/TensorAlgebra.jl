@@ -1,28 +1,47 @@
 using Base.PermutedDimsArrays: genperm
 
-function check_input(::typeof(contract), a1, labels1, a2, labels2)
-    ndims(a1) == length(labels1) ||
-        throw(ArgumentError("Invalid permutation for left tensor"))
-    return ndims(a2) == length(labels2) ||
-        throw(ArgumentError("Invalid permutation for right tensor"))
+function check_biperm(a, perm_codomain, perm_domain)
+    ndims(a) == length(perm_codomain) + length(perm_domain) ||
+        throw(ArgumentError("Invalid bipartitioned permutation"))
+    isperm((perm_codomain..., perm_domain...)) ||
+        throw(ArgumentError("Invalid bipartitioned permutation"))
+    return nothing
 end
 
-function check_input(::typeof(contract!), a_dest, labels_dest, a1, labels1, a2, labels2)
-    ndims(a_dest) == length(labels_dest) ||
-        throw(ArgumentError("Invalid permutation for destination tensor"))
-    return check_input(contract, a1, labels1, a2, labels2)
+function check_input(
+        ::typeof(contract),
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain,
+    )
+    # TODO: FIXME: Check that contracted axes match.
+    check_biperm(a1, perm1_codomain, perm1_domain)
+    check_biperm(a2, perm2_codomain, perm2_domain)
+    return nothing
+end
+
+function check_input(
+        ::typeof(contract!),
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain,
+    )
+    # TODO: FIXME: Check that uncontracted axes match.
+    check_input(contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain)
+    check_biperm(a_dest, perm_dest_codomain, perm_dest_domain)
+    return nothing
 end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
 function output_axes(
         ::typeof(contract),
-        biperm_dest::AbstractBlockPermutation{2},
-        a1::AbstractArray,
-        biperm1::AbstractBlockPermutation{2},
-        a2::AbstractArray,
-        biperm2::AbstractBlockPermutation{2},
+        perm_dest_codomain, perm_dest_domain,
+        a1::AbstractArray, perm1_codomain, perm1_domain,
+        a2::AbstractArray, perm2_codomain, perm2_domain,
     )
+    biperm1 = permmortar((perm1_codomain, perm1_domain))
+    biperm2 = permmortar((perm2_codomain, perm2_domain))
+    biperm_dest = permmortar((perm_dest_codomain, perm_dest_domain))
     axes_codomain, axes_contracted = blocks(axes(a1)[biperm1])
     axes_contracted2, axes_domain = blocks(axes(a2)[biperm2])
     @assert length.(axes_contracted) == length.(axes_contracted2)
@@ -34,13 +53,16 @@ end
 # i.e. `ContractAdd`?
 function allocate_output(
         ::typeof(contract),
-        biperm_dest::AbstractBlockPermutation,
-        a1::AbstractArray,
-        biperm1::AbstractBlockPermutation,
-        a2::AbstractArray,
-        biperm2::AbstractBlockPermutation,
+        perm_dest_codomain, perm_dest_domain,
+        a1::AbstractArray, perm1_codomain, perm1_domain,
+        a2::AbstractArray, perm2_codomain, perm2_domain,
     )
-    check_input(contract, a1, biperm1, a2, biperm2)
-    axes_dest = output_axes(contract, biperm_dest, a1, biperm1, a2, biperm2)
+    check_input(contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain)
+    axes_dest = output_axes(
+        contract,
+        perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain,
+    )
     return similar(a1, promote_type(eltype(a1), eltype(a2)), axes_dest)
 end
