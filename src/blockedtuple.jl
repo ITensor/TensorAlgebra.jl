@@ -9,6 +9,11 @@ using TypeParameterAccessors: type_parameters, unspecify_type_parameters
 # BlockArrays-like interface
 struct Block{N, T}
     n::NTuple{N, T}
+    # Seems to be required for Aqua, see:
+    # https://github.com/JuliaTesting/Aqua.jl/issues/86
+    function Block(n::Tuple{T, Vararg{T}}) where {T}
+        return new{length(n), T}(n)
+    end
 end
 Block(n::Integer) = Block((n,))
 Base.Int(b::Block{1}) = b.n[1]
