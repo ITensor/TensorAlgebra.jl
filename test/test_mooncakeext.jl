@@ -1,3 +1,4 @@
+using BlockArrays: blocks
 import Mooncake
 import Random
 using TensorAlgebra: AbstractBlockPermutation, BlockedPermutation, ContractAlgorithm,
@@ -31,8 +32,8 @@ using Test: @test, @testset
         labels2 = (:j, :k)
 
         Mooncake.TestUtils.test_rule(
-            rng, allocate_output, contract, biperm_dest, a1, biperm1, a2, biperm2;
-            mode, is_primitive,
+            rng, allocate_output, contract, blocks(biperm_dest)..., a1, blocks(biperm1)...,
+            a2, blocks(biperm2)...; mode, is_primitive,
         )
         Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), Val(2); mode, is_primitive)
         Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), 2; mode, is_primitive)
@@ -40,11 +41,12 @@ using Test: @test, @testset
             rng, blockedperms, contract, labels_dest, labels1, labels2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, check_input, contract, a1, biperm1, a2, biperm2; mode, is_primitive
+            rng, check_input, contract, a1, blocks(biperm1)..., a2, blocks(biperm2)...;
+            mode, is_primitive,
         )
         Mooncake.TestUtils.test_rule(
-            rng, check_input, contract!, dest, biperm_dest, a1, biperm1, a2, biperm2;
-            mode, is_primitive,
+            rng, check_input, contract!, dest, blocks(biperm_dest)...,
+            a1, blocks(biperm1)..., a2, blocks(biperm2)...; mode, is_primitive,
         )
         Mooncake.TestUtils.test_rule(
             rng, contract_labels, labels1, labels2; mode, is_primitive
@@ -71,7 +73,8 @@ using Test: @test, @testset
             biperm1 = permmortar(((1,), (2,)))
             biperm2 = permmortar(((1,), (2,)))
             Mooncake.TestUtils.test_rule(
-                rng, contractadd!, dest, biperm_dest, a1, biperm1, a2, biperm2, α, β;
+                rng, contractadd!, dest, blocks(biperm_dest)...,
+                a1, blocks(biperm1)..., a2, blocks(biperm2)..., α, β;
                 atol, rtol, mode, is_primitive,
             )
         end
@@ -105,8 +108,7 @@ using Test: @test, @testset
             labels1 = (:i, :j)
             labels2 = (:j, :k)
             Mooncake.TestUtils.test_rule(
-                rng, contract, a1, labels1, a2, labels2;
-                atol, rtol, mode, is_primitive,
+                rng, contract, a1, labels1, a2, labels2; atol, rtol, mode, is_primitive
             )
         end
     end

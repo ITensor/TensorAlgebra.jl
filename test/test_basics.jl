@@ -4,21 +4,9 @@ using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorOperations: TensorOperations
 
-using TensorAlgebra:
-    BlockedTuple,
-    ContractAlgorithm,
-    blockedpermvcat,
-    contract,
-    contract!,
-    contractadd!,
-    length_codomain,
-    length_domain,
-    matricize,
-    bipermutedims,
-    bipermutedims!,
-    tuplemortar,
-    unmatricize,
-    unmatricize!
+using TensorAlgebra: BlockedTuple, ContractAlgorithm, blockedpermvcat, contract, contract!,
+    contractadd!, length_codomain, length_domain, matricize, bipermutedims, bipermutedims!,
+    tuplemortar, unmatricize, unmatricize!
 
 default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})

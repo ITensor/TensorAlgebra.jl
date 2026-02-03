@@ -1,5 +1,3 @@
-using BlockArrays:
-    BlockArrays, Block, blockfirsts, blocklasts, blocklength, blocklengths, blocks
 using EllipsisNotation: Ellipsis, var".."
 using TupleTools: TupleTools
 
@@ -170,7 +168,7 @@ end
 Base.Tuple(blockedperm::BlockedPermutation) = getfield(blockedperm, :flat)
 
 # BlockArrays interface
-function BlockArrays.blocklengths(
+function blocklengths(
         ::Type{<:BlockedPermutation{<:Any, BlockLengths}}
     ) where {BlockLengths}
     return BlockLengths
@@ -195,7 +193,7 @@ struct BlockedTrivialPermutation{BlockLength, BlockLengths} <:
 Base.Tuple(blockedperm::BlockedTrivialPermutation) = trivialperm(length(blockedperm))
 
 # BlockArrays interface
-function BlockArrays.blocklengths(
+function blocklengths(
         ::Type{<:BlockedTrivialPermutation{<:Any, BlockLengths}}
     ) where {BlockLengths}
     return BlockLengths

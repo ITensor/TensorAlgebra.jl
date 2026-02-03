@@ -161,19 +161,19 @@ end
 
 function matricize(
         a::AbstractArray,
-        permblock_codomain::Tuple{Vararg{Int}}, permblock_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return matricize(FusionStyle(a), a, permblock_codomain, permblock_domain)
+    return matricize(FusionStyle(a), a, perm_codomain, perm_domain)
 end
 # This is a more advanced version to overload where the permutation is actually performed.
 function matricize(
         style::FusionStyle, a::AbstractArray,
-        permblock_codomain::Tuple{Vararg{Int}}, permblock_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    ndims(a) == length(permblock_codomain) + length(permblock_domain) ||
+    ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipermutation"))
-    a_perm = bipermutedims(a, permblock_codomain, permblock_domain)
-    return matricize(style, a_perm, Val(length(permblock_codomain)))
+    a_perm = bipermutedims(a, perm_codomain, perm_domain)
+    return matricize(style, a_perm, Val(length(perm_codomain)))
 end
 
 # Process inputs such as `EllipsisNotation.Ellipsis`.
@@ -200,13 +200,13 @@ function to_permblocks(
     return (permblocks[1], permblocks2)
 end
 
-function matricize(a::AbstractArray, permblock_codomain, permblock_domain)
-    return matricize(FusionStyle(a), a, permblock_codomain, permblock_domain)
+function matricize(a::AbstractArray, perm_codomain, perm_domain)
+    return matricize(FusionStyle(a), a, perm_codomain, perm_domain)
 end
 function matricize(
-        style::FusionStyle, a::AbstractArray, permblock_codomain, permblock_domain
+        style::FusionStyle, a::AbstractArray, perm_codomain, perm_domain
     )
-    return matricize(style, a, to_permblocks(a, (permblock_codomain, permblock_domain))...)
+    return matricize(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
 
 function matricize(a::AbstractArray, biperm_dest::AbstractBlockPermutation{2})

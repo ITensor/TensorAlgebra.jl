@@ -1,10 +1,12 @@
-using BlockArrays: AbstractBlockArray, AbstractBlockedUnitRange, BlockedArray, blockedrange,
-    eachblockaxes1, mortar
+using BlockArrays: AbstractBlockArray, AbstractBlockedUnitRange, Block, BlockedArray,
+    blockedrange, blocklength, blocks, eachblockaxes1, mortar
+using TensorAlgebra: TensorAlgebra, AbstractBlockTuple, BlockedTuple, FusionStyle,
+    ReshapeFusion, matricize, matricize_axes, tensor_product_axis, unmatricize
 
 struct BlockReshapeFusion <: FusionStyle end
-FusionStyle(::Type{<:AbstractBlockArray}) = BlockReshapeFusion()
+TensorAlgebra.FusionStyle(::Type{<:AbstractBlockArray}) = BlockReshapeFusion()
 
-function trivial_axis(
+function TensorAlgebra.trivial_axis(
         style::BlockReshapeFusion, side::Val{:codomain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
         axes_domain::Tuple{Vararg{AbstractUnitRange}},
@@ -16,7 +18,7 @@ function mortar_axis(axs)
         throw(ArgumentError("Only one-based axes are supported"))
     return blockedrange(length.(axs))
 end
-function tensor_product_axis(
+function TensorAlgebra.tensor_product_axis(
         style::BlockReshapeFusion, side::Val{:codomain},
         r1::AbstractUnitRange, r2::AbstractUnitRange,
     )
@@ -26,7 +28,9 @@ function tensor_product_axis(
     blockaxs = vec(map(splat(tensor_product_axis), blockaxpairs))
     return mortar_axis(blockaxs)
 end
-function matricize(style::BlockReshapeFusion, a::AbstractArray, ndims_codomain::Val)
+function TensorAlgebra.matricize(
+        style::BlockReshapeFusion, a::AbstractArray, ndims_codomain::Val
+    )
     ax = matricize_axes(style, a, ndims_codomain)
     reshaped_blocks_a = reshape(blocks(a), blocklength.(ax))
     bs = map(reshaped_blocks_a) do b
@@ -35,7 +39,7 @@ function matricize(style::BlockReshapeFusion, a::AbstractArray, ndims_codomain::
     return mortar(bs, ax)
 end
 using BlockArrays: blocklengths
-function unmatricize(
+function TensorAlgebra.unmatricize(
         ::BlockReshapeFusion, m::AbstractMatrix,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
         axes_domain::Tuple{Vararg{AbstractUnitRange}},
@@ -54,11 +58,11 @@ function unmatricize(
     return mortar(bs, ax)
 end
 
-FusionStyle(::Type{<:BlockedArray}) = ReshapeFusion()
+TensorAlgebra.FusionStyle(::Type{<:BlockedArray}) = ReshapeFusion()
 unblock(a::BlockedArray) = a.blocks
 unblock(a::AbstractBlockArray) = a[Base.OneTo.(size(a))...]
 unblock(a::AbstractArray) = a
-function matricize(::ReshapeFusion, a::BlockedArray, ndims_codomain::Val)
+function TensorAlgebra.matricize(::ReshapeFusion, a::BlockedArray, ndims_codomain::Val)
     return matricize(ReshapeFusion(), unblock(a), ndims_codomain)
 end
 function unmatricize_blocked(
@@ -72,21 +76,21 @@ function unmatricize_blocked(
     )
     return BlockedArray(a, (axes_codomain..., axes_domain...))
 end
-function unmatricize(
+function TensorAlgebra.unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,
         axes_codomain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
         axes_domain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
     )
     return unmatricize_blocked(style, m, axes_codomain, axes_domain)
 end
-function unmatricize(
+function TensorAlgebra.unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,
         axes_codomain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
         axes_domain::Tuple{Vararg{AbstractBlockedUnitRange}},
     )
     return unmatricize_blocked(style, m, axes_codomain, axes_domain)
 end
-function unmatricize(
+function TensorAlgebra.unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,
         axes_codomain::Tuple{Vararg{AbstractBlockedUnitRange}},
         axes_domain::Tuple{AbstractBlockedUnitRange, Vararg{AbstractBlockedUnitRange}},
