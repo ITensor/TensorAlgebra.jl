@@ -2,9 +2,60 @@
 # These types allow to store a Tuple of heterogeneous Tuples with a BlockArrays.jl like
 # interface.
 
-using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
+## using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
 
 using TypeParameterAccessors: type_parameters, unspecify_type_parameters
+
+# BlockArrays-like interface
+struct Block{N, T}
+    n::NTuple{N, T}
+end
+Block(n::Integer) = Block((n,))
+Base.Int(b::Block{1}) = b.n[1]
+Base.:(==)(I::Block, J::Block) = I.n == J.n
+struct BlockIndex{N, TI <: Tuple{Vararg{Integer, N}}, Tα <: Tuple{Vararg{Any, N}}}
+    I::TI
+    α::Tα
+end
+struct BlockIndexRange{
+        N, R <: Tuple{Vararg{AbstractUnitRange{<:Integer}, N}},
+        I <: Tuple{Vararg{Any, N}}, BI,
+    } <: AbstractArray{BlockIndex{N, NTuple{N, BI}, I}, N}
+    block::Block{N, BI}
+    indices::R
+    function BlockIndexRange(
+            block::Block{N, BI}, inds::R
+        ) where {N, BI <: Integer, R <: Tuple{Vararg{AbstractUnitRange{<:Integer}, N}}}
+        I = Tuple{eltype.(inds)...}
+        return new{N, R, I, BI}(block, inds)
+    end
+end
+Block(I::BlockIndexRange) = I.block
+struct BlockRange{N, R <: NTuple{N, AbstractUnitRange{<:Integer}}} <: AbstractArray{Block{N, Int}, N}
+    indices::R
+end
+function Base.Broadcast.broadcasted(
+        ::Base.Broadcast.DefaultArrayStyle{1}, ::Type{<:Integer}, I::BlockRange{1}
+    )
+    return first(I.indices)
+end
+
+struct BlockedOneTo{T <: Integer, CS <: AbstractVector{T}} <: AbstractUnitRange{T}
+    lasts::CS
+end
+blockedrange(blocks) = BlockedOneTo(cumsum(blocks))
+function Base.length(a::BlockedOneTo)
+    return if isempty(blocklasts(a))
+        zero(eltype(a))
+    else
+        Integer(last(blocklasts(a)) - first(a) + oneunit(eltype(a)))
+    end
+end
+Base.first(b::BlockedOneTo) = oneunit(eltype(b))
+function Base.last(b::BlockedOneTo)
+    return isempty(blocklasts(b)) ? first(b) - oneunit(eltype(b)) : last(blocklasts(b))
+end
+blocklasts(a::BlockedOneTo) = a.lasts
 
 #
 # ==================================  AbstractBlockTuple  ==================================
@@ -136,20 +187,20 @@ end
 Base.ndims(::Type{<:AbstractBlockTuple}) = 1  # needed in nested broadcast
 
 # BlockArrays interface
-BlockArrays.blockfirsts(::AbstractBlockTuple{0}) = ()
-function BlockArrays.blockfirsts(bt::AbstractBlockTuple)
+blockfirsts(::AbstractBlockTuple{0}) = ()
+function blockfirsts(bt::AbstractBlockTuple)
     return (0, cumsum(Base.front(blocklengths(bt)))...) .+ 1
 end
 
-function BlockArrays.blocklasts(bt::AbstractBlockTuple)
+function blocklasts(bt::AbstractBlockTuple)
     return cumsum(blocklengths(bt))
 end
 
-BlockArrays.blocklength(::AbstractBlockTuple{BlockLength}) where {BlockLength} = BlockLength
+blocklength(::AbstractBlockTuple{BlockLength}) where {BlockLength} = BlockLength
 
-BlockArrays.blocklengths(bt::AbstractBlockTuple) = blocklengths(typeof(bt))
+blocklengths(bt::AbstractBlockTuple) = blocklengths(typeof(bt))
 
-function BlockArrays.blocks(bt::AbstractBlockTuple)
+function blocks(bt::AbstractBlockTuple)
     bf = blockfirsts(bt)
     bl = blocklasts(bt)
     return ntuple(i -> Tuple(bt)[bf[i]:bl[i]], blocklength(bt))
@@ -191,7 +242,7 @@ end
 Base.Tuple(bt::BlockedTuple) = bt.flat
 
 # BlockArrays interface
-function BlockArrays.blocklengths(
+function blocklengths(
         ::Type{<:BlockedTuple{<:Any, BlockLengths}}
     ) where {BlockLengths}
     return BlockLengths
