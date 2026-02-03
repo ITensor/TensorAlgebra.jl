@@ -1,5 +1,3 @@
-## using BlockArrays:
-##     BlockArrays, Block, blockfirsts, blocklasts, blocklength, blocklengths, blocks
 using EllipsisNotation: Ellipsis, var".."
 using TupleTools: TupleTools
 

@@ -2,8 +2,6 @@
 # These types allow to store a Tuple of heterogeneous Tuples with a BlockArrays.jl like
 # interface.
 
-## using BlockArrays: Block, BlockArrays, BlockIndexRange, BlockRange, blockedrange
-
 using TypeParameterAccessors: type_parameters, unspecify_type_parameters
 
 # BlockArrays-like interface
