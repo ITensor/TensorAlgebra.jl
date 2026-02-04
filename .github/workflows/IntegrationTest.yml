@@ -18,12 +18,14 @@ jobs:
        matrix:
          pkg:
            - 'BlockSparseArrays'
+           - 'DiagonalArrays'
            - 'FusionTensors'
            - 'GradedArrays'
            - 'ITensorBase'
            - 'ITensorNetworksNext'
            - 'KroneckerArrays'
            - 'NamedDimsArrays'
+           - 'SparseArraysBase'
     uses: "ITensor/ITensorActions/.github/workflows/IntegrationTest.yml@main"
     with:
       localregistry: "https://github.com/ITensor/ITensorRegistry.git"
