@@ -88,8 +88,8 @@ Base.getindex(bt::AbstractBlockTuple, r::AbstractUnitRange) = Tuple(bt)[r]
 Base.getindex(bt::AbstractBlockTuple, b::Block{1}) = blocks(bt)[Int(b)]
 function Base.getindex(bt::AbstractBlockTuple, br::BlockRange{1})
     r = Int.(br)
-    flat = Tuple(bt)[blockfirsts(bt)[first(r)]:blocklasts(bt)[last(r)]]
-    return widened_constructorof(typeof(bt))(flat, blocklengths(bt)[r])
+    t = Tuple(bt)[blockfirsts(bt)[first(r)]:blocklasts(bt)[last(r)]]
+    return widened_constructorof(typeof(bt))(t, Val(blocklengths(bt)[r]))
 end
 function Base.getindex(bt::AbstractBlockTuple, bi::BlockIndexRange{1})
     return bt[Block(bi)][only(bi.indices)]
@@ -105,9 +105,8 @@ Base.lastindex(bt::AbstractBlockTuple) = length(bt)
 Base.length(bt::AbstractBlockTuple) = sum(blocklengths(bt); init = 0)
 
 function Base.map(f, bt::AbstractBlockTuple)
-    BL = blocklengths(bt)
-    # use Val to preserve compile time knowledge of BL
-    return widened_constructorof(typeof(bt))(map(f, Tuple(bt)), Val(BL))
+    t = map(f, Tuple(bt))
+    return widened_constructorof(typeof(bt))(t, Val(blocklengths(bt)))
 end
 
 function Base.show(io::IO, bt::AbstractBlockTuple)
@@ -184,10 +183,22 @@ end
 function Base.copy(
         bc::Broadcast.Broadcasted{AbstractBlockTupleBroadcastStyle{BlockLengths, BT}}
     ) where {BlockLengths, BT}
-    return widened_constructorof(BT)(bc.f.((Tuple.(bc.args))...), Val(BlockLengths))
+    t = bc.f.((Tuple.(bc.args))...)
+    return widened_constructorof(BT)(t, Val(BlockLengths))
 end
 
 Base.ndims(::Type{<:AbstractBlockTuple}) = 1  # needed in nested broadcast
+
+function Base.replace(bt::AbstractBlockTuple, replacements::Pair...; kwargs...)
+    t = replace(Tuple(bt), replacements...; kwargs...)
+    return widened_constructorof(typeof(bt))(t, Val(blocklengths(bt)))
+end
+# Copy of Base.Callable definition, since it isn't public.
+const Callable = Union{Function, Type}
+function Base.replace(f::Callable, bt::AbstractBlockTuple; kwargs...)
+    t = replace(f, Tuple(bt); kwargs...)
+    return widened_constructorof(typeof(bt))(t, Val(blocklengths(bt)))
+end
 
 # BlockArrays interface
 blockfirsts(::AbstractBlockTuple{0}) = ()
