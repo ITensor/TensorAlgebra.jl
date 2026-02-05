@@ -13,7 +13,7 @@ TA.BlockRange(I::BA.BlockRange) = TA.BlockRange(I.indices)
 TA.BlockIndexRange(I::BA.BlockIndexRange) = TA.BlockIndexRange(TA.Block(I.block), I.indices)
 Base.:(==)(I::BA.Block, J::TA.Block) = I.n == J.n
 Base.:(==)(I::TA.Block, J::BA.Block) = I.n == J.n
-Base.getindex(bt::TA.BlockedTuple, I::BA.Block) = bt[TA.Block(I)]
+Base.getindex(bt::TA.AbstractBlockTuple, I::BA.Block) = bt[TA.Block(I)]
 Base.getindex(bt::TA.AbstractBlockTuple, I::BA.BlockIndexRange) = bt[TA.BlockIndexRange(I)]
 Base.getindex(bt::TA.AbstractBlockTuple, I::BA.BlockRange{1}) = bt[TA.BlockRange(I)]
 
