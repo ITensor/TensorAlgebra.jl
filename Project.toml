@@ -1,7 +1,10 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
+version = "0.7.3"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
-version = "0.7.2"
+
+[workspace]
+projects = ["benchmark", "dev", "docs", "examples", "test"]
 
 [deps]
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
@@ -28,7 +31,7 @@ TensorAlgebraTensorOperationsExt = "TensorOperations"
 BlockArrays = "1.7.2"
 EllipsisNotation = "1.8"
 FunctionImplementations = "0.3.1, 0.4"
-GPUArraysCore = "0.2.0"
+GPUArraysCore = "0.2"
 LinearAlgebra = "1.10"
 MatrixAlgebraKit = "0.2, 0.3, 0.4, 0.5, 0.6"
 Mooncake = "0.4.202, 0.5"
@@ -37,6 +40,3 @@ TensorOperations = "5"
 TupleTools = "1.6"
 TypeParameterAccessors = "0.2.1, 0.3, 0.4"
 julia = "1.10"
-
-[workspace]
-projects = ["benchmark", "dev", "docs", "examples", "test"]
