@@ -1,7 +1,7 @@
 using BlockArrays: blockfirsts, blocklasts, blocklength, blocklengths, blocks
 using EllipsisNotation: var".."
 using TensorAlgebra: BlockedPermutation, BlockedTrivialPermutation, BlockedTuple,
-    blockedperm, blockedperm_indexin, blockpermute, blockedtrivialperm, blockedpermvcat,
+    blockedperm, blockedperm_indexin, blockedpermvcat, blockedtrivialperm, blockpermute,
     permmortar, trivialperm, tuplemortar
 using Test: @test, @test_broken, @test_throws, @testset
 using TestExtras: @constinferred
@@ -134,7 +134,8 @@ using TestExtras: @constinferred
     t = (1, 2, 3, 4)
     pblocks = tuplemortar(((4, 3), (), (1, 2)))
     p = blockedperm(pblocks)
-    @test (@constinferred blockpermute(t, p)) isa BlockedTuple{3, (2, 0, 2), NTuple{4, Int64}}
+    @test (@constinferred blockpermute(t, p)) isa
+        BlockedTuple{3, (2, 0, 2), NTuple{4, Int64}}
     @test blockpermute(t, p) == pblocks
     @test t[p] == pblocks
     @test pblocks[p] == tuplemortar(((2, 1), (), (4, 3)))

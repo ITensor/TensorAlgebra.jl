@@ -36,7 +36,7 @@ for f in (
         function $f(
                 style::FusionStyle, A::AbstractArray,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
-                kwargs...,
+                kwargs...
             )
             A_perm = bipermutedims(A, perm_codomain, perm_domain)
             return $f(style, A_perm, Val(length(perm_codomain)); kwargs...)
@@ -44,7 +44,7 @@ for f in (
         function $f(
                 A::AbstractArray,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
-                kwargs...,
+                kwargs...
             )
             A_perm = bipermutedims(A, perm_codomain, perm_domain)
             return $f(A_perm, Val(length(perm_codomain)); kwargs...)
@@ -52,19 +52,21 @@ for f in (
 
         function $f(
                 style::FusionStyle, A::AbstractArray,
-                labels_A, labels_codomain, labels_domain; kwargs...,
+                labels_A, labels_codomain, labels_domain; kwargs...
             )
-            biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            biperm =
+                blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
             return $f(style, A, blocks(biperm)...; kwargs...)
         end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-            biperm = blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            biperm =
+                blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
             return $f(A, blocks(biperm)...; kwargs...)
         end
 
         function $f(
                 style::FusionStyle, A::AbstractArray,
-                biperm::AbstractBlockPermutation{2}; kwargs...,
+                biperm::AbstractBlockPermutation{2}; kwargs...
             )
             return $f(style, A, blocks(biperm)...; kwargs...)
         end
@@ -86,9 +88,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `R` is square, respectively.
-- `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
-- Other keywords are passed on directly to MatrixAlgebraKit.
+  - `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `R` is square, respectively.
+  - `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.qr_full!` and `MatrixAlgebraKit.qr_compact!`.
 """
@@ -106,9 +108,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `L` is square, respectively.
-- `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
-- Other keywords are passed on directly to MatrixAlgebraKit.
+  - `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `L` is square, respectively.
+  - `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.lq_full!` and `MatrixAlgebraKit.lq_compact!`.
 """
@@ -126,7 +128,7 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - Keyword arguments are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.left_polar!`.
 """
@@ -144,7 +146,7 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - Keyword arguments are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.right_polar!`.
 """
@@ -162,7 +164,7 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - Keyword arguments are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.left_orth!`.
 """
@@ -180,7 +182,7 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - Keyword arguments are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.right_orth!`.
 """
@@ -198,9 +200,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- `orth::Symbol=:left`: specify the orthogonality of the decomposition.
-  Currently only `:left` and `:right` are supported.
-- Other keywords are passed on directly to MatrixAlgebraKit.
+  - `orth::Symbol=:left`: specify the orthogonality of the decomposition.
+    Currently only `:left` and `:right` are supported.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 """
 factorize
 
@@ -216,10 +218,10 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
+  - `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
     computation. If `false`, the output `eltype` will always be `<:Complex`.
-- `trunc`: Truncation keywords for `eig(h)_trunc`.
-- Other keywords are passed on directly to MatrixAlgebraKit.
+  - `trunc`: Truncation keywords for `eig(h)_trunc`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlgebraKit.eig_vals!`,
 `MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
@@ -259,9 +261,9 @@ their labels or directly through a bi-permutation. The output is a vector of eig
 
 ## Keyword arguments
 
-- `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
+  - `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
     computation. If `false`, the output `eltype` will always be `<:Complex`.
-- Other keywords are passed on directly to MatrixAlgebraKit.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
 """
@@ -294,10 +296,10 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-- `full::Bool=false`: select between a "thick" or a "thin" decomposition, where both `U` and `Vᴴ`
-  are unitary or isometric.
-- `trunc`: Truncation keywords for `svd_trunc`. Not compatible with `full=true`.
-- Other keywords are passed on directly to MatrixAlgebraKit.
+  - `full::Bool=false`: select between a "thick" or a "thin" decomposition, where both `U` and `Vᴴ`
+    are unitary or isometric.
+  - `trunc`: Truncation keywords for `svd_trunc`. Not compatible with `full=true`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
 """
@@ -365,11 +367,11 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 
 ## Keyword arguments
 
-- `atol::Real=0`: absolute tolerance for the nullspace computation.
-- `rtol::Real=0`: relative tolerance for the nullspace computation.
-- `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
-  The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
-  The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
+  - `atol::Real=0`: absolute tolerance for the nullspace computation.
+  - `rtol::Real=0`: relative tolerance for the nullspace computation.
+  - `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
+    The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
+    The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
 left_null
 
@@ -405,11 +407,11 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 
 ## Keyword arguments
 
-- `atol::Real=0`: absolute tolerance for the nullspace computation.
-- `rtol::Real=0`: relative tolerance for the nullspace computation.
-- `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
-  The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
-  The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
+  - `atol::Real=0`: absolute tolerance for the nullspace computation.
+  - `rtol::Real=0`: relative tolerance for the nullspace computation.
+  - `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
+    The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
+    The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
 """
 right_null
 

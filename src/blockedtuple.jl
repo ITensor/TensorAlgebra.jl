@@ -34,7 +34,8 @@ struct BlockIndexRange{
     end
 end
 Block(I::BlockIndexRange) = I.block
-struct BlockRange{N, R <: NTuple{N, AbstractUnitRange{<:Integer}}} <: AbstractArray{Block{N, Int}, N}
+struct BlockRange{N, R <: NTuple{N, AbstractUnitRange{<:Integer}}} <:
+    AbstractArray{Block{N, Int}, N}
     indices::R
 end
 function Base.Broadcast.broadcasted(
@@ -140,7 +141,8 @@ function Base.BroadcastStyle(
         throw(DimensionMismatch("blocked tuples could not be broadcast to a common size"))
     new_blocklasts = static_mergesort(cumsum(blocklengths1), cumsum(blocklengths2))
     new_blocklengths = (
-        first(new_blocklasts), Base.tail(new_blocklasts) .- Base.front(new_blocklasts)...,
+        first(new_blocklasts),
+        Base.tail(new_blocklasts) .- Base.front(new_blocklasts)...,
     )
     BT = combine_types(type_parameters(s1, 2), type_parameters(s2, 2))
     return AbstractBlockTupleBroadcastStyle{new_blocklengths, BT}()
@@ -228,7 +230,8 @@ struct BlockedTuple{BlockLength, BlockLengths, Flat} <: AbstractBlockTuple{Block
     function BlockedTuple{BlockLength, BlockLengths}(
             flat::Tuple
         ) where {BlockLength, BlockLengths}
-        length(BlockLengths) != BlockLength && throw(DimensionMismatch("Invalid blocklength"))
+        length(BlockLengths) != BlockLength &&
+            throw(DimensionMismatch("Invalid blocklength"))
         length(flat) != sum(BlockLengths; init = 0) &&
             throw(DimensionMismatch("Invalid total length"))
         any(BlockLengths .< 0) && throw(DimensionMismatch("Invalid block length"))

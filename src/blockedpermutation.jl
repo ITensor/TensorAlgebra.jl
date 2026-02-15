@@ -108,17 +108,18 @@ end
 # blockedpermvcat((4, 3), (..,), 1; length=Val(5)) == blockedpermvcat((4, 3), (2, 5), (1,))
 function blockedpermvcat(
         permblocks::Union{Tuple{Vararg{Int}}, Ellipsis, Tuple{Ellipsis}}...;
-        length::Union{Val, Nothing} = nothing,
+        length::Union{Val, Nothing} = nothing
     )
     return _blockedpermvcat(length, permblocks...)
 end
 function _blockedpermvcat(
         length::Union{Val, Nothing},
-        permblocks::Union{Tuple{Vararg{Int}}, Ellipsis, Tuple{Ellipsis}}...,
+        permblocks::Union{Tuple{Vararg{Int}}, Ellipsis, Tuple{Ellipsis}}...
     )
     # Check there is only one `Ellipsis`.
     @assert isone(count(x -> x isa Union{Ellipsis, Tuple{Ellipsis}}, permblocks))
-    specified_permblocks = filter(x -> !(x isa Union{Ellipsis, Tuple{Ellipsis}}), permblocks)
+    specified_permblocks =
+        filter(x -> !(x isa Union{Ellipsis, Tuple{Ellipsis}}), permblocks)
     unspecified_dim = findfirst(x -> x isa Union{Ellipsis, Tuple{Ellipsis}}, permblocks)
     specified_perm = flatten_tuples(specified_permblocks)
     len = _blockedperm_length(length, specified_perm)

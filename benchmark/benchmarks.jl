@@ -1,5 +1,5 @@
-using TensorAlgebra
 using BenchmarkTools
+using TensorAlgebra
 
 SUITE = BenchmarkGroup()
 

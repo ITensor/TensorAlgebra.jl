@@ -22,7 +22,7 @@ function TA.contract(
         algorithm::TensorOperationsAlgorithm,
         perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain,
+        a2::AbstractArray, perm2_codomain, perm2_domain
     )
     permblocks1 = Tuple.((perm1_codomain, perm1_domain))
     permblocks2 = Tuple.((perm2_codomain, perm2_domain))
@@ -31,7 +31,7 @@ function TA.contract(
     α = true
     return TO.tensorcontract(
         a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, algorithm.backend,
+        permblocks_dest, α, algorithm.backend
     )
 end
 
@@ -39,7 +39,7 @@ function TA.contract(
         algorithm::TensorOperationsAlgorithm,
         labels_dest,
         a1::AbstractArray, labels1,
-        a2::AbstractArray, labels2,
+        a2::AbstractArray, labels2
     )
     permblocks1, permblocks2, permblocks_dest =
         TO.contract_indices(labels1, labels2, labels_dest)
@@ -47,7 +47,7 @@ function TA.contract(
     α = true
     return TO.tensorcontract(
         a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, algorithm.backend,
+        permblocks_dest, α, algorithm.backend
     )
 end
 
@@ -57,7 +57,7 @@ function TA.contractadd!(
         a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain,
-        α::Number, β::Number,
+        α::Number, β::Number
     )
     permblocks1 = Tuple.((perm1_codomain, perm1_domain))
     permblocks2 = Tuple.((perm2_codomain, perm2_domain))
@@ -74,14 +74,14 @@ function TA.contractadd!(
         a_dest::AbstractArray, labels_dest,
         a1::AbstractArray, labels1,
         a2::AbstractArray, labels2,
-        α::Number, β::Number,
+        α::Number, β::Number
     )
     permblocks1, permblocks2, permblocks_dest =
         TO.contract_indices(labels1, labels2, labels_dest)
     conj1, conj2 = false, false
     return TO.tensorcontract!(
         a_dest, a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, β, algorithm.backend,
+        permblocks_dest, α, β, algorithm.backend
     )
 end
 
@@ -94,7 +94,7 @@ function TO.tensorcontract!(
         permblocks_dest::TO.Index2Tuple,
         α::Number, β::Number,
         backend::TA.ContractAlgorithm,
-        allocator,
+        allocator
     )
     # TODO: FIXME: Use `conjed` to do the conjugation lazily.
     a1′ = conj1 ? conj(a1) : a1
@@ -104,7 +104,7 @@ function TO.tensorcontract!(
         a_dest, permblocks_dest...,
         a1′, permblocks1...,
         a2′, permblocks2...,
-        α, β,
+        α, β
     )
 end
 
@@ -117,7 +117,7 @@ function TO.tensortrace!(
         conj_src::Bool,
         α::Number, β::Number,
         ::TA.ContractAlgorithm,
-        allocator,
+        allocator
     )
     return TO.tensortrace!(
         a_dest, a_src, permblocks_src,
@@ -132,7 +132,7 @@ function TO.tensoradd!(
         conj_src::Bool,
         α::Number, β::Number,
         ::TA.ContractAlgorithm,
-        allocator,
+        allocator
     )
     return TO.tensoradd!(
         a_dest, a_src, permblocks_src, conj_src, α, β, TO.DefaultBackend(), allocator

@@ -1,5 +1,5 @@
 import FunctionImplementations as FI
-using TensorAlgebra: TensorAlgebra as TA, +ₗ, *ₗ, conjed
+using TensorAlgebra: TensorAlgebra as TA, *ₗ, +ₗ, conjed
 using Test: @test, @test_broken, @testset
 
 @testset "lazy arrays" begin

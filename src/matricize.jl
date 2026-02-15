@@ -13,21 +13,21 @@ FusionStyle(style1::FusionStyle, style2::FusionStyle) = ReshapeFusion()
 function trivial_axis(
         style::FusionStyle, side::Val{:codomain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return throw(MethodError(trivial_axis, (style, side, a, axes_codomain, axes_domain)))
 end
 function trivial_axis(
         style::FusionStyle, ::Val{:domain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return trivial_axis(style, Val(:codomain), a, axes_codomain, axes_domain)
 end
 function trivial_axis(
         style::FusionStyle, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return trivial_axis(style, Val(:codomain), a, axes_codomain, axes_domain)
 end
@@ -37,7 +37,7 @@ end
 function trivial_axis(
         a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return trivial_axis(FusionStyle(a), a, axes_codomain, axes_domain)
 end
@@ -51,7 +51,7 @@ end
 # Tensor product two spaces (ranges) together based on a fusion style.
 function tensor_product_axis(
         style::FusionStyle, side::Val{:codomain},
-        r1::AbstractUnitRange, r2::AbstractUnitRange,
+        r1::AbstractUnitRange, r2::AbstractUnitRange
     )
     return throw(MethodError(tensor_product_axis, (style, side, r1, r2)))
 end
@@ -80,7 +80,7 @@ end
 function fused_axis(
         style::FusionStyle, side::Val{:codomain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     init_axis = trivial_axis(style, side, a, axes_codomain, axes_domain)
     return reduce(axes_codomain; init = init_axis) do ax1, ax2
@@ -90,7 +90,7 @@ end
 function fused_axis(
         style::FusionStyle, side::Val{:domain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     init_axis = trivial_axis(style, side, a, axes_codomain, axes_domain)
     return reduce(axes_domain; init = init_axis) do ax1, ax2
@@ -100,7 +100,7 @@ end
 function matricize_axes(
         style::FusionStyle, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     axis_codomain = fused_axis(style, Val(:codomain), a, axes_codomain, axes_domain)
     axis_domain = fused_axis(style, Val(:domain), a, axes_codomain, axes_domain)
@@ -109,7 +109,7 @@ end
 function matricize_axes(
         a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return matricize_axes(FusionStyle(a), a, axes_codomain, axes_domain)
 end
@@ -223,14 +223,14 @@ end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return throw(MethodError(unmatricize, (style, m, axes_codomain, axes_domain)))
 end
 function unmatricize(
         m::AbstractMatrix,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return unmatricize(FusionStyle(m), m, axes_codomain, axes_domain)
 end
@@ -246,13 +246,13 @@ end
 
 function unmatricize(
         m::AbstractMatrix, axes_dest,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}},
+        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}}
     )
     return unmatricize(FusionStyle(m), m, axes_dest, invperm1, invperm2)
 end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     invbiperm = permmortar((invperm_codomain, invperm_domain))
     length(axes_dest) == length(invbiperm) ||
@@ -268,20 +268,20 @@ function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::AbstractBlockPermu
 end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
-        invbiperm::AbstractBlockPermutation{2},
+        invbiperm::AbstractBlockPermutation{2}
     )
     return unmatricize(style, m, axes_dest, blocks(invbiperm)...)
 end
 
 function unmatricize!(
         a_dest::AbstractArray, m::AbstractMatrix,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     return unmatricize!(FusionStyle(m), a_dest, m, invperm_codomain, invperm_domain)
 end
 function unmatricize!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     invbiperm = permmortar((invperm_codomain, invperm_domain))
     ndims(a_dest) == length(invbiperm) ||
@@ -299,7 +299,7 @@ function unmatricize!(
 end
 function unmatricize!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::AbstractBlockPermutation{2},
+        invbiperm::AbstractBlockPermutation{2}
     )
     return unmatricize!(style, a_dest, m, blocks(invbiperm)...)
 end
@@ -316,7 +316,7 @@ end
 function unmatricizeadd!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
-        α::Number, β::Number,
+        α::Number, β::Number
     )
     a12 = unmatricize(style, m, axes(a_dest), invperm_codomain, invperm_domain)
     a_dest .= α .* a12 .+ β .* a_dest
@@ -333,7 +333,7 @@ end
 function unmatricizeadd!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
         invbiperm::AbstractBlockPermutation{2},
-        α::Number, β::Number,
+        α::Number, β::Number
     )
     return unmatricizeadd!(
         style, a_dest, m, blocks(invbiperm)..., α, β
@@ -346,13 +346,13 @@ FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
 function trivial_axis(
         style::ReshapeFusion, side::Val{:codomain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return Base.OneTo(1)
 end
 function tensor_product_axis(
         style::ReshapeFusion, side::Val{:codomain},
-        r1::AbstractUnitRange, r2::AbstractUnitRange,
+        r1::AbstractUnitRange, r2::AbstractUnitRange
     )
     (isone(first(r1)) && isone(first(r2))) ||
         throw(ArgumentError("Only one-based axes are supported"))
@@ -364,7 +364,7 @@ end
 function unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}},
+        axes_domain::Tuple{Vararg{AbstractUnitRange}}
     )
     return reshape(m, (axes_codomain..., axes_domain...))
 end
