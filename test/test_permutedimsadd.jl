@@ -15,7 +15,8 @@ using Test: @test, @testset
             @test b′ ≈ β * b + α * a
         end
     end
-    @testset "add!(b, a::PermutedDimsArray, α, β) (arraytype=$arrayt)" for arrayt in (Array, JLArray)
+    @testset "add!(b, a::PermutedDimsArray, α, β) (arraytype=$arrayt)" for arrayt in
+        (Array, JLArray)
         dev = adapt(arrayt)
         a = dev(randn(2, 2, 2))
         α = 2

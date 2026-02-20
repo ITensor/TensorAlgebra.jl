@@ -1,12 +1,13 @@
-using Test: @test, @testset, @inferred
-using TensorOperations: @tensor, ncon, tensorcontract
 using TensorAlgebra: Matricize
+using TensorOperations: @tensor, ncon, tensorcontract
+using Test: @inferred, @test, @testset
 
 @testset "tensorcontract" begin
     A = randn(Float64, (3, 20, 5, 3, 4))
     B = randn(Float64, (5, 6, 20, 3))
     C1 = @inferred tensorcontract(
-        A, ((1, 4, 5), (2, 3)), false, B, ((3, 1), (2, 4)), false, ((1, 5, 3, 2, 4), ()), 1.0
+        A, ((1, 4, 5), (2, 3)), false, B, ((3, 1), (2, 4)), false,
+        ((1, 5, 3, 2, 4), ()), 1.0
     )
     C2 = @inferred tensorcontract(
         A,
@@ -17,7 +18,7 @@ using TensorAlgebra: Matricize
         false,
         ((1, 5, 3, 2, 4), ()),
         1.0,
-        Matricize(),
+        Matricize()
     )
     @test C1 ≈ C2
 end
@@ -42,7 +43,7 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
     @test HrA12 ≈ ncon(
         [rhoL, H, A2, rhoR, A1],
         [[-1, 1], [-2, -3, 4, 5], [2, 5, 3], [3, -4], [1, 4, 2]];
-        backend = Matricize(),
+        backend = Matricize()
     )
     E = @tensor rhoL[a', a] *
         A1[a, s, b] *
@@ -113,7 +114,8 @@ end
 
     for _ in 1:NUM_TESTS
         sizes, indices = generate_random_network(
-            rand(1:MAX_CONTRACTED_INDICES), rand(1:MAX_OPEN_INDICES), MAX_DIM, MAX_IND_PER_TENS
+            rand(1:MAX_CONTRACTED_INDICES), rand(1:MAX_OPEN_INDICES), MAX_DIM,
+            MAX_IND_PER_TENS
         )
         tensors = map(splat(randn), sizes)
         result1 = ncon(tensors, indices)

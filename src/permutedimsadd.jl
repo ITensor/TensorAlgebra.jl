@@ -1,12 +1,13 @@
-using FunctionImplementations: permuteddims
 import StridedViews as SV
+using FunctionImplementations: permuteddims
 
 # Specify if an array is on CPU. This is helpful for backends that don't support
 # operations on GPU, such as Strided.jl.
 iscpu(::AbstractArray) = true
 # Convert to StridedView only if all arrays are strided and on CPU.
-maybestrided(as::AbstractArray...) =
-    all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
+function maybestrided(as::AbstractArray...)
+    return all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
+end
 
 """
     add!(dest, src)

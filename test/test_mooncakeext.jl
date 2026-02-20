@@ -1,6 +1,6 @@
 using BlockArrays: blocks
-import Mooncake
-import Random
+using Mooncake: Mooncake
+using Random: Random
 using TensorAlgebra: AbstractBlockPermutation, BlockedPermutation, ContractAlgorithm,
     DefaultContractAlgorithm, Matricize, allocate_output, biperm, blockedperms, check_input,
     contract, contract!, contract_labels, contractadd!, default_contract_algorithm,
@@ -33,7 +33,7 @@ using Test: @test, @testset
 
         Mooncake.TestUtils.test_rule(
             rng, allocate_output, contract, blocks(biperm_dest)..., a1, blocks(biperm1)...,
-            a2, blocks(biperm2)...; mode, is_primitive,
+            a2, blocks(biperm2)...; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), Val(2); mode, is_primitive)
         Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), 2; mode, is_primitive)
@@ -42,11 +42,11 @@ using Test: @test, @testset
         )
         Mooncake.TestUtils.test_rule(
             rng, check_input, contract, a1, blocks(biperm1)..., a2, blocks(biperm2)...;
-            mode, is_primitive,
+            mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
             rng, check_input, contract!, dest, blocks(biperm_dest)...,
-            a1, blocks(biperm1)..., a2, blocks(biperm2)...; mode, is_primitive,
+            a1, blocks(biperm1)..., a2, blocks(biperm2)...; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
             rng, contract_labels, labels1, labels2; mode, is_primitive
@@ -59,7 +59,7 @@ using Test: @test, @testset
         )
         Mooncake.TestUtils.test_rule(
             rng, select_contract_algorithm, DefaultContractAlgorithm(), a1, a2;
-            mode, is_primitive,
+            mode, is_primitive
         )
     end
     @testset "contract" begin
@@ -75,7 +75,7 @@ using Test: @test, @testset
             Mooncake.TestUtils.test_rule(
                 rng, contractadd!, dest, blocks(biperm_dest)...,
                 a1, blocks(biperm1)..., a2, blocks(biperm2)..., α, β;
-                atol, rtol, mode, is_primitive,
+                atol, rtol, mode, is_primitive
             )
         end
         @testset "contractadd! (labels)" begin
@@ -87,7 +87,7 @@ using Test: @test, @testset
             labels2 = (:j, :k)
             Mooncake.TestUtils.test_rule(
                 rng, contractadd!, dest, labels_dest, a1, labels1, a2, labels2, α, β;
-                atol, rtol, mode, is_primitive,
+                atol, rtol, mode, is_primitive
             )
         end
         @testset "contract! (labels)" begin
@@ -99,7 +99,7 @@ using Test: @test, @testset
             labels2 = (:j, :k)
             Mooncake.TestUtils.test_rule(
                 rng, contract!, dest, labels_dest, a1, labels1, a2, labels2;
-                atol, rtol, mode, is_primitive,
+                atol, rtol, mode, is_primitive
             )
         end
         @testset "contract (labels)" begin

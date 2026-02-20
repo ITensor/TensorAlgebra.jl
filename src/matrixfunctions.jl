@@ -46,7 +46,7 @@ for f in MATRIX_FUNCTIONS
         function $f(
                 style::FusionStyle, a::AbstractArray,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
-                kwargs...,
+                kwargs...
             )
             a_perm = bipermutedims(a, perm_codomain, perm_domain)
             return $f(style, a_perm, Val(length(perm_codomain)); kwargs...)
@@ -54,7 +54,7 @@ for f in MATRIX_FUNCTIONS
         function $f(
                 a::AbstractArray,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
-                kwargs...,
+                kwargs...
             )
             a_perm = bipermutedims(a, perm_codomain, perm_domain)
             return $f(a_perm, Val(length(perm_codomain)); kwargs...)
@@ -62,22 +62,24 @@ for f in MATRIX_FUNCTIONS
 
         function $f(
                 style::FusionStyle, a::AbstractArray,
-                labels_a, labels_codomain, labels_domain; kwargs...,
+                labels_a, labels_codomain, labels_domain; kwargs...
             )
-            biperm = blockedperm_indexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
+            biperm =
+                blockedperm_indexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
             return $f(style, a, blocks(biperm)...; kwargs...)
         end
         function $f(
                 a::AbstractArray,
-                labels_a, labels_codomain, labels_domain; kwargs...,
+                labels_a, labels_codomain, labels_domain; kwargs...
             )
-            biperm = blockedperm_indexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
+            biperm =
+                blockedperm_indexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
             return $f(a, blocks(biperm)...; kwargs...)
         end
 
         function $f(
                 style::FusionStyle, a::AbstractArray,
-                biperm::AbstractBlockPermutation{2}; kwargs...,
+                biperm::AbstractBlockPermutation{2}; kwargs...
             )
             return $f(style, a, blocks(biperm)...; kwargs...)
         end

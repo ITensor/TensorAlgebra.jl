@@ -1,12 +1,10 @@
-using Test: @test, @test_broken, @test_throws, @testset
-
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
+using TensorAlgebra: BlockedTuple, ContractAlgorithm, bipermutedims, bipermutedims!,
+    blockedpermvcat, contract, contract!, contractadd!, length_codomain, length_domain,
+    matricize, tuplemortar, unmatricize, unmatricize!
 using TensorOperations: TensorOperations
-
-using TensorAlgebra: BlockedTuple, ContractAlgorithm, blockedpermvcat, contract, contract!,
-    contractadd!, length_codomain, length_domain, matricize, bipermutedims, bipermutedims!,
-    tuplemortar, unmatricize, unmatricize!
+using Test: @test, @test_broken, @test_throws, @testset
 
 default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
@@ -217,7 +215,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             a_dest_tensoroperations = copy(a_dest_init)
             contractadd!(
                 a_dest_tensoroperations, labels_dest, a1, labels1, a2, labels2, α, β;
-                alg = alg_tensoroperations,
+                alg = alg_tensoroperations
             )
             ## Here we loosened the tolerance because of some floating point roundoff issue.
             ## with Float32 numbers

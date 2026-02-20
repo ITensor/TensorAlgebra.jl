@@ -11,7 +11,7 @@ end
 function check_input(
         ::typeof(contract),
         a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain,
+        a2, perm2_codomain, perm2_domain
     )
     # TODO: FIXME: Check that contracted axes match.
     check_biperm(a1, perm1_codomain, perm1_domain)
@@ -23,10 +23,18 @@ function check_input(
         ::typeof(contract!),
         a_dest, perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain,
+        a2, perm2_codomain, perm2_domain
     )
     # TODO: FIXME: Check that uncontracted axes match.
-    check_input(contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain)
+    check_input(
+        contract,
+        a1,
+        perm1_codomain,
+        perm1_domain,
+        a2,
+        perm2_codomain,
+        perm2_domain
+    )
     check_biperm(a_dest, perm_dest_codomain, perm_dest_domain)
     return nothing
 end
@@ -37,7 +45,7 @@ function output_axes(
         ::typeof(contract),
         perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain,
+        a2::AbstractArray, perm2_codomain, perm2_domain
     )
     biperm1 = permmortar((perm1_codomain, perm1_domain))
     biperm2 = permmortar((perm2_codomain, perm2_domain))
@@ -55,14 +63,22 @@ function allocate_output(
         ::typeof(contract),
         perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain,
+        a2::AbstractArray, perm2_codomain, perm2_domain
     )
-    check_input(contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain)
+    check_input(
+        contract,
+        a1,
+        perm1_codomain,
+        perm1_domain,
+        a2,
+        perm2_codomain,
+        perm2_domain
+    )
     axes_dest = output_axes(
         contract,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain,
+        a2, perm2_codomain, perm2_domain
     )
     return similar(a1, promote_type(eltype(a1), eltype(a2)), axes_dest)
 end
