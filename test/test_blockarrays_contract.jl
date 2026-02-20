@@ -36,7 +36,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
         # matrix vector
         a_dest, dimnames_dest = contract(a1, (2, -1, -2, 1), a3, (1, 2))
-        a_dest_dense, dimnames_dest_dense = contract(a1_dense, (2, -1, -2, 1), a3_dense, (1, 2))
+        a_dest_dense, dimnames_dest_dense =
+            contract(a1_dense, (2, -1, -2, 1), a3_dense, (1, 2))
         @test dimnames_dest == dimnames_dest_dense
         @test size(a_dest) == size(a_dest_dense)
         @test a_dest isa BlockedArray{elt}
@@ -44,7 +45,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
         # vector matrix
         a_dest, dimnames_dest = contract(a3, (1, 2), a1, (2, -1, -2, 1))
-        a_dest_dense, dimnames_dest_dense = contract(a3_dense, (1, 2), a1_dense, (2, -1, -2, 1))
+        a_dest_dense, dimnames_dest_dense =
+            contract(a3_dense, (1, 2), a1_dense, (2, -1, -2, 1))
         @test dimnames_dest == dimnames_dest_dense
         @test size(a_dest) == size(a_dest_dense)
         @test a_dest isa BlockedArray{elt}

@@ -14,7 +14,7 @@ function contract(
         blocks(biperm_dest)...,
         a1, blocks(biperm1)...,
         a2, blocks(biperm2)...;
-        kwargs...,
+        kwargs...
     )
 end
 
@@ -22,7 +22,7 @@ end
 function contract(
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain;
-        kwargs...,
+        kwargs...
     )
     Ndest_codomain = Val(length(perm1_codomain))
     Ndest = Val(length(perm1_codomain) + length(perm2_domain))
@@ -31,26 +31,26 @@ function contract(
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
-        kwargs...,
+        kwargs...
     )
 end
 function contract(
         perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain;
-        kwargs...,
+        kwargs...
     )
     a_dest = allocate_output(
         contract,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain,
+        a2, perm2_codomain, perm2_domain
     )
     return contract!(
         a_dest, perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
-        kwargs...,
+        kwargs...
     )
 end
 
@@ -59,7 +59,7 @@ function contract!(
         a_dest::AbstractArray, labels_dest,
         a1::AbstractArray, labels1,
         a2::AbstractArray, labels2;
-        kwargs...,
+        kwargs...
     )
     return contractadd!(
         a_dest, labels_dest, a1, labels1, a2, labels2, true, false; kwargs...
@@ -69,13 +69,13 @@ function contract!(
         a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain;
-        kwargs...,
+        kwargs...
     )
     return contractadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain,
-        true, false; kwargs...,
+        true, false; kwargs...
     )
 end
 
@@ -85,14 +85,14 @@ function contractadd!(
         a1::AbstractArray, labels1,
         a2::AbstractArray, labels2,
         α::Number, β::Number;
-        kwargs...,
+        kwargs...
     )
     biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
     return contractadd!(
         a_dest, blocks(biperm_dest)...,
         a1, blocks(biperm1)...,
         a2, blocks(biperm2)...,
-        α, β; kwargs...,
+        α, β; kwargs...
     )
 end
 function contractadd!(
@@ -100,13 +100,13 @@ function contractadd!(
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain,
         α::Number, β::Number;
-        alg = DefaultContractAlgorithm(), kwargs...,
+        alg = DefaultContractAlgorithm(), kwargs...
     )
     check_input(
         contract!,
         a_dest, perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain,
+        a2, perm2_codomain, perm2_domain
     )
     algorithm = select_contract_algorithm(alg, a1, a2; kwargs...)
     return contractadd!(
@@ -114,7 +114,7 @@ function contractadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain,
-        α, β,
+        α, β
     )
 end
 # contractadd! (dispatched on the algorithm, bipartitioned permutations)
@@ -124,7 +124,7 @@ function contractadd!(
         a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain,
-        α::Number, β::Number,
+        α::Number, β::Number
     )
     return throw(
         MethodError(
@@ -144,7 +144,7 @@ end
 function contract(
         a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
         a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
-        kwargs...,
+        kwargs...
     )
     return contract(a1, blocks(biperm1)..., a2, blocks(biperm2)...; kwargs...)
 end
@@ -152,39 +152,39 @@ function contract(
         biperm_dest::AbstractBlockPermutation{2},
         a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
         a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
-        kwargs...,
+        kwargs...
     )
     return contract(
         blocks(biperm_dest)...,
         a1, blocks(biperm1)...,
         a2, blocks(biperm2)...;
-        kwargs...,
+        kwargs...
     )
 end
 function contract!(
         a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
         a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
         a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
-        kwargs...,
+        kwargs...
     )
     return contract!(
         a_dest, blocks(biperm_dest)...,
         a1, blocks(biperm1)...,
         a2, blocks(biperm2)...;
-        kwargs...,
+        kwargs...
     )
 end
 function contractadd!(
         a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
         a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
         a2::AbstractArray, biperm2::AbstractBlockPermutation{2},
-        α::Number, β::Number; kwargs...,
+        α::Number, β::Number; kwargs...
     )
     return contractadd!(
         a_dest, blocks(biperm_dest)...,
         a1, blocks(biperm1)...,
         a2, blocks(biperm2)...,
-        α, β; kwargs...,
+        α, β; kwargs...
     )
 end
 function contractadd!(
@@ -192,13 +192,13 @@ function contractadd!(
         a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
         a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
         a2::AbstractArray, biperm2::AbstractBlockPermutation{2},
-        α::Number, β::Number,
+        α::Number, β::Number
     )
     return contractadd!(
         algorithm,
         a_dest, blocks(biperm_dest)...,
         a1, blocks(biperm1)...,
         a2, blocks(biperm2)...,
-        α, β,
+        α, β
     )
 end

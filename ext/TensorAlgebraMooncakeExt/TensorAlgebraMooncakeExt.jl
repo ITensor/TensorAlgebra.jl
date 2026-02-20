@@ -1,8 +1,8 @@
 module TensorAlgebraMooncakeExt
 
 using Mooncake: Mooncake, @zero_derivative, DefaultCtx
-using TensorAlgebra: AbstractBlockPermutation, ContractAlgorithm, allocate_output,
-    biperm, blockedperms, check_input, contract, contract!, contract_labels,
+using TensorAlgebra: AbstractBlockPermutation, ContractAlgorithm, allocate_output, biperm,
+    blockedperms, check_input, contract, contract!, contract_labels,
     default_contract_algorithm, select_contract_algorithm
 
 Mooncake.tangent_type(::Type{<:AbstractBlockPermutation}) = Mooncake.NoTangent

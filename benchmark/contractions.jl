@@ -9,7 +9,8 @@ function extract_contract_labels(contraction::AbstractString)
 end
 
 function generate_contract_benchmark(
-        line::AbstractString; elt = Float64, alg = default_contract_alg(), do_alpha = true, do_beta = true
+        line::AbstractString; elt = Float64, alg = default_contract_alg(), do_alpha = true,
+        do_beta = true
     )
     line_split = split(line, " & ")
     @assert length(line_split) == 2 "Invalid line format:\n$line"

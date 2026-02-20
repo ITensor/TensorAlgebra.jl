@@ -1,10 +1,8 @@
-using Test: @test, @test_broken, @test_throws, @testset
-
 using BlockArrays:
-    Block, BlockVector, blocklength, blocklengths, blockedrange, blockisequal, blocks
-using TestExtras: @constinferred
-
+    Block, BlockVector, blockedrange, blockisequal, blocklength, blocklengths, blocks
 using TensorAlgebra: BlockedTuple, blockeachindex, tuplemortar
+using Test: @test, @test_broken, @test_throws, @testset
+using TestExtras: @constinferred
 
 @testset "BlockedTuple" begin
     flat = (true, 'a', 2, "b", 3.0)

@@ -19,8 +19,8 @@ export eigen,
     svdvals,
     svdvals!!
 
-using LinearAlgebra: LinearAlgebra, norm
 import MatrixAlgebraKit as MAK
+using LinearAlgebra: LinearAlgebra, norm
 
 for (f, f_full, f_compact) in (
         (:qr, :qr_full, :qr_compact),
@@ -40,7 +40,12 @@ for (eigen, eigh_full, eig_full, eigh_trunc, eig_trunc) in (
         (:eigen!!, :eigh_full!, :eig_full!, :eigh_trunc!, :eig_trunc!),
     )
     @eval begin
-        function $eigen(A::AbstractMatrix; trunc = nothing, ishermitian = nothing, kwargs...)
+        function $eigen(
+                A::AbstractMatrix;
+                trunc = nothing,
+                ishermitian = nothing,
+                kwargs...
+            )
             ishermitian = @something ishermitian LinearAlgebra.ishermitian(A)
             return if !isnothing(trunc)
                 if ishermitian
@@ -77,7 +82,7 @@ for (svd, svd_trunc, svd_full, svd_compact) in (
     @eval begin
         function $svd(
                 A::AbstractMatrix; full::Union{Bool, Val} = Val(false), trunc = nothing,
-                kwargs...,
+                kwargs...
             )
             return $_svd(full, trunc, A; kwargs...)
         end

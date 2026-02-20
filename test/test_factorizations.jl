@@ -1,22 +1,7 @@
-using LinearAlgebra: LinearAlgebra, norm, diag
+using LinearAlgebra: LinearAlgebra, diag, norm
 using MatrixAlgebraKit: truncrank
-using TensorAlgebra:
-    contract,
-    eigen,
-    eigvals,
-    factorize,
-    left_null,
-    left_orth,
-    left_polar,
-    lq,
-    orth,
-    polar,
-    qr,
-    right_null,
-    right_orth,
-    right_polar,
-    svd,
-    svdvals
+using TensorAlgebra: contract, eigen, eigvals, factorize, left_null, left_orth, left_polar,
+    lq, orth, polar, qr, right_null, right_orth, right_polar, svd, svdvals
 using Test: @test, @testset
 using TestExtras: @constinferred
 
@@ -240,7 +225,8 @@ end
     # N^ba_n' * A^ba_dc = 0
     NA = contract((:n, labels_domain...), conj(N), (labels_codomain..., :n), A, labels_A)
     @test norm(NA) ≈ 0 atol = 1.0e-14
-    NN = contract((:n, :n′), conj(N), (labels_codomain..., :n), N, (labels_codomain..., :n′))
+    NN =
+        contract((:n, :n′), conj(N), (labels_codomain..., :n), N, (labels_codomain..., :n′))
     @test NN ≈ LinearAlgebra.I
 
     Nᴴ = @constinferred right_null(A, labels_A, labels_codomain, labels_domain)
