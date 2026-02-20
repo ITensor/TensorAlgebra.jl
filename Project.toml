@@ -1,6 +1,6 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
-version = "0.7.5"
+version = "0.7.6"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 
 [workspace]
