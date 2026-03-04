@@ -1,11 +1,12 @@
 using Documenter: Documenter, DocMeta, deploydocs, makedocs
+using ITensorFormatter: ITensorFormatter
 using TensorAlgebra: TensorAlgebra
 
 DocMeta.setdocmeta!(
     TensorAlgebra, :DocTestSetup, :(using TensorAlgebra); recursive = true
 )
 
-include("make_index.jl")
+ITensorFormatter.make_index!(pkgdir(TensorAlgebra))
 
 makedocs(;
     modules = [TensorAlgebra],
