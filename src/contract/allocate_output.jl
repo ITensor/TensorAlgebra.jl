@@ -1,4 +1,5 @@
 using Base.PermutedDimsArrays: genperm
+using FunctionImplementations: zero!
 
 function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
@@ -80,5 +81,6 @@ function allocate_output(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    return similar(a1, promote_type(eltype(a1), eltype(a2)), axes_dest)
+    T = promote_type(eltype(a1), eltype(a2))
+    return zero!(similar(a1, T, axes_dest))
 end
