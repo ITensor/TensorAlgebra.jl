@@ -318,9 +318,8 @@ function unmatricizeadd!(
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
         α::Number, β::Number
     )
-    a12 = unmatricize(style, m, axes(a_dest), invperm_codomain, invperm_domain)
-    a_dest .= α .* a12 .+ β .* a_dest
-    return a_dest
+    a = unmatricize(style, m, axes(a_dest), invperm_codomain, invperm_domain)
+    return add!(a_dest, a, α, β)
 end
 
 function unmatricizeadd!(
