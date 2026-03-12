@@ -30,6 +30,11 @@ end
 
 # Broadcasting implementation of add!.
 function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
+    # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
+    # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
+    # TODO: Delete this and bump the version of Strided.jl once that is fixed.
+    isempty(dest) && return dest
+
     if iszero(β)
         dest .= α .* src
     else
