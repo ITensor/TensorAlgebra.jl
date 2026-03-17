@@ -859,8 +859,7 @@ end
 
 function copy_permuteddims_mul(a::PermutedDimsArray{<:Any, 2, perm}) where {perm}
     perm == (1, 2) && return copy(parent(a))
-    perm == (2, 1) && return copy(transpose(parent(a)))
-    throw(ArgumentError("Unsupported permutation $perm"))
+    return copy(transpose(parent(a)))
 end
 
 macro mularray_base(MulArray, AbstractArray = :AbstractArray)
