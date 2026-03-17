@@ -857,7 +857,7 @@ macro mularray_type(MulArray, AbstractArray = :AbstractArray)
     )
 end
 
-function copy_permuteddims_mul(a::PermutedDimsArray{<:Any, 2, perm}) where {perm}
+function copy_permuteddims(a::PermutedDimsArray{<:Any, 2, perm}) where {perm}
     perm == (1, 2) && return copy(parent(a))
     return copy(transpose(parent(a)))
 end
@@ -949,7 +949,7 @@ macro mularray_terminterface(MulArray, AbstractArray = :AbstractArray)
             $TensorAlgebra.operation(a::$MulArray) = $TensorAlgebra.operation_mul(a)
             $TensorAlgebra.arguments(a::$MulArray) = $TensorAlgebra.arguments_mul(a)
             function Base.copy(a::PermutedDimsArray{<:Any, 2, <:Any, <:Any, $MulArray})
-                return $TensorAlgebra.copy_permuteddims_mul(a)
+                return $TensorAlgebra.copy_permuteddims(a)
             end
         end
     )
