@@ -93,7 +93,7 @@ using Test: @test, @test_broken, @test_throws, @testset
 
         x = FI.permuteddims(a *ₗ b, perm)
         @test x ≡ PermutedDimsArray(a *ₗ b, perm)
-        @test_broken copy(x) ≈ permutedims(a * b, perm)
+        @test copy(x) ≈ permutedims(a * b, perm)
     end
     @testset "linear broadcast lowering" begin
         a = randn(ComplexF64, 2, 2)
@@ -117,5 +117,7 @@ using Test: @test, @test_broken, @test_throws, @testset
         @test (2 *ₗ a)[1, 2] == 2 * a[1, 2]
         @test conjed(a)[2, 1] == conj(a[2, 1])
         @test (a +ₗ b)[2, 2] == a[2, 2] + b[2, 2]
+        @test (a *ₗ b)[1, 2] ≈ (a * b)[1, 2]
+        @test (a *ₗ b)[3] ≈ (a * b)[3]
     end
 end

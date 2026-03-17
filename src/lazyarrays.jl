@@ -786,6 +786,20 @@ similar_mul(a::AbstractArray, elt::Type) = similar(a, elt, axes(a))
 # TODO: Make use of both arguments to determine the output, maybe
 # using `LinearAlgebra.matprod_dest(factors(a)..., elt)`?
 similar_mul(a::AbstractArray, elt::Type, ax) = similar(last(factors(a)), elt, ax)
+function mul_getindex(a1::AbstractMatrix, a2::AbstractMatrix, i::Int, j::Int)
+    return transpose(view(a1, i, :)) * view(a2, :, j)
+end
+function mul_getindex(a1::AbstractMatrix, a2::AbstractVector, i::Int)
+    return transpose(view(a1, i, :)) * a2
+end
+function mul_getindex(a1::AbstractVector, a2::AbstractMatrix, j::Int)
+    return transpose(a1) * view(a2, :, j)
+end
+function getindex_mul(a::AbstractArray, i::Int)
+    I = Tuple(CartesianIndices(axes(a))[i])
+    return getindex_mul(a, I...)
+end
+getindex_mul(a::AbstractArray, I::Vararg{Int}) = mul_getindex(factors(a)..., I...)
 copyto!_mul(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, false)
 show_mul(io::IO, a::AbstractArray) = show_lazy(io, a)
 show_mul(io::IO, mime::MIME"text/plain", a::AbstractArray) = show_lazy(io, mime, a)
@@ -843,6 +857,12 @@ macro mularray_type(MulArray, AbstractArray = :AbstractArray)
     )
 end
 
+function copy_permuteddims_mul(a::PermutedDimsArray{<:Any, 2, perm}) where {perm}
+    perm == (1, 2) && return copy(parent(a))
+    perm == (2, 1) && return copy(transpose(parent(a)))
+    throw(ArgumentError("Unsupported permutation $perm"))
+end
+
 macro mularray_base(MulArray, AbstractArray = :AbstractArray)
     return esc(
         quote
@@ -863,6 +883,9 @@ macro mularray_base(MulArray, AbstractArray = :AbstractArray)
             end
             function Base.similar(a::$MulArray, elt::Type, ax::Dims)
                 return $TensorAlgebra.similar_mul(a, elt, ax)
+            end
+            Base.@propagate_inbounds function Base.getindex(a::$MulArray, I...)
+                return $TensorAlgebra.getindex_mul(a, I...)
             end
             function Base.copyto!(dest::$AbstractArray, src::$MulArray)
                 return $TensorAlgebra.copyto!_mul(dest, src)
@@ -926,6 +949,9 @@ macro mularray_terminterface(MulArray, AbstractArray = :AbstractArray)
             $TensorAlgebra.iscall(a::$MulArray) = $TensorAlgebra.iscall_mul(a)
             $TensorAlgebra.operation(a::$MulArray) = $TensorAlgebra.operation_mul(a)
             $TensorAlgebra.arguments(a::$MulArray) = $TensorAlgebra.arguments_mul(a)
+            function Base.copy(a::PermutedDimsArray{<:Any, 2, <:Any, <:Any, $MulArray})
+                return $TensorAlgebra.copy_permuteddims_mul(a)
+            end
         end
     )
 end
