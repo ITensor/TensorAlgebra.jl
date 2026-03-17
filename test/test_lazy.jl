@@ -1,6 +1,7 @@
 import FunctionImplementations as FI
-using TensorAlgebra: TensorAlgebra as TA, *ₗ, +ₗ, conjed
-using Test: @test, @test_broken, @testset
+using Base.Broadcast: Broadcast as BC
+using TensorAlgebra: TensorAlgebra as TA, *ₗ, +ₗ, /ₗ, conjed
+using Test: @test, @test_broken, @test_throws, @testset
 
 @testset "lazy arrays" begin
     @testset "lazy array operations" begin
@@ -93,5 +94,28 @@ using Test: @test, @test_broken, @testset
         x = FI.permuteddims(a *ₗ b, perm)
         @test x ≡ PermutedDimsArray(a *ₗ b, perm)
         @test_broken copy(x) ≈ permutedims(a * b, perm)
+    end
+    @testset "linear broadcast lowering" begin
+        a = randn(ComplexF64, 2, 2)
+        style = BC.DefaultArrayStyle{2}()
+
+        @test TA.broadcasted_linear(identity, a) ≡ a
+        @test TA.broadcasted_linear(Base.Fix1(*, 2), a) ≡ 2 *ₗ a
+        @test TA.broadcasted_linear(Base.Fix2(*, 2), a) ≡ a *ₗ 2
+        @test TA.broadcasted_linear(Base.Fix2(/, 2), a) ≡ a /ₗ 2
+        @test TA.broadcasted_linear(style, identity, a) ≡ a
+        @test TA.broadcasted_linear(style, Base.Fix1(*, 2), a) ≡ 2 *ₗ a
+        @test TA.broadcasted_linear(style, Base.Fix2(*, 2), a) ≡ a *ₗ 2
+        @test TA.broadcasted_linear(style, Base.Fix2(/, 2), a) ≡ a /ₗ 2
+        @test TA.broadcasted_linear(style, conj, a) ≡ conjed(a)
+        @test_throws ArgumentError TA.broadcasted_linear(style, exp, a)
+    end
+    @testset "scalar getindex" begin
+        a = randn(ComplexF64, 2, 2)
+        b = randn(ComplexF64, 2, 2)
+
+        @test (2 *ₗ a)[1, 2] == 2 * a[1, 2]
+        @test conjed(a)[2, 1] == conj(a[2, 1])
+        @test (a +ₗ b)[2, 2] == a[2, 2] + b[2, 2]
     end
 end
