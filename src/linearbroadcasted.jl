@@ -153,27 +153,43 @@ function Base.copyto!(dest::AbstractArray, src::Mul)
     return LA.mul!(dest, BC.materialize.(factors(src))...)
 end
 
-# add! for LinearBroadcasted subtypes.
-function add!(dest::AbstractArray, src::ScaledBroadcasted, α::Number, β::Number)
-    return add!(dest, unscaled(src), coeff(src) * α, β)
+# Op composition with simplification rules.
+_compose_op(::typeof(identity), g) = g
+_compose_op(f, ::typeof(identity)) = f
+_compose_op(::typeof(identity), ::typeof(identity)) = identity
+_compose_op(::typeof(conj), ::typeof(conj)) = identity
+_compose_op(f, g) = f ∘ g
+
+# permutedimsopadd! for LinearBroadcasted subtypes.
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::ScaledBroadcasted, perm, α::Number, β::Number
+    )
+    return permutedimsopadd!(dest, op, unscaled(src), perm, op(coeff(src)) * α, β)
 end
 
-function add!(dest::AbstractArray, src::ConjBroadcasted, α::Number, β::Number)
-    return permutedimsopadd!(dest, conj, unconj(src), ntuple(identity, ndims(dest)), α, β)
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::ConjBroadcasted, perm, α::Number, β::Number
+    )
+    return permutedimsopadd!(dest, _compose_op(op, conj), unconj(src), perm, α, β)
 end
 
-function add!(dest::AbstractArray, src::AddBroadcasted, α::Number, β::Number)
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::AddBroadcasted, perm, α::Number, β::Number
+    )
     args = addends(src)
-    add!(dest, first(args), α, β)
+    permutedimsopadd!(dest, op, first(args), perm, α, β)
     for a in Base.tail(args)
-        add!(dest, a, α, true)
+        permutedimsopadd!(dest, op, a, perm, α, true)
     end
     return dest
 end
 
-# add! for Mul materializes the factors and calls mul!.
-function add!(dest::AbstractArray, src::Mul, α::Number, β::Number)
-    return LA.mul!(dest, BC.materialize.(factors(src))..., α, β)
+# TODO: Replace with contractopadd! once that interface exists,
+# to avoid materializing the Mul intermediate.
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::Mul, perm, α::Number, β::Number
+    )
+    return permutedimsopadd!(dest, op, copy(src), perm, α, β)
 end
 
 # ---------------------------------------------------------------------------- #
