@@ -9,22 +9,6 @@ function maybestrided(as::AbstractArray...)
     return all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
 end
 
-# Low-level broadcasting kernel: dest .= β .* dest .+ α .* src.
-# This is the leaf implementation that does actual computation.
-function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
-    # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
-    # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
-    # TODO: Delete this and bump the version of Strided.jl once that is fixed.
-    isempty(dest) && return dest
-
-    if iszero(β)
-        dest .= α .* src
-    else
-        dest .= β .* dest .+ α .* src
-    end
-    return dest
-end
-
 # ---------------------------------------------------------------------------- #
 # permutedimsopadd! — the single materialization primitive
 # ---------------------------------------------------------------------------- #
@@ -38,22 +22,31 @@ This is the single materialization primitive for `LinearBroadcasted` types.
 Downstream array types should implement this function. The `op` is an element-wise
 linear map (e.g., `identity`, `conj`, `adjoint`, `transpose`, `Float32`).
 
-The default implementation eagerly applies `op` and `permutedims`, then accumulates
-via broadcasting.
+The default implementation applies `op` element-wise, permutes, then accumulates
+via broadcasting with Strided.jl optimization when possible.
 """
 function permutedimsopadd!(
         dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
     )
-    add!_broadcast(maybestrided(dest, permuteddims(op.(src), perm))..., α, β)
-    return dest
-end
+    # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
+    # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
+    # TODO: Delete this and bump the version of Strided.jl once that is fixed.
+    isempty(dest) && return dest
 
-# Optimization: identity op skips the broadcast of op.
-function permutedimsopadd!(
-        dest::AbstractArray, ::typeof(identity), src::AbstractArray, perm, α::Number,
-        β::Number
-    )
-    add!_broadcast(maybestrided(dest, permuteddims(src, perm))..., α, β)
+    dest′, src′ = maybestrided(dest, permuteddims(src, perm))
+    if iszero(β)
+        if op === identity
+            dest′ .= α .* src′
+        else
+            dest′ .= α .* op.(src′)
+        end
+    else
+        if op === identity
+            dest′ .= β .* dest′ .+ α .* src′
+        else
+            dest′ .= β .* dest′ .+ α .* op.(src′)
+        end
+    end
     return dest
 end
 
