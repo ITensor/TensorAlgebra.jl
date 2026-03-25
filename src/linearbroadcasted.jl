@@ -24,8 +24,10 @@ copyto!(dest, lb) → add!(dest, lb, 1, 0)
 """
 abstract type LinearBroadcasted end
 
-# Generic axes(a, d) for LinearBroadcasted subtypes.
+# Generic interface for LinearBroadcasted subtypes.
 Base.axes(a::LinearBroadcasted, d::Int) = axes(a)[d]
+Base.similar(a::LinearBroadcasted) = similar(a, eltype(a))
+Base.similar(a::LinearBroadcasted, elt::Type) = similar(a, elt, axes(a))
 
 # --- ScaledBroadcasted --------------------------------------------------------
 
@@ -43,11 +45,8 @@ function Base.eltype(a::ScaledBroadcasted)
 end
 Base.ndims(a::ScaledBroadcasted) = ndims(unscaled(a))
 
-function Base.similar(a::ScaledBroadcasted)
-    return similar(unscaled(a), eltype(a), axes(a))
-end
-function Base.similar(a::ScaledBroadcasted, elt::Type)
-    return similar(unscaled(a), elt, axes(a))
+function Base.similar(a::ScaledBroadcasted, elt::Type, ax)
+    return similar(unscaled(a), elt, ax)
 end
 
 function Base.show(io::IO, a::ScaledBroadcasted)
@@ -82,11 +81,8 @@ Base.axes(a::ConjBroadcasted) = axes(unconj(a))
 Base.eltype(a::ConjBroadcasted) = eltype(unconj(a))
 Base.ndims(a::ConjBroadcasted) = ndims(unconj(a))
 
-function Base.similar(a::ConjBroadcasted)
-    return similar(unconj(a), eltype(a), axes(a))
-end
-function Base.similar(a::ConjBroadcasted, elt::Type)
-    return similar(unconj(a), elt, axes(a))
+function Base.similar(a::ConjBroadcasted, elt::Type, ax)
+    return similar(unconj(a), elt, ax)
 end
 
 function Base.show(io::IO, a::ConjBroadcasted)
@@ -127,11 +123,8 @@ Base.axes(a::AddBroadcasted) = BC.combine_axes(addends(a)...)
 Base.eltype(a::AddBroadcasted) = Base.promote_op(+, eltype.(addends(a))...)
 Base.ndims(a::AddBroadcasted) = ndims(first(addends(a)))
 
-function Base.similar(a::AddBroadcasted)
-    return similar(BC.Broadcasted(+, addends(a)), eltype(a))
-end
-function Base.similar(a::AddBroadcasted, elt::Type)
-    return similar(BC.Broadcasted(+, addends(a)), elt)
+function Base.similar(a::AddBroadcasted, elt::Type, ax)
+    return similar(BC.Broadcasted(+, addends(a)), elt, ax)
 end
 
 function Base.show(io::IO, a::AddBroadcasted)
@@ -174,11 +167,10 @@ Base.eltype(a::Mul) = Base.promote_op(matprod, eltype(a.a), eltype(a.b))
 Base.ndims(a::Mul) = ndims(a.b)
 Base.size(a::Mul) = length.(axes(a))
 
-function Base.similar(a::Mul)
-    return similar(BC.materialize(last(factors(a))), eltype(a), axes(a))
-end
-function Base.similar(a::Mul, elt::Type)
-    return similar(BC.materialize(last(factors(a))), elt, axes(a))
+Base.similar(a::Mul) = similar(a, eltype(a))
+Base.similar(a::Mul, elt::Type) = similar(a, elt, axes(a))
+function Base.similar(a::Mul, elt::Type, ax)
+    return similar(BC.materialize(last(factors(a))), elt, ax)
 end
 
 function Base.show(io::IO, a::Mul)
@@ -231,7 +223,7 @@ end
 # copyto! for Mul dispatches to mul!. Materialize factors first since
 # they may be LinearBroadcasted types.
 function Base.copyto!(dest::AbstractArray, src::Mul)
-    return LA.mul!(dest, BC.materialize.(factors(src))..., true, false)
+    return LA.mul!(dest, BC.materialize.(factors(src))...)
 end
 
 # add! for LinearBroadcasted subtypes.
