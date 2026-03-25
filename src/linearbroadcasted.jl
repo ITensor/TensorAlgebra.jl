@@ -29,23 +29,19 @@ Base.axes(a::LinearBroadcasted, d::Int) = axes(a)[d]
 
 # --- ScaledBroadcasted --------------------------------------------------------
 
-struct ScaledBroadcasted{T, N, C <: Number, A} <: LinearBroadcasted
+struct ScaledBroadcasted{C <: Number, A} <: LinearBroadcasted
     coeff::C
     parent::A
-    function ScaledBroadcasted(coeff::Number, a)
-        T = Base.promote_op(*, typeof(coeff), eltype(a))
-        return new{T, ndims(a), typeof(coeff), typeof(a)}(coeff, a)
-    end
 end
 
 unscaled(a::ScaledBroadcasted) = a.parent
 coeff(a::ScaledBroadcasted) = a.coeff
 
 Base.axes(a::ScaledBroadcasted) = axes(unscaled(a))
-Base.eltype(::Type{<:ScaledBroadcasted{T}}) where {T} = T
-Base.eltype(::ScaledBroadcasted{T}) where {T} = T
-Base.ndims(::Type{<:ScaledBroadcasted{<:Any, N}}) where {N} = N
-Base.ndims(::ScaledBroadcasted{<:Any, N}) where {N} = N
+function Base.eltype(a::ScaledBroadcasted)
+    return Base.promote_op(*, typeof(coeff(a)), eltype(unscaled(a)))
+end
+Base.ndims(a::ScaledBroadcasted) = ndims(unscaled(a))
 
 function Base.similar(a::ScaledBroadcasted)
     return similar(unscaled(a), eltype(a), axes(a))
@@ -76,20 +72,15 @@ arguments(a::ScaledBroadcasted) = (coeff(a), unscaled(a))
 
 # --- ConjBroadcasted ----------------------------------------------------------
 
-struct ConjBroadcasted{T, N, A} <: LinearBroadcasted
+struct ConjBroadcasted{A} <: LinearBroadcasted
     parent::A
-    function ConjBroadcasted(a)
-        return new{eltype(a), ndims(a), typeof(a)}(a)
-    end
 end
 
 unconj(a::ConjBroadcasted) = a.parent
 
 Base.axes(a::ConjBroadcasted) = axes(unconj(a))
-Base.eltype(::Type{<:ConjBroadcasted{T}}) where {T} = T
-Base.eltype(::ConjBroadcasted{T}) where {T} = T
-Base.ndims(::Type{<:ConjBroadcasted{<:Any, N}}) where {N} = N
-Base.ndims(::ConjBroadcasted{<:Any, N}) where {N} = N
+Base.eltype(a::ConjBroadcasted) = eltype(unconj(a))
+Base.ndims(a::ConjBroadcasted) = ndims(unconj(a))
 
 function Base.similar(a::ConjBroadcasted)
     return similar(unconj(a), eltype(a), axes(a))
@@ -120,26 +111,21 @@ arguments(a::ConjBroadcasted) = (unconj(a),)
 
 # --- AddBroadcasted -----------------------------------------------------------
 
-struct AddBroadcasted{T, N, Args <: Tuple} <: LinearBroadcasted
+struct AddBroadcasted{Args <: Tuple} <: LinearBroadcasted
     args::Args
     function AddBroadcasted(args...)
-        T = Base.promote_op(+, eltype.(args)...)
-        N = if allequal(ndims, args)
-            ndims(first(args))
-        else
+        if !allequal(ndims, args)
             error("All addends must have the same number of dimensions.")
         end
-        return new{T, N, typeof(args)}(args)
+        return new{typeof(args)}(args)
     end
 end
 
 addends(a::AddBroadcasted) = a.args
 
 Base.axes(a::AddBroadcasted) = BC.combine_axes(addends(a)...)
-Base.eltype(::Type{<:AddBroadcasted{T}}) where {T} = T
-Base.eltype(::AddBroadcasted{T}) where {T} = T
-Base.ndims(::Type{<:AddBroadcasted{<:Any, N}}) where {N} = N
-Base.ndims(::AddBroadcasted{<:Any, N}) where {N} = N
+Base.eltype(a::AddBroadcasted) = Base.promote_op(+, eltype.(addends(a))...)
+Base.ndims(a::AddBroadcasted) = ndims(first(addends(a)))
 
 function Base.similar(a::AddBroadcasted)
     return similar(BC.Broadcasted(+, addends(a)), eltype(a))
@@ -175,24 +161,17 @@ arguments(a::AddBroadcasted) = addends(a)
 # Same as `LinearAlgebra.matprod`, but duplicated here since it is private.
 matprod(x, y) = x * y + x * y
 
-struct Mul{T, N, A, B}
+struct Mul{A, B}
     a::A
     b::B
-    function Mul(a, b)
-        T = Base.promote_op(matprod, eltype(a), eltype(b))
-        N = ndims(b)
-        return new{T, N, typeof(a), typeof(b)}(a, b)
-    end
 end
 
 factors(a::Mul) = (a.a, a.b)
 
 Base.axes(a::Mul) = (axes(a.a, 1), axes(a.b, ndims(a.b)))
 Base.axes(a::Mul, d::Int) = axes(a)[d]
-Base.eltype(::Type{<:Mul{T}}) where {T} = T
-Base.eltype(::Mul{T}) where {T} = T
-Base.ndims(::Type{<:Mul{<:Any, N}}) where {N} = N
-Base.ndims(::Mul{<:Any, N}) where {N} = N
+Base.eltype(a::Mul) = Base.promote_op(matprod, eltype(a.a), eltype(a.b))
+Base.ndims(a::Mul) = ndims(a.b)
 Base.size(a::Mul) = length.(axes(a))
 
 function Base.similar(a::Mul)
@@ -217,7 +196,7 @@ function Base.transpose(a::Mul)
     return Mul(transpose(f[2]), transpose(f[1]))
 end
 
-function FI.permuteddims(a::Mul{<:Any, 2}, perm)
+function FI.permuteddims(a::Mul, perm)
     perm == (1, 2) && return a
     return transpose(a)
 end
@@ -484,7 +463,8 @@ to_broadcasted(a::Mul) = *(factors(a)...)
 to_broadcasted(bc::BC.Broadcasted) = BC.Broadcasted(bc.f, to_broadcasted.(bc.args))
 
 # LinearBroadcastedStyle for broadcast interop.
-struct LinearBroadcastedStyle{N, Style <: BC.AbstractArrayStyle{N}} <: BC.AbstractArrayStyle{N}
+struct LinearBroadcastedStyle{N, Style <: BC.AbstractArrayStyle{N}} <:
+    BC.AbstractArrayStyle{N}
     style::Style
 end
 # TODO: This empty constructor is required in some Julia versions below v1.12 (such as
@@ -492,7 +472,9 @@ end
 function LinearBroadcastedStyle{N, Style}() where {N, Style <: BC.AbstractArrayStyle{N}}
     return LinearBroadcastedStyle{N, Style}(Style())
 end
-function LinearBroadcastedStyle{N, Style}(::Val{M}) where {M, N, Style <: BC.AbstractArrayStyle{N}}
+function LinearBroadcastedStyle{N, Style}(
+        ::Val{M}
+    ) where {M, N, Style <: BC.AbstractArrayStyle{N}}
     return LinearBroadcastedStyle(Style(Val(M)))
 end
 function BC.BroadcastStyle(style1::LinearBroadcastedStyle, style2::LinearBroadcastedStyle)
@@ -505,17 +487,17 @@ function Base.similar(bc::BC.Broadcasted{<:LinearBroadcastedStyle}, elt::Type, a
 end
 
 # BroadcastStyle for LinearBroadcasted subtypes.
-function BC.BroadcastStyle(::Type{<:ScaledBroadcasted{<:Any, <:Any, <:Any, A}}) where {A}
+function BC.BroadcastStyle(::Type{<:ScaledBroadcasted{<:Any, A}}) where {A}
     return LinearBroadcastedStyle(BC.BroadcastStyle(A))
 end
-function BC.BroadcastStyle(::Type{<:ConjBroadcasted{<:Any, <:Any, A}}) where {A}
+function BC.BroadcastStyle(::Type{<:ConjBroadcasted{A}}) where {A}
     return LinearBroadcastedStyle(BC.BroadcastStyle(A))
 end
-function BC.BroadcastStyle(::Type{<:AddBroadcasted{<:Any, <:Any, Args}}) where {Args}
+function BC.BroadcastStyle(::Type{<:AddBroadcasted{Args}}) where {Args}
     style = Base.promote_op(BC.combine_styles, fieldtypes(Args)...)()
     return LinearBroadcastedStyle(style)
 end
-function BC.BroadcastStyle(::Type{<:Mul{<:Any, <:Any, A, B}}) where {A, B}
+function BC.BroadcastStyle(::Type{<:Mul{A, B}}) where {A, B}
     style = BC.BroadcastStyle(BC.BroadcastStyle(A), BC.BroadcastStyle(B))
     return LinearBroadcastedStyle(style)
 end
@@ -526,17 +508,34 @@ BC.materialize(a::Mul) = copy(a)
 
 # Backup definition: for broadcast operations that don't preserve lazy types
 # (such as nonlinear operations), convert back to Broadcasted expressions.
-BC.broadcasted(::LinearBroadcastedStyle, f, args...) = BC.Broadcasted(f, to_broadcasted.(args))
+function BC.broadcasted(::LinearBroadcastedStyle, f, args...)
+    return BC.Broadcasted(f, to_broadcasted.(args))
+end
 
 # Linear broadcast operations produce LinearBroadcasted / Mul types.
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(+), a::AbstractArray, b::AbstractArray)
+function BC.broadcasted(
+        ::LinearBroadcastedStyle,
+        ::typeof(+),
+        a::AbstractArray,
+        b::AbstractArray
+    )
     return LinearBroadcastFunction(+)(a, b)
 end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(+), a::AbstractArray, b::BC.Broadcasted)
+function BC.broadcasted(
+        ::LinearBroadcastedStyle,
+        ::typeof(+),
+        a::AbstractArray,
+        b::BC.Broadcasted
+    )
     is_linear(b) || return BC.Broadcasted(+, to_broadcasted.((a, b)))
     return LinearBroadcastFunction(+)(a, to_linear(b))
 end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(+), a::BC.Broadcasted, b::AbstractArray)
+function BC.broadcasted(
+        ::LinearBroadcastedStyle,
+        ::typeof(+),
+        a::BC.Broadcasted,
+        b::AbstractArray
+    )
     is_linear(a) || return BC.Broadcasted(+, to_broadcasted.((a, b)))
     return LinearBroadcastFunction(+)(to_linear(a), b)
 end
