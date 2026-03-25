@@ -231,125 +231,95 @@ function add!(dest::AbstractArray, src::Mul, α::Number, β::Number)
 end
 
 # ---------------------------------------------------------------------------- #
-# LinearBroadcastFunction — constructor API
+# linearbroadcasted — construct LinearBroadcasted subtypes by dispatching on f
 # ---------------------------------------------------------------------------- #
 
 """
-    LinearBroadcastFunction(f)
+    linearbroadcasted(f, args...)
 
-Wrap a function `f` so that calling it produces a `LinearBroadcasted` expression
-instead of eagerly computing. Analogous to `Base.BroadcastFunction`.
+Construct a `LinearBroadcasted` subtype from function `f` and arguments.
+Analogous to `Base.Broadcast.broadcasted(f, args...)`.
 
 # Examples
 
 ```julia
-LinearBroadcastFunction(*)(2.0, a)   # ScaledBroadcasted(2.0, a)
-LinearBroadcastFunction(conj)(a)     # ConjBroadcasted(a)
-LinearBroadcastFunction(+)(a, b)     # AddBroadcasted(a, b)
+linearbroadcasted(*, 2.0, a)   # ScaledBroadcasted(2.0, a)
+linearbroadcasted(conj, a)     # ConjBroadcasted(a)
+linearbroadcasted(+, a, b)     # AddBroadcasted(a, b)
 ```
 """
-struct LinearBroadcastFunction{F} <: Function
-    f::F
-end
+function linearbroadcasted end
 
 # Scaling: Number * AbstractArray
-function (::typeof(LinearBroadcastFunction(*)))(α::Number, a::AbstractArray)
-    return ScaledBroadcasted(α, a)
-end
-function (::typeof(LinearBroadcastFunction(*)))(a::AbstractArray, α::Number)
-    return ScaledBroadcasted(α, a)
-end
+linearbroadcasted(::typeof(*), α::Number, a::AbstractArray) = ScaledBroadcasted(α, a)
+linearbroadcasted(::typeof(*), a::AbstractArray, α::Number) = ScaledBroadcasted(α, a)
 # Scaling of ScaledBroadcasted: absorb coefficient.
-function (::typeof(LinearBroadcastFunction(*)))(α::Number, a::ScaledBroadcasted)
+function linearbroadcasted(::typeof(*), α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
 end
 
 # Conjugation.
-function (::typeof(LinearBroadcastFunction(conj)))(a::AbstractArray)
-    return ConjBroadcasted(a)
-end
-(::typeof(LinearBroadcastFunction(conj)))(a::AbstractArray{<:Real}) = a
-(::typeof(LinearBroadcastFunction(conj)))(a::ConjBroadcasted) = unconj(a)
-function (::typeof(LinearBroadcastFunction(conj)))(a::ScaledBroadcasted)
-    return ScaledBroadcasted(
-        conj(coeff(a)), LinearBroadcastFunction(conj)(unscaled(a))
-    )
+linearbroadcasted(::typeof(conj), a::AbstractArray) = ConjBroadcasted(a)
+linearbroadcasted(::typeof(conj), a::AbstractArray{<:Real}) = a
+linearbroadcasted(::typeof(conj), a::ConjBroadcasted) = unconj(a)
+function linearbroadcasted(::typeof(conj), a::ScaledBroadcasted)
+    return ScaledBroadcasted(conj(coeff(a)), linearbroadcasted(conj, unscaled(a)))
 end
 
 # Addition.
-function (lf::typeof(LinearBroadcastFunction(+)))(a, b)
-    return AddBroadcasted(a, b)
-end
-function (lf::typeof(LinearBroadcastFunction(+)))(a, b, c, xs...)
-    return Base.afoldl(lf, lf(lf(a, b), c), xs...)
+linearbroadcasted(::typeof(+), a, b) = AddBroadcasted(a, b)
+function linearbroadcasted(f::typeof(+), a, b, c, xs...)
+    return Base.afoldl(
+        (x, y) -> linearbroadcasted(f, x, y),
+        linearbroadcasted(f, linearbroadcasted(f, a, b), c),
+        xs...
+    )
 end
 # Flatten AddBroadcasted + anything.
-function (::typeof(LinearBroadcastFunction(+)))(a::AddBroadcasted, b)
-    return AddBroadcasted(addends(a)..., b)
-end
-function (::typeof(LinearBroadcastFunction(+)))(a, b::AddBroadcasted)
-    return AddBroadcasted(a, addends(b)...)
-end
-function (::typeof(LinearBroadcastFunction(+)))(a::AddBroadcasted, b::AddBroadcasted)
+linearbroadcasted(::typeof(+), a::AddBroadcasted, b) = AddBroadcasted(addends(a)..., b)
+linearbroadcasted(::typeof(+), a, b::AddBroadcasted) = AddBroadcasted(a, addends(b)...)
+function linearbroadcasted(::typeof(+), a::AddBroadcasted, b::AddBroadcasted)
     return AddBroadcasted(addends(a)..., addends(b)...)
 end
-(::typeof(LinearBroadcastFunction(+)))(a) = a
+linearbroadcasted(::typeof(+), a) = a
 
 # Subtraction.
-function (::typeof(LinearBroadcastFunction(-)))(a, b)
-    return LinearBroadcastFunction(+)(a, LinearBroadcastFunction(*)(- 1, b))
-end
-(::typeof(LinearBroadcastFunction(-)))(a) = LinearBroadcastFunction(*)(-1, a)
+linearbroadcasted(::typeof(-), a, b) = linearbroadcasted(+, a, linearbroadcasted(*, -1, b))
+linearbroadcasted(::typeof(-), a) = linearbroadcasted(*, -1, a)
 
 # Division / left-division by scalars.
-function (::typeof(LinearBroadcastFunction(/)))(a, b::Number)
-    return LinearBroadcastFunction(*)(inv(b), a)
-end
-function (::typeof(LinearBroadcastFunction(\)))(a::Number, b)
-    return LinearBroadcastFunction(*)(inv(a), b)
-end
+linearbroadcasted(::typeof(/), a, b::Number) = linearbroadcasted(*, inv(b), a)
+linearbroadcasted(::typeof(\), a::Number, b) = linearbroadcasted(*, inv(a), b)
 
 # Identity.
-(::typeof(LinearBroadcastFunction(identity)))(a) = a
+linearbroadcasted(::typeof(identity), a) = a
 
 # Fix1/Fix2 wrappers for scalar multiplication/division.
-function (lf::LinearBroadcastFunction{<:Base.Fix1{typeof(*)}})(a)
-    return LinearBroadcastFunction(*)(lf.f.x, a)
-end
-function (lf::LinearBroadcastFunction{<:Base.Fix2{typeof(*)}})(a)
-    return LinearBroadcastFunction(*)(a, lf.f.x)
-end
-function (lf::LinearBroadcastFunction{<:Base.Fix2{typeof(/)}})(a)
-    return LinearBroadcastFunction(/)(a, lf.f.x)
-end
+linearbroadcasted(f::Base.Fix1{typeof(*)}, a) = linearbroadcasted(*, f.x, a)
+linearbroadcasted(f::Base.Fix2{typeof(*)}, a) = linearbroadcasted(*, a, f.x)
+linearbroadcasted(f::Base.Fix2{typeof(/)}, a) = linearbroadcasted(/, a, f.x)
 
 # Scaling of AddBroadcasted distributes.
-function (::typeof(LinearBroadcastFunction(*)))(α::Number, a::AddBroadcasted)
-    return LinearBroadcastFunction(+)(
-        map(x -> LinearBroadcastFunction(*)(α, x), addends(a))...
-    )
+function linearbroadcasted(::typeof(*), α::Number, a::AddBroadcasted)
+    return linearbroadcasted(+, map(x -> linearbroadcasted(*, α, x), addends(a))...)
 end
 
 # Conjugation of AddBroadcasted distributes.
-function (::typeof(LinearBroadcastFunction(conj)))(a::AddBroadcasted)
-    return LinearBroadcastFunction(+)(
-        map(x -> LinearBroadcastFunction(conj)(x), addends(a))...
-    )
+function linearbroadcasted(::typeof(conj), a::AddBroadcasted)
+    return linearbroadcasted(+, map(x -> linearbroadcasted(conj, x), addends(a))...)
 end
 
 # Conjugation of Mul distributes.
-function (::typeof(LinearBroadcastFunction(conj)))(a::Mul)
+function linearbroadcasted(::typeof(conj), a::Mul)
     f = factors(a)
-    return Mul(LinearBroadcastFunction(conj)(f[1]), LinearBroadcastFunction(conj)(f[2]))
+    return Mul(linearbroadcasted(conj, f[1]), linearbroadcasted(conj, f[2]))
 end
 
 # Scaling of Mul: wrap in ScaledBroadcasted.
-function (::typeof(LinearBroadcastFunction(*)))(α::Number, a::Mul)
-    return ScaledBroadcasted(α, a)
-end
+linearbroadcasted(::typeof(*), α::Number, a::Mul) = ScaledBroadcasted(α, a)
 
 # Number * Number passthrough (for broadcast lowering).
-(::typeof(LinearBroadcastFunction(*)))(a::Number, b::Number) = a * b
+linearbroadcasted(::typeof(*), a::Number, b::Number) = a * b
 
 # ---------------------------------------------------------------------------- #
 # Broadcast integration
@@ -397,7 +367,7 @@ end
 
 to_linear(x) = x
 function to_linear(bc::BC.Broadcasted)
-    return LinearBroadcastFunction(bc.f)(to_linear.(bc.args)...)
+    return linearbroadcasted(bc.f, to_linear.(bc.args)...)
 end
 
 function broadcast_error(style, f)
@@ -487,7 +457,7 @@ function BC.broadcasted(
         a::AbstractArray,
         b::AbstractArray
     )
-    return LinearBroadcastFunction(+)(a, b)
+    return linearbroadcasted(+, a, b)
 end
 function BC.broadcasted(
         ::LinearBroadcastedStyle,
@@ -496,7 +466,7 @@ function BC.broadcasted(
         b::BC.Broadcasted
     )
     is_linear(b) || return BC.Broadcasted(+, to_broadcasted.((a, b)))
-    return LinearBroadcastFunction(+)(a, to_linear(b))
+    return linearbroadcasted(+, a, to_linear(b))
 end
 function BC.broadcasted(
         ::LinearBroadcastedStyle,
@@ -505,7 +475,7 @@ function BC.broadcasted(
         b::AbstractArray
     )
     is_linear(a) || return BC.Broadcasted(+, to_broadcasted.((a, b)))
-    return LinearBroadcastFunction(+)(to_linear(a), b)
+    return linearbroadcasted(+, to_linear(a), b)
 end
 function BC.broadcasted(
         ::LinearBroadcastedStyle, ::typeof(+), a::BC.Broadcasted, b::BC.Broadcasted
@@ -513,20 +483,20 @@ function BC.broadcasted(
     return error("Not implemented")
 end
 function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(*), α::Number, a::AbstractArray)
-    return LinearBroadcastFunction(*)(α, a)
+    return linearbroadcasted(*, α, a)
 end
 function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(*), a::AbstractArray, α::Number)
-    return LinearBroadcastFunction(*)(a, α)
+    return linearbroadcasted(*, a, α)
 end
 function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(\), α::Number, a::AbstractArray)
-    return LinearBroadcastFunction(\)(α, a)
+    return linearbroadcasted(\, α, a)
 end
 function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(/), a::AbstractArray, α::Number)
-    return LinearBroadcastFunction(/)(a, α)
+    return linearbroadcasted(/, a, α)
 end
 function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(-), a::AbstractArray)
-    return LinearBroadcastFunction(-)(a)
+    return linearbroadcasted(-, a)
 end
 function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(conj), a::AbstractArray)
-    return LinearBroadcastFunction(conj)(a)
+    return linearbroadcasted(conj, a)
 end
