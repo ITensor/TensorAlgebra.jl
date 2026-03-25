@@ -232,12 +232,7 @@ function add!(dest::AbstractArray, src::ScaledBroadcasted, α::Number, β::Numbe
 end
 
 function add!(dest::AbstractArray, src::ConjBroadcasted, α::Number, β::Number)
-    return add!(dest, unconj(src), α, β, Val(:conj))
-end
-
-# Default conj add! falls back to materializing conj.
-function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number, ::Val{:conj})
-    return add!(dest, conj(src), α, β)
+    return add!(dest, conj(unconj(src)), α, β)
 end
 
 function add!(dest::AbstractArray, src::AddBroadcasted, α::Number, β::Number)
