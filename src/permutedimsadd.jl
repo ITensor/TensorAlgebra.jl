@@ -70,7 +70,7 @@ end
 
 `dest = β * dest + α * src`.
 """
-function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
+function add!(dest::AbstractArray, src, α::Number, β::Number)
     return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), α, β)
 end
 
@@ -79,4 +79,4 @@ end
 
 `dest .+= src`.
 """
-add!(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, true)
+add!(dest::AbstractArray, src) = add!(dest, src, true, true)
