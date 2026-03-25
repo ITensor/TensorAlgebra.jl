@@ -1,4 +1,3 @@
-import FunctionImplementations as FI
 using Base.Broadcast: Broadcast as BC
 using TensorAlgebra: TensorAlgebra as TA, linearbroadcasted
 using Test: @test, @test_throws, @testset
@@ -16,7 +15,6 @@ using Test: @test, @test_throws, @testset
         x = linearbroadcasted(conj, a)
         @test x ≡ TA.ConjBroadcasted(a)
         @test copy(x) ≈ conj(a)
-        @test conj(x) ≈ a
 
         x = linearbroadcasted(+, a, b)
         @test x ≡ TA.AddBroadcasted(a, b)
@@ -39,67 +37,6 @@ using Test: @test, @test_throws, @testset
         )
         @test copy(x) ≈ 2 * a * b + 3 * c
     end
-    @testset "adjoint" begin
-        a = randn(ComplexF64, 2, 2)
-        b = randn(ComplexF64, 2, 2)
-
-        x = linearbroadcasted(*, 2, a)'
-        @test x ≡ linearbroadcasted(*, 2, a')
-        @test copy(x) ≈ 2a'
-
-        x = linearbroadcasted(conj, a)'
-        @test x ≡ transpose(a)
-        @test copy(x) ≈ permutedims(a)
-
-        x = linearbroadcasted(+, a, b)'
-        @test x ≡ linearbroadcasted(+, a', b')
-        @test copy(x) ≈ a' + b'
-
-        x = TA.Mul(a, b)'
-        @test x ≡ TA.Mul(b', a')
-        @test copy(x) ≈ b' * a'
-    end
-    @testset "transpose" begin
-        a = randn(ComplexF64, 2, 2)
-        b = randn(ComplexF64, 2, 2)
-
-        x = transpose(linearbroadcasted(*, 2, a))
-        @test x ≡ linearbroadcasted(*, 2, transpose(a))
-        @test copy(x) ≈ 2transpose(a)
-
-        x = transpose(linearbroadcasted(conj, a))
-        @test x ≡ adjoint(a)
-        @test copy(x) ≈ permutedims(conj(a))
-
-        x = transpose(linearbroadcasted(+, a, b))
-        @test x ≡ linearbroadcasted(+, transpose(a), transpose(b))
-        @test copy(x) ≈ transpose(a) + transpose(b)
-
-        x = transpose(TA.Mul(a, b))
-        @test x ≡ TA.Mul(transpose(b), transpose(a))
-        @test copy(x) ≈ transpose(b) * transpose(a)
-    end
-    @testset "permuteddims" begin
-        a = randn(ComplexF64, 2, 2)
-        b = randn(ComplexF64, 2, 2)
-        perm = (2, 1)
-
-        x = FI.permuteddims(linearbroadcasted(*, 2, a), perm)
-        @test x ≡ linearbroadcasted(*, 2, FI.permuteddims(a, perm))
-        @test copy(x) ≈ 2permutedims(a, perm)
-
-        x = FI.permuteddims(linearbroadcasted(conj, a), perm)
-        @test x ≡ linearbroadcasted(conj, FI.permuteddims(a, perm))
-        @test copy(x) ≈ conj(permutedims(a, perm))
-
-        x = FI.permuteddims(linearbroadcasted(+, a, b), perm)
-        @test x ≡
-            linearbroadcasted(+, FI.permuteddims(a, perm), FI.permuteddims(b, perm))
-        @test copy(x) ≈ permutedims(a, perm) + permutedims(b, perm)
-
-        x = FI.permuteddims(TA.Mul(a, b), perm)
-        @test copy(x) ≈ permutedims(a * b, perm)
-    end
     @testset "linear broadcast lowering" begin
         a = randn(ComplexF64, 2, 2)
         style = BC.DefaultArrayStyle{2}()
@@ -118,7 +55,7 @@ using Test: @test, @test_throws, @testset
         @test TA.broadcasted_linear(style, conj, a) ≡ linearbroadcasted(conj, a)
         @test_throws ArgumentError TA.broadcasted_linear(style, exp, a)
     end
-    @testset "LinearBroadcastFunction algebra" begin
+    @testset "linearbroadcasted algebra" begin
         a = randn(ComplexF64, 3, 3)
 
         # Scaling absorbs coefficients

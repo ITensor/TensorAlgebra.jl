@@ -1,7 +1,5 @@
 import Base.Broadcast as BC
-import FunctionImplementations as FI
 import LinearAlgebra as LA
-import StridedViews as SV
 
 # TermInterface-like interface.
 iscall(x) = false
@@ -54,17 +52,6 @@ function Base.similar(a::ScaledBroadcasted, elt::Type, ax)
     return similar(unscaled(a), elt, ax)
 end
 
-function Base.adjoint(a::ScaledBroadcasted)
-    return ScaledBroadcasted(coeff(a), adjoint(unscaled(a)))
-end
-function Base.transpose(a::ScaledBroadcasted)
-    return ScaledBroadcasted(coeff(a), transpose(unscaled(a)))
-end
-
-function FI.permuteddims(a::ScaledBroadcasted, perm)
-    return ScaledBroadcasted(coeff(a), FI.permuteddims(unscaled(a), perm))
-end
-
 operation(::ScaledBroadcasted) = *
 arguments(a::ScaledBroadcasted) = (coeff(a), unscaled(a))
 
@@ -83,17 +70,6 @@ Base.ndims(a::ConjBroadcasted) = ndims(unconj(a))
 function Base.similar(a::ConjBroadcasted, elt::Type, ax)
     return similar(unconj(a), elt, ax)
 end
-
-Base.conj(a::ConjBroadcasted) = unconj(a)
-Base.adjoint(a::ConjBroadcasted) = transpose(unconj(a))
-Base.transpose(a::ConjBroadcasted) = adjoint(unconj(a))
-
-function FI.permuteddims(a::ConjBroadcasted, perm)
-    return ConjBroadcasted(FI.permuteddims(unconj(a), perm))
-end
-
-SV.isstrided(a::ConjBroadcasted) = SV.isstrided(unconj(a))
-SV.StridedView(a::ConjBroadcasted) = conj(SV.StridedView(unconj(a)))
 
 operation(::ConjBroadcasted) = conj
 arguments(a::ConjBroadcasted) = (unconj(a),)
@@ -118,17 +94,6 @@ Base.ndims(a::AddBroadcasted) = ndims(first(addends(a)))
 
 function Base.similar(a::AddBroadcasted, elt::Type, ax)
     return similar(BC.Broadcasted(+, addends(a)), elt, ax)
-end
-
-function Base.adjoint(a::AddBroadcasted)
-    return AddBroadcasted(adjoint.(addends(a))...)
-end
-function Base.transpose(a::AddBroadcasted)
-    return AddBroadcasted(transpose.(addends(a))...)
-end
-
-function FI.permuteddims(a::AddBroadcasted, perm)
-    return AddBroadcasted(Base.Fix2(FI.permuteddims, perm).(addends(a))...)
 end
 
 operation(::AddBroadcasted) = +
@@ -164,20 +129,6 @@ function Base.show(io::IO, a::Mul)
     f = factors(a)
     print(io, "*(", f[1], ", ", f[2], ")")
     return nothing
-end
-
-function Base.adjoint(a::Mul)
-    f = factors(a)
-    return Mul(adjoint(f[2]), adjoint(f[1]))
-end
-function Base.transpose(a::Mul)
-    f = factors(a)
-    return Mul(transpose(f[2]), transpose(f[1]))
-end
-
-function FI.permuteddims(a::Mul, perm)
-    perm == (1, 2) && return a
-    return transpose(a)
 end
 
 iscall(::Mul) = true
