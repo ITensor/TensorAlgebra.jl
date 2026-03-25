@@ -78,12 +78,7 @@ arguments(a::ConjBroadcasted) = (unconj(a),)
 
 struct AddBroadcasted{Args <: Tuple} <: LinearBroadcasted
     args::Args
-    function AddBroadcasted(args...)
-        if !allequal(ndims, args)
-            error("All addends must have the same number of dimensions.")
-        end
-        return new{typeof(args)}(args)
-    end
+    AddBroadcasted(args...) = new{typeof(args)}(args)
 end
 
 addends(a::AddBroadcasted) = a.args
