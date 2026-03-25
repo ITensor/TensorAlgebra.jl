@@ -9,26 +9,8 @@ function maybestrided(as::AbstractArray...)
     return all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
 end
 
-"""
-    add!(dest, src)
-
-Equivalent to `dest .+= src`, but maybe with a more optimized/specialized implementation.
-Generally calls `add!(dest, src, true, true)`.
-"""
-add!(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, true)
-
-"""
-    add!(dest, src, α, β)
-
-Equivalent to `dest .= β .* dest .+ α .* src`, but maybe with a more optimized/specialized
-implementation.
-"""
-function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
-    add!_broadcast(maybestrided(dest, src)..., α, β)
-    return dest
-end
-
-# Broadcasting implementation of add!.
+# Low-level broadcasting kernel: dest .= β .* dest .+ α .* src.
+# This is the leaf implementation that does actual computation.
 function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
     # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
     # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
@@ -43,22 +25,41 @@ function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β:
     return dest
 end
 
+# ---------------------------------------------------------------------------- #
+# permutedimsopadd! — the single materialization primitive
+# ---------------------------------------------------------------------------- #
+
 """
     permutedimsopadd!(dest, op, src, perm, α, β)
 
-`dest = β * dest + α * permutedims(op(src), perm)`.
+`dest = β * dest + α * permutedims(op.(src), perm)`.
 
-The `op` is an element-wise linear map applied to `src` before permutation and
-accumulation. Downstream array types can specialize on specific `op`s (e.g.,
-`op::typeof(conj)`) to fuse the operation without allocating.
+This is the single materialization primitive for `LinearBroadcasted` types.
+Downstream array types should implement this function. The `op` is an element-wise
+linear map (e.g., `identity`, `conj`, `adjoint`, `transpose`, `Float32`).
 
-The default implementation eagerly applies `op`: `permutedimsadd!(dest, op.(src), perm, α, β)`.
+The default implementation eagerly applies `op` and `permutedims`, then accumulates
+via broadcasting.
 """
 function permutedimsopadd!(
         dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
     )
-    return permutedimsadd!(dest, op.(src), perm, α, β)
+    add!_broadcast(maybestrided(dest, permuteddims(op.(src), perm))..., α, β)
+    return dest
 end
+
+# Optimization: identity op skips the broadcast of op.
+function permutedimsopadd!(
+        dest::AbstractArray, ::typeof(identity), src::AbstractArray, perm, α::Number,
+        β::Number
+    )
+    add!_broadcast(maybestrided(dest, permuteddims(src, perm))..., α, β)
+    return dest
+end
+
+# ---------------------------------------------------------------------------- #
+# Convenience functions that lower to permutedimsopadd!
+# ---------------------------------------------------------------------------- #
 
 """
     permutedimsadd!(dest, src, perm, α, β)
@@ -68,5 +69,21 @@ end
 function permutedimsadd!(
         dest::AbstractArray, src::AbstractArray, perm, α::Number, β::Number
     )
-    return add!(dest, permuteddims(src, perm), α, β)
+    return permutedimsopadd!(dest, identity, src, perm, α, β)
 end
+
+"""
+    add!(dest, src, α, β)
+
+`dest = β * dest + α * src`.
+"""
+function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
+    return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), α, β)
+end
+
+"""
+    add!(dest, src)
+
+`dest .+= src`.
+"""
+add!(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, true)
