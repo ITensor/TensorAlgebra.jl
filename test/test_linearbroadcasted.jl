@@ -37,23 +37,23 @@ using Test: @test, @test_throws, @testset
         )
         @test copy(x) ≈ 2 * a * b + 3 * c
     end
-    @testset "linear broadcast lowering" begin
+    @testset "tryflattenlinear" begin
         a = randn(ComplexF64, 2, 2)
-        style = BC.DefaultArrayStyle{2}()
+        b = randn(ComplexF64, 2, 2)
 
-        @test TA.broadcasted_linear(identity, a) ≡ a
-        @test TA.broadcasted_linear(Base.Fix1(*, 2), a) ≡ linearbroadcasted(*, 2, a)
-        @test TA.broadcasted_linear(Base.Fix2(*, 2), a) ≡ linearbroadcasted(*, a, 2)
-        @test TA.broadcasted_linear(Base.Fix2(/, 2), a) ≡ linearbroadcasted(/, a, 2)
-        @test TA.broadcasted_linear(style, identity, a) ≡ a
-        @test TA.broadcasted_linear(style, Base.Fix1(*, 2), a) ≡
-            linearbroadcasted(*, 2, a)
-        @test TA.broadcasted_linear(style, Base.Fix2(*, 2), a) ≡
-            linearbroadcasted(*, a, 2)
-        @test TA.broadcasted_linear(style, Base.Fix2(/, 2), a) ≡
-            linearbroadcasted(/, a, 2)
-        @test TA.broadcasted_linear(style, conj, a) ≡ linearbroadcasted(conj, a)
-        @test_throws ArgumentError TA.broadcasted_linear(style, exp, a)
+        # Linear expressions convert successfully
+        @test TA.tryflattenlinear(BC.broadcasted(*, 2, a)) ≡ linearbroadcasted(*, 2, a)
+        @test TA.tryflattenlinear(BC.broadcasted(conj, a)) ≡ linearbroadcasted(conj, a)
+        @test TA.tryflattenlinear(BC.broadcasted(+, a, b)) ≡ linearbroadcasted(+, a, b)
+        @test TA.tryflattenlinear(BC.broadcasted(identity, a)) ≡ a
+
+        # Nested linear expression
+        bc = BC.broadcasted(+, BC.broadcasted(*, 2, a), BC.broadcasted(*, 3, b))
+        @test copy(TA.tryflattenlinear(bc)) ≈ 2a + 3b
+
+        # Nonlinear expression returns nothing
+        @test TA.tryflattenlinear(BC.broadcasted(exp, a)) === nothing
+        @test TA.tryflattenlinear(BC.broadcasted(+, a, BC.broadcasted(exp, b))) === nothing
     end
     @testset "linearbroadcasted algebra" begin
         a = randn(ComplexF64, 3, 3)

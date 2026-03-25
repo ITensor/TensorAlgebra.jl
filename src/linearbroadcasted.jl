@@ -268,189 +268,85 @@ linearbroadcasted(::typeof(*), α::Number, a::Mul) = ScaledBroadcasted(α, a)
 linearbroadcasted(::typeof(*), a::Number, b::Number) = a * b
 
 # ---------------------------------------------------------------------------- #
-# Broadcast integration
+# Broadcast integration — instantiation-time conversion
 # ---------------------------------------------------------------------------- #
 
-broadcast_is_linear(f, args...) = false
-broadcast_is_linear(::typeof(identity), ::Base.AbstractArrayOrBroadcasted) = true
-broadcast_is_linear(::typeof(+), ::Base.AbstractArrayOrBroadcasted...) = true
-broadcast_is_linear(::typeof(-), ::Base.AbstractArrayOrBroadcasted) = true
-function broadcast_is_linear(
+"""
+    islinearbroadcast(f, args...) -> Bool
+
+Per-node trait: can `(f, args...)` be expressed as a `LinearBroadcasted`?
+Extensible by downstream packages for additional linear operations.
+"""
+islinearbroadcast(f, args...) = false
+islinearbroadcast(::typeof(identity), ::Base.AbstractArrayOrBroadcasted) = true
+islinearbroadcast(::typeof(+), ::Base.AbstractArrayOrBroadcasted...) = true
+islinearbroadcast(::typeof(-), ::Base.AbstractArrayOrBroadcasted) = true
+function islinearbroadcast(
         ::typeof(-), ::Base.AbstractArrayOrBroadcasted, ::Base.AbstractArrayOrBroadcasted
     )
     return true
 end
-broadcast_is_linear(::typeof(*), ::Number, ::Base.AbstractArrayOrBroadcasted) = true
-broadcast_is_linear(::typeof(\), ::Number, ::Base.AbstractArrayOrBroadcasted) = true
-broadcast_is_linear(::typeof(*), ::Base.AbstractArrayOrBroadcasted, ::Number) = true
-broadcast_is_linear(::typeof(/), ::Base.AbstractArrayOrBroadcasted, ::Number) = true
-function broadcast_is_linear(
+islinearbroadcast(::typeof(*), ::Number, ::Base.AbstractArrayOrBroadcasted) = true
+islinearbroadcast(::typeof(\), ::Number, ::Base.AbstractArrayOrBroadcasted) = true
+islinearbroadcast(::typeof(*), ::Base.AbstractArrayOrBroadcasted, ::Number) = true
+islinearbroadcast(::typeof(/), ::Base.AbstractArrayOrBroadcasted, ::Number) = true
+function islinearbroadcast(
         ::typeof(*), ::Base.AbstractArrayOrBroadcasted, ::Base.AbstractArrayOrBroadcasted
     )
     return false
 end
-broadcast_is_linear(::typeof(*), ::Number, ::Number) = true
-broadcast_is_linear(::typeof(conj), ::Base.AbstractArrayOrBroadcasted) = true
-function broadcast_is_linear(
+islinearbroadcast(::typeof(*), ::Number, ::Number) = true
+islinearbroadcast(::typeof(conj), ::Base.AbstractArrayOrBroadcasted) = true
+function islinearbroadcast(
         ::Base.Fix1{typeof(*), <:Number}, ::Base.AbstractArrayOrBroadcasted
     )
     return true
 end
-function broadcast_is_linear(
+function islinearbroadcast(
         ::Base.Fix2{typeof(*), <:Number}, ::Base.AbstractArrayOrBroadcasted
     )
     return true
 end
-function broadcast_is_linear(
+function islinearbroadcast(
         ::Base.Fix2{typeof(/), <:Number}, ::Base.AbstractArrayOrBroadcasted
     )
     return true
 end
-# Check if a Broadcasted tree is linear and convert it to LinearBroadcasted
-# in a single recursive pass. Returns `nothing` if nonlinear.
-_to_linear(x) = x
-function _to_linear(bc::BC.Broadcasted)
-    broadcast_is_linear(bc.f, bc.args...) || return nothing
-    args = map(_to_linear, bc.args)
+
+"""
+    tryflattenlinear(bc::Broadcasted) -> LinearBroadcasted or nothing
+
+Recursively convert a `Broadcasted` tree to a `LinearBroadcasted` tree.
+Returns `nothing` if any node is not linear (as determined by `islinearbroadcast`).
+
+Analogous to `Broadcast.flatten` for `Broadcasted` trees, but converts to
+`LinearBroadcasted` subtypes via `linearbroadcasted`.
+
+Downstream styles call this from `Base.copy(::Broadcasted{MyStyle})` to
+opt into linear broadcasting at materialization time.
+"""
+tryflattenlinear(x) = x
+function tryflattenlinear(bc::BC.Broadcasted)
+    islinearbroadcast(bc.f, bc.args...) || return nothing
+    args = map(tryflattenlinear, bc.args)
     any(isnothing, args) && return nothing
     return linearbroadcasted(bc.f, args...)
 end
 
-"""
-    broadcasted_linear(style, f, args...)
-
-Validate that a broadcast expression is linear and convert it to a `LinearBroadcasted`
-expression tree. Throws `ArgumentError` if the expression is not linear.
-
-This is the entry point called by `BC.broadcasted(::LinearBroadcastedStyle, ...)` and
-downstream broadcast styles that opt into linear broadcasting.
-"""
-function broadcasted_linear(style::BC.BroadcastStyle, f, args...)
-    result = _to_linear(BC.Broadcasted(style, f, args))
-    result === nothing && throw(
-        ArgumentError(
-            "Only linear broadcast operations are supported for `$style`, got `$f`."
-        )
-    )
-    return result
-end
-function broadcasted_linear(f, args...)
-    return broadcasted_linear(BC.combine_styles(args...), f, args...)
-end
-
-# Convert LinearBroadcasted / Mul back to Broadcasted for non-linear contexts.
-to_broadcasted(x) = x
-function to_broadcasted(a::AbstractArray)
-    (BC.BroadcastStyle(typeof(a)) isa LinearBroadcastedStyle) || return a
-    return BC.broadcasted(operation(a), to_broadcasted.(arguments(a))...)
-end
-function to_broadcasted(a::LinearBroadcasted)
-    return BC.broadcasted(operation(a), to_broadcasted.(arguments(a))...)
-end
-# Matmul isn't a broadcasting operation so we materialize when building a
-# broadcast expression involving a Mul.
-to_broadcasted(a::Mul) = *(factors(a)...)
-to_broadcasted(bc::BC.Broadcasted) = BC.Broadcasted(bc.f, to_broadcasted.(bc.args))
-
-# LinearBroadcastedStyle for broadcast interop.
-struct LinearBroadcastedStyle{N, Style <: BC.AbstractArrayStyle{N}} <:
-    BC.AbstractArrayStyle{N}
-    style::Style
-end
-# TODO: This empty constructor is required in some Julia versions below v1.12 (such as
-# Julia v1.10), try deleting it once we drop support for those versions.
-function LinearBroadcastedStyle{N, Style}() where {N, Style <: BC.AbstractArrayStyle{N}}
-    return LinearBroadcastedStyle{N, Style}(Style())
-end
-function LinearBroadcastedStyle{N, Style}(
-        ::Val{M}
-    ) where {M, N, Style <: BC.AbstractArrayStyle{N}}
-    return LinearBroadcastedStyle(Style(Val(M)))
-end
-function BC.BroadcastStyle(style1::LinearBroadcastedStyle, style2::LinearBroadcastedStyle)
-    style = BC.BroadcastStyle(style1.style, style2.style)
-    style ≡ BC.Unknown() && return BC.Unknown()
-    return LinearBroadcastedStyle(style)
-end
-function Base.similar(bc::BC.Broadcasted{<:LinearBroadcastedStyle}, elt::Type, ax)
-    return similar(BC.Broadcasted(bc.style.style, bc.f, bc.args, bc.axes), elt, ax)
-end
-
-# BroadcastStyle for LinearBroadcasted subtypes.
+# BroadcastStyle for LinearBroadcasted subtypes — delegate to the wrapped array type.
 function BC.BroadcastStyle(::Type{<:ScaledBroadcasted{<:Any, A}}) where {A}
-    return LinearBroadcastedStyle(BC.BroadcastStyle(A))
+    return BC.BroadcastStyle(A)
 end
 function BC.BroadcastStyle(::Type{<:ConjBroadcasted{A}}) where {A}
-    return LinearBroadcastedStyle(BC.BroadcastStyle(A))
+    return BC.BroadcastStyle(A)
 end
 function BC.BroadcastStyle(::Type{<:AddBroadcasted{Args}}) where {Args}
-    style = Base.promote_op(BC.combine_styles, fieldtypes(Args)...)()
-    return LinearBroadcastedStyle(style)
+    return Base.promote_op(BC.combine_styles, fieldtypes(Args)...)()
 end
 function BC.BroadcastStyle(::Type{<:Mul{A, B}}) where {A, B}
-    style = BC.BroadcastStyle(BC.BroadcastStyle(A), BC.BroadcastStyle(B))
-    return LinearBroadcastedStyle(style)
+    return BC.BroadcastStyle(BC.BroadcastStyle(A), BC.BroadcastStyle(B))
 end
 
 # Broadcast.materialize for LinearBroadcasted and Mul.
 BC.materialize(a::LinearBroadcasted) = copy(a)
 BC.materialize(a::Mul) = copy(a)
-
-# Backup definition: for broadcast operations that don't preserve lazy types
-# (such as nonlinear operations), convert back to Broadcasted expressions.
-function BC.broadcasted(::LinearBroadcastedStyle, f, args...)
-    return BC.Broadcasted(f, to_broadcasted.(args))
-end
-
-# Linear broadcast operations produce LinearBroadcasted / Mul types.
-function BC.broadcasted(
-        ::LinearBroadcastedStyle,
-        ::typeof(+),
-        a::AbstractArray,
-        b::AbstractArray
-    )
-    return linearbroadcasted(+, a, b)
-end
-function BC.broadcasted(
-        ::LinearBroadcastedStyle,
-        ::typeof(+),
-        a::AbstractArray,
-        b::BC.Broadcasted
-    )
-    b_linear = _to_linear(b)
-    b_linear === nothing && return BC.Broadcasted(+, to_broadcasted.((a, b)))
-    return linearbroadcasted(+, a, b_linear)
-end
-function BC.broadcasted(
-        ::LinearBroadcastedStyle,
-        ::typeof(+),
-        a::BC.Broadcasted,
-        b::AbstractArray
-    )
-    a_linear = _to_linear(a)
-    a_linear === nothing && return BC.Broadcasted(+, to_broadcasted.((a, b)))
-    return linearbroadcasted(+, a_linear, b)
-end
-function BC.broadcasted(
-        ::LinearBroadcastedStyle, ::typeof(+), a::BC.Broadcasted, b::BC.Broadcasted
-    )
-    return error("Not implemented")
-end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(*), α::Number, a::AbstractArray)
-    return linearbroadcasted(*, α, a)
-end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(*), a::AbstractArray, α::Number)
-    return linearbroadcasted(*, a, α)
-end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(\), α::Number, a::AbstractArray)
-    return linearbroadcasted(\, α, a)
-end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(/), a::AbstractArray, α::Number)
-    return linearbroadcasted(/, a, α)
-end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(-), a::AbstractArray)
-    return linearbroadcasted(-, a)
-end
-function BC.broadcasted(::LinearBroadcastedStyle, ::typeof(conj), a::AbstractArray)
-    return linearbroadcasted(conj, a)
-end
