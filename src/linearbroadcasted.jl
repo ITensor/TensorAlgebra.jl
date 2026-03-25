@@ -306,31 +306,33 @@ function broadcast_is_linear(
     )
     return true
 end
-is_linear(x) = true
-function is_linear(bc::BC.Broadcasted)
-    return broadcast_is_linear(bc.f, bc.args...) && all(is_linear, bc.args)
+# Check if a Broadcasted tree is linear and convert it to LinearBroadcasted
+# in a single recursive pass. Returns `nothing` if nonlinear.
+_to_linear(x) = x
+function _to_linear(bc::BC.Broadcasted)
+    broadcast_is_linear(bc.f, bc.args...) || return nothing
+    args = map(_to_linear, bc.args)
+    any(isnothing, args) && return nothing
+    return linearbroadcasted(bc.f, args...)
 end
 
-# Rewrite a Broadcasted tree as a LinearBroadcasted tree.
-# Internal helper, analogous to Broadcast.flatten for Broadcasted trees.
-to_linear(x) = x
-function to_linear(bc::BC.Broadcasted)
-    return linearbroadcasted(bc.f, to_linear.(bc.args)...)
-end
+"""
+    broadcasted_linear(style, f, args...)
 
-function broadcast_error(style, f)
-    return throw(
+Validate that a broadcast expression is linear and convert it to a `LinearBroadcasted`
+expression tree. Throws `ArgumentError` if the expression is not linear.
+
+This is the entry point called by `BC.broadcasted(::LinearBroadcastedStyle, ...)` and
+downstream broadcast styles that opt into linear broadcasting.
+"""
+function broadcasted_linear(style::BC.BroadcastStyle, f, args...)
+    result = _to_linear(BC.Broadcasted(style, f, args))
+    result === nothing && throw(
         ArgumentError(
             "Only linear broadcast operations are supported for `$style`, got `$f`."
         )
     )
-end
-
-# Validate linearity and convert Broadcasted to LinearBroadcasted.
-function broadcasted_linear(style::BC.BroadcastStyle, f, args...)
-    bc = BC.Broadcasted(style, f, args)
-    is_linear(bc) || broadcast_error(style, f)
-    return to_linear(bc)
+    return result
 end
 function broadcasted_linear(f, args...)
     return broadcasted_linear(BC.combine_styles(args...), f, args...)
@@ -415,8 +417,9 @@ function BC.broadcasted(
         a::AbstractArray,
         b::BC.Broadcasted
     )
-    is_linear(b) || return BC.Broadcasted(+, to_broadcasted.((a, b)))
-    return linearbroadcasted(+, a, to_linear(b))
+    b_linear = _to_linear(b)
+    b_linear === nothing && return BC.Broadcasted(+, to_broadcasted.((a, b)))
+    return linearbroadcasted(+, a, b_linear)
 end
 function BC.broadcasted(
         ::LinearBroadcastedStyle,
@@ -424,8 +427,9 @@ function BC.broadcasted(
         a::BC.Broadcasted,
         b::AbstractArray
     )
-    is_linear(a) || return BC.Broadcasted(+, to_broadcasted.((a, b)))
-    return linearbroadcasted(+, to_linear(a), b)
+    a_linear = _to_linear(a)
+    a_linear === nothing && return BC.Broadcasted(+, to_broadcasted.((a, b)))
+    return linearbroadcasted(+, a_linear, b)
 end
 function BC.broadcasted(
         ::LinearBroadcastedStyle, ::typeof(+), a::BC.Broadcasted, b::BC.Broadcasted
