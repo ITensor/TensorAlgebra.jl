@@ -34,15 +34,15 @@ function permutedimsopadd!(
     isempty(dest) && return dest
 
     dest′, src′ = maybestrided(dest, permuteddims(src, perm))
-    if iszero(β)
-        if op === identity
+    if op === identity
+        if iszero(β)
             dest′ .= α .* src′
         else
-            dest′ .= α .* op.(src′)
+            dest′ .= β .* dest′ .+ α .* src′
         end
     else
-        if op === identity
-            dest′ .= β .* dest′ .+ α .* src′
+        if iszero(β)
+            dest′ .= α .* op.(src′)
         else
             dest′ .= β .* dest′ .+ α .* op.(src′)
         end
