@@ -17,6 +17,6 @@ include("contract/allocate_output.jl")
 include("contract/contract_matricize.jl")
 include("factorizations.jl")
 include("matrixfunctions.jl")
-include("lazyarrays.jl")
+include("linearbroadcasted.jl")
 
 end

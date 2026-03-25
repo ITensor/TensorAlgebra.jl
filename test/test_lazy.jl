@@ -1,77 +1,80 @@
 import FunctionImplementations as FI
 using Base.Broadcast: Broadcast as BC
-using TensorAlgebra: TensorAlgebra as TA, *ₗ, +ₗ, /ₗ, conjed
-using Test: @test, @test_broken, @test_throws, @testset
+using TensorAlgebra: TensorAlgebra as TA
+using Test: @test, @test_throws, @testset
 
-@testset "lazy arrays" begin
-    @testset "lazy array operations" begin
+const lbf = TA.LinearBroadcastFunction
+
+@testset "LinearBroadcasted and Mul" begin
+    @testset "construction and materialization" begin
         a = randn(ComplexF64, 3, 3)
         b = randn(ComplexF64, 3, 3)
         c = randn(ComplexF64, 3, 3)
 
-        x = 2 *ₗ a
-        @test x ≡ TA.ScaledArray(2, a)
+        x = lbf(*)(2, a)
+        @test x ≡ TA.ScaledBroadcasted(2, a)
         @test copy(x) ≈ 2a
 
-        x = conjed(a)
-        @test x ≡ TA.ConjArray(a)
+        x = lbf(conj)(a)
+        @test x ≡ TA.ConjBroadcasted(a)
         @test copy(x) ≈ conj(a)
         @test conj(x) ≈ a
 
-        x = a +ₗ b
-        @test x ≡ TA.AddArray(a, b)
+        x = lbf(+)(a, b)
+        @test x ≡ TA.AddBroadcasted(a, b)
         @test copy(x) ≈ a + b
 
-        x = a *ₗ b
-        @test x ≡ TA.MulArray(a, b)
+        x = TA.Mul(a, b)
         @test copy(x) ≈ a * b
 
-        x = a *ₗ b +ₗ c
-        @test x ≡ TA.AddArray(TA.MulArray(a, b), c)
-        @test copy(x) ≈ a *ₗ b .+ c ≈ a * b + c
+        x = lbf(+)(TA.Mul(a, b), c)
+        @test x ≡ TA.AddBroadcasted(TA.Mul(a, b), c)
+        @test copy(x) ≈ a * b + c
 
-        x = 2 *ₗ a *ₗ b +ₗ 3 *ₗ c
-        @test x ≡ TA.AddArray(TA.ScaledArray(2, TA.MulArray(a, b)), TA.ScaledArray(3, c))
-        @test copy(x) ≈ 2 .* a *ₗ b .+ 3 .* c ≈ 2 * a * b + 3 * c
+        x = lbf(+)(lbf(*)(2, TA.Mul(a, b)), lbf(*)(3, c))
+        @test x ≡ TA.AddBroadcasted(
+            TA.ScaledBroadcasted(2, TA.Mul(a, b)), TA.ScaledBroadcasted(3, c)
+        )
+        @test copy(x) ≈ 2 * a * b + 3 * c
     end
     @testset "adjoint" begin
         a = randn(ComplexF64, 2, 2)
         b = randn(ComplexF64, 2, 2)
 
-        x = (2 *ₗ a)'
-        @test x ≡ 2 *ₗ a'
+        x = lbf(*)(2, a)'
+        @test x ≡ lbf(*)(2, a')
         @test copy(x) ≈ 2a'
 
-        x = conjed(a)'
+        x = lbf(conj)(a)'
         @test x ≡ transpose(a)
         @test copy(x) ≈ permutedims(a)
 
-        x = (a +ₗ b)'
-        @test x ≡ a' +ₗ b'
+        x = lbf(+)(a, b)'
+        @test x ≡ lbf(+)(a', b')
         @test copy(x) ≈ a' + b'
 
-        x = (a *ₗ b)'
-        @test x ≡ b' *ₗ a'
+        x = TA.Mul(a, b)'
+        @test x ≡ TA.Mul(b', a')
         @test copy(x) ≈ b' * a'
     end
     @testset "transpose" begin
         a = randn(ComplexF64, 2, 2)
         b = randn(ComplexF64, 2, 2)
 
-        x = transpose(2 *ₗ a)
-        @test x ≡ 2 *ₗ transpose(a)
+        x = transpose(lbf(*)(2, a))
+        @test x ≡ lbf(*)(2, transpose(a))
         @test copy(x) ≈ 2transpose(a)
 
-        x = transpose(conjed(a))
+        x = transpose(lbf(conj)(a))
         @test x ≡ adjoint(a)
         @test copy(x) ≈ permutedims(conj(a))
 
-        x = transpose(a +ₗ b)
-        @test x ≡ transpose(a) +ₗ transpose(b)
+        x = transpose(lbf(+)(a, b))
+        @test x ≡ lbf(+)(transpose(a), transpose(b))
         @test copy(x) ≈ transpose(a) + transpose(b)
 
-        x = transpose(a *ₗ b)
-        @test x ≡ transpose(b) *ₗ transpose(a)
+        x = transpose(TA.Mul(a, b))
+        @test x ≡ TA.Mul(transpose(b), transpose(a))
         @test copy(x) ≈ transpose(b) * transpose(a)
     end
     @testset "permuteddims" begin
@@ -79,20 +82,19 @@ using Test: @test, @test_broken, @test_throws, @testset
         b = randn(ComplexF64, 2, 2)
         perm = (2, 1)
 
-        x = FI.permuteddims(2 *ₗ a, perm)
-        @test x ≡ 2 *ₗ FI.permuteddims(a, perm)
+        x = FI.permuteddims(lbf(*)(2, a), perm)
+        @test x ≡ lbf(*)(2, FI.permuteddims(a, perm))
         @test copy(x) ≈ 2permutedims(a, perm)
 
-        x = FI.permuteddims(conjed(a), perm)
-        @test x ≡ conjed(FI.permuteddims(a, perm))
+        x = FI.permuteddims(lbf(conj)(a), perm)
+        @test x ≡ lbf(conj)(FI.permuteddims(a, perm))
         @test copy(x) ≈ conj(permutedims(a, perm))
 
-        x = FI.permuteddims(a +ₗ b, perm)
-        @test x ≡ FI.permuteddims(a, perm) +ₗ FI.permuteddims(b, perm)
+        x = FI.permuteddims(lbf(+)(a, b), perm)
+        @test x ≡ lbf(+)(FI.permuteddims(a, perm), FI.permuteddims(b, perm))
         @test copy(x) ≈ permutedims(a, perm) + permutedims(b, perm)
 
-        x = FI.permuteddims(a *ₗ b, perm)
-        @test x ≡ PermutedDimsArray(a *ₗ b, perm)
+        x = FI.permuteddims(TA.Mul(a, b), perm)
         @test copy(x) ≈ permutedims(a * b, perm)
     end
     @testset "linear broadcast lowering" begin
@@ -100,24 +102,77 @@ using Test: @test, @test_broken, @test_throws, @testset
         style = BC.DefaultArrayStyle{2}()
 
         @test TA.broadcasted_linear(identity, a) ≡ a
-        @test TA.broadcasted_linear(Base.Fix1(*, 2), a) ≡ 2 *ₗ a
-        @test TA.broadcasted_linear(Base.Fix2(*, 2), a) ≡ a *ₗ 2
-        @test TA.broadcasted_linear(Base.Fix2(/, 2), a) ≡ a /ₗ 2
+        @test TA.broadcasted_linear(Base.Fix1(*, 2), a) ≡ lbf(*)(2, a)
+        @test TA.broadcasted_linear(Base.Fix2(*, 2), a) ≡ lbf(*)(a, 2)
+        @test TA.broadcasted_linear(Base.Fix2(/, 2), a) ≡ lbf(/)(a, 2)
         @test TA.broadcasted_linear(style, identity, a) ≡ a
-        @test TA.broadcasted_linear(style, Base.Fix1(*, 2), a) ≡ 2 *ₗ a
-        @test TA.broadcasted_linear(style, Base.Fix2(*, 2), a) ≡ a *ₗ 2
-        @test TA.broadcasted_linear(style, Base.Fix2(/, 2), a) ≡ a /ₗ 2
-        @test TA.broadcasted_linear(style, conj, a) ≡ conjed(a)
+        @test TA.broadcasted_linear(style, Base.Fix1(*, 2), a) ≡ lbf(*)(2, a)
+        @test TA.broadcasted_linear(style, Base.Fix2(*, 2), a) ≡ lbf(*)(a, 2)
+        @test TA.broadcasted_linear(style, Base.Fix2(/, 2), a) ≡ lbf(/)(a, 2)
+        @test TA.broadcasted_linear(style, conj, a) ≡ lbf(conj)(a)
         @test_throws ArgumentError TA.broadcasted_linear(style, exp, a)
     end
-    @testset "scalar getindex" begin
+    @testset "LinearBroadcastFunction algebra" begin
+        a = randn(ComplexF64, 3, 3)
+
+        # Scaling absorbs coefficients
+        @test lbf(*)(3, lbf(*)(2, a)) ≡ TA.ScaledBroadcasted(6, a)
+
+        # Conjugation of scaled
+        x = lbf(conj)(lbf(*)(2im, a))
+        @test x ≡ TA.ScaledBroadcasted(-2im, TA.ConjBroadcasted(a))
+
+        # Double conjugation cancels
+        @test lbf(conj)(lbf(conj)(a)) ≡ a
+
+        # Subtraction
+        b = randn(ComplexF64, 3, 3)
+        x = lbf(-)(a, b)
+        @test copy(x) ≈ a - b
+
+        # Unary minus
+        x = lbf(-)(a)
+        @test copy(x) ≈ -a
+
+        # Division
+        x = lbf(/)(a, 2)
+        @test copy(x) ≈ a / 2
+
+        # Left division
+        x = lbf(\)(2, a)
+        @test copy(x) ≈ a / 2
+
+        # Scaling distributes over AddBroadcasted
+        ab = lbf(+)(a, b)
+        x = lbf(*)(3, ab)
+        @test copy(x) ≈ 3a + 3b
+
+        # Conjugation distributes over AddBroadcasted
+        x = lbf(conj)(ab)
+        @test copy(x) ≈ conj(a) + conj(b)
+
+        # Conjugation distributes over Mul
+        m = TA.Mul(a, b)
+        x = lbf(conj)(m)
+        @test copy(x) ≈ conj(a) * conj(b)
+    end
+    @testset "AddBroadcasted flattening" begin
         a = randn(ComplexF64, 2, 2)
         b = randn(ComplexF64, 2, 2)
+        c = randn(ComplexF64, 2, 2)
 
-        @test (2 *ₗ a)[1, 2] == 2 * a[1, 2]
-        @test conjed(a)[2, 1] == conj(a[2, 1])
-        @test (a +ₗ b)[2, 2] == a[2, 2] + b[2, 2]
-        @test (a *ₗ b)[1, 2] ≈ (a * b)[1, 2]
-        @test (a *ₗ b)[3] ≈ (a * b)[3]
+        # AddBroadcasted + array flattens
+        ab = lbf(+)(a, b)
+        x = lbf(+)(ab, c)
+        @test TA.addends(x) === (a, b, c)
+
+        # array + AddBroadcasted flattens
+        x = lbf(+)(c, ab)
+        @test TA.addends(x) === (c, a, b)
+
+        # AddBroadcasted + AddBroadcasted flattens
+        cd = lbf(+)(c, a)
+        x = lbf(+)(ab, cd)
+        @test TA.addends(x) === (a, b, c, a)
     end
 end
