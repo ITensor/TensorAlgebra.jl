@@ -311,6 +311,8 @@ function is_linear(bc::BC.Broadcasted)
     return broadcast_is_linear(bc.f, bc.args...) && all(is_linear, bc.args)
 end
 
+# Rewrite a Broadcasted tree as a LinearBroadcasted tree.
+# Internal helper, analogous to Broadcast.flatten for Broadcasted trees.
 to_linear(x) = x
 function to_linear(bc::BC.Broadcasted)
     return linearbroadcasted(bc.f, to_linear.(bc.args)...)
@@ -323,6 +325,8 @@ function broadcast_error(style, f)
         )
     )
 end
+
+# Validate linearity and convert Broadcasted to LinearBroadcasted.
 function broadcasted_linear(style::BC.BroadcastStyle, f, args...)
     bc = BC.Broadcasted(style, f, args)
     is_linear(bc) || broadcast_error(style, f)
