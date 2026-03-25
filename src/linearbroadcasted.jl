@@ -164,7 +164,7 @@ function add!(dest::AbstractArray, src::ScaledBroadcasted, α::Number, β::Numbe
 end
 
 function add!(dest::AbstractArray, src::ConjBroadcasted, α::Number, β::Number)
-    return add!(dest, conj(unconj(src)), α, β)
+    return permutedimsopadd!(dest, conj, unconj(src), ntuple(identity, ndims(dest)), α, β)
 end
 
 function add!(dest::AbstractArray, src::AddBroadcasted, α::Number, β::Number)

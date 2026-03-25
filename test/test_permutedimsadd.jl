@@ -1,6 +1,6 @@
 using Adapt: adapt
 using JLArrays: JLArray
-using TensorAlgebra: add!, permutedimsadd!
+using TensorAlgebra: add!, permutedimsadd!, permutedimsopadd!
 using Test: @test, @testset
 
 @testset "[permutedims]add!" begin
@@ -45,6 +45,27 @@ using Test: @test, @testset
             b′ = copy(b)
             permutedimsadd!(b′, a, perm, α, β)
             @test b′ ≈ β * b + α * permutedims(a, perm)
+        end
+    end
+    @testset "permutedimsopadd! (arraytype=$arrayt)" for arrayt in (Array,)
+        dev = adapt(arrayt)
+        a = dev(randn(ComplexF64, 2, 2, 2))
+        perm = (3, 1, 2)
+        α = 2
+        for β in (0, 3)
+            b = dev(randn(ComplexF64, 2, 2, 2))
+            b′ = copy(b)
+            permutedimsopadd!(b′, conj, a, perm, α, β)
+            @test b′ ≈ β * b + α * permutedims(conj(a), perm)
+        end
+        # identity op should match permutedimsadd!
+        for β in (0, 3)
+            b = dev(randn(ComplexF64, 2, 2, 2))
+            b′ = copy(b)
+            b″ = copy(b)
+            permutedimsopadd!(b′, identity, a, perm, α, β)
+            permutedimsadd!(b″, a, perm, α, β)
+            @test b′ ≈ b″
         end
     end
 end

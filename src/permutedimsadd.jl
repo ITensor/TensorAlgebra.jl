@@ -44,6 +44,23 @@ function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β:
 end
 
 """
+    permutedimsopadd!(dest, op, src, perm, α, β)
+
+`dest = β * dest + α * permutedims(op(src), perm)`.
+
+The `op` is an element-wise linear map applied to `src` before permutation and
+accumulation. Downstream array types can specialize on specific `op`s (e.g.,
+`op::typeof(conj)`) to fuse the operation without allocating.
+
+The default implementation eagerly applies `op`: `permutedimsadd!(dest, op.(src), perm, α, β)`.
+"""
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
+    )
+    return permutedimsadd!(dest, op.(src), perm, α, β)
+end
+
+"""
     permutedimsadd!(dest, src, perm, α, β)
 
 `dest = β * dest + α * permutedims(src, perm)`.
