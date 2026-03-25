@@ -268,64 +268,64 @@ LBF(+)(a, b)     # AddBroadcasted(a, b)
 const LBF = LinearBroadcastFunction
 
 # Scaling: Number * AbstractArray
-function (::LinearBroadcastFunction{typeof(*)})(α::Number, a::AbstractArray)
+function (::typeof(LBF(*)))(α::Number, a::AbstractArray)
     return ScaledBroadcasted(α, a)
 end
-function (::LinearBroadcastFunction{typeof(*)})(a::AbstractArray, α::Number)
+function (::typeof(LBF(*)))(a::AbstractArray, α::Number)
     return ScaledBroadcasted(α, a)
 end
 # Scaling of ScaledBroadcasted: absorb coefficient.
-function (::LinearBroadcastFunction{typeof(*)})(α::Number, a::ScaledBroadcasted)
+function (::typeof(LBF(*)))(α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
 end
 
 # Conjugation.
-function (::LinearBroadcastFunction{typeof(conj)})(a::AbstractArray)
+function (::typeof(LBF(conj)))(a::AbstractArray)
     return ConjBroadcasted(a)
 end
-(::LinearBroadcastFunction{typeof(conj)})(a::AbstractArray{<:Real}) = a
-(::LinearBroadcastFunction{typeof(conj)})(a::ConjBroadcasted) = unconj(a)
-function (::LinearBroadcastFunction{typeof(conj)})(a::ScaledBroadcasted)
+(::typeof(LBF(conj)))(a::AbstractArray{<:Real}) = a
+(::typeof(LBF(conj)))(a::ConjBroadcasted) = unconj(a)
+function (::typeof(LBF(conj)))(a::ScaledBroadcasted)
     return ScaledBroadcasted(
         conj(coeff(a)), LBF(conj)(unscaled(a))
     )
 end
 
 # Addition.
-function (lf::LinearBroadcastFunction{typeof(+)})(a, b)
+function (lf::typeof(LBF(+)))(a, b)
     return AddBroadcasted(a, b)
 end
-function (lf::LinearBroadcastFunction{typeof(+)})(a, b, c, xs...)
+function (lf::typeof(LBF(+)))(a, b, c, xs...)
     return Base.afoldl(lf, lf(lf(a, b), c), xs...)
 end
 # Flatten AddBroadcasted + anything.
-function (::LinearBroadcastFunction{typeof(+)})(a::AddBroadcasted, b)
+function (::typeof(LBF(+)))(a::AddBroadcasted, b)
     return AddBroadcasted(addends(a)..., b)
 end
-function (::LinearBroadcastFunction{typeof(+)})(a, b::AddBroadcasted)
+function (::typeof(LBF(+)))(a, b::AddBroadcasted)
     return AddBroadcasted(a, addends(b)...)
 end
-function (::LinearBroadcastFunction{typeof(+)})(a::AddBroadcasted, b::AddBroadcasted)
+function (::typeof(LBF(+)))(a::AddBroadcasted, b::AddBroadcasted)
     return AddBroadcasted(addends(a)..., addends(b)...)
 end
-(::LinearBroadcastFunction{typeof(+)})(a) = a
+(::typeof(LBF(+)))(a) = a
 
 # Subtraction.
-function (::LinearBroadcastFunction{typeof(-)})(a, b)
+function (::typeof(LBF(-)))(a, b)
     return LBF(+)(a, LBF(*)(- 1, b))
 end
-(::LinearBroadcastFunction{typeof(-)})(a) = LBF(*)(-1, a)
+(::typeof(LBF(-)))(a) = LBF(*)(-1, a)
 
 # Division / left-division by scalars.
-function (::LinearBroadcastFunction{typeof(/)})(a, b::Number)
+function (::typeof(LBF(/)))(a, b::Number)
     return LBF(*)(inv(b), a)
 end
-function (::LinearBroadcastFunction{typeof(\)})(a::Number, b)
+function (::typeof(LBF(\)))(a::Number, b)
     return LBF(*)(inv(a), b)
 end
 
 # Identity.
-(::LinearBroadcastFunction{typeof(identity)})(a) = a
+(::typeof(LBF(identity)))(a) = a
 
 # Fix1/Fix2 wrappers for scalar multiplication/division.
 function (lf::LinearBroadcastFunction{<:Base.Fix1{typeof(*)}})(a)
@@ -339,28 +339,28 @@ function (lf::LinearBroadcastFunction{<:Base.Fix2{typeof(/)}})(a)
 end
 
 # Scaling of AddBroadcasted distributes.
-function (::LinearBroadcastFunction{typeof(*)})(α::Number, a::AddBroadcasted)
+function (::typeof(LBF(*)))(α::Number, a::AddBroadcasted)
     return LBF(+)(map(x -> LBF(*)(α, x), addends(a))...)
 end
 
 # Conjugation of AddBroadcasted distributes.
-function (::LinearBroadcastFunction{typeof(conj)})(a::AddBroadcasted)
+function (::typeof(LBF(conj)))(a::AddBroadcasted)
     return LBF(+)(map(x -> LBF(conj)(x), addends(a))...)
 end
 
 # Conjugation of Mul distributes.
-function (::LinearBroadcastFunction{typeof(conj)})(a::Mul)
+function (::typeof(LBF(conj)))(a::Mul)
     f = factors(a)
     return Mul(LBF(conj)(f[1]), LBF(conj)(f[2]))
 end
 
 # Scaling of Mul: wrap in ScaledBroadcasted.
-function (::LinearBroadcastFunction{typeof(*)})(α::Number, a::Mul)
+function (::typeof(LBF(*)))(α::Number, a::Mul)
     return ScaledBroadcasted(α, a)
 end
 
 # Number * Number passthrough (for broadcast lowering).
-(::LinearBroadcastFunction{typeof(*)})(a::Number, b::Number) = a * b
+(::typeof(LBF(*)))(a::Number, b::Number) = a * b
 
 # ---------------------------------------------------------------------------- #
 # Broadcast integration
