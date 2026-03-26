@@ -119,4 +119,65 @@ using Test: @test, @test_throws, @testset
         x = linearbroadcasted(+, ab, cd)
         @test TA.addends(x) === (a, b, c, a)
     end
+    @testset "similar(::AddBroadcasted) with LinearBroadcasted addends" begin
+        a = randn(ComplexF64, 3, 4)
+        b = randn(ComplexF64, 3, 4)
+
+        # Addends are ScaledBroadcasted, not AbstractArray
+        lb = linearbroadcasted(+, linearbroadcasted(*, 2, a), linearbroadcasted(*, 3, b))
+        s = similar(lb)
+        @test size(s) == (3, 4)
+        @test eltype(s) === ComplexF64
+    end
+    @testset "_compose_op" begin
+        @test TA._compose_op(identity, identity) === identity
+        @test TA._compose_op(identity, conj) === conj
+        @test TA._compose_op(conj, identity) === conj
+        @test TA._compose_op(conj, conj) === identity
+        f = TA._compose_op(sqrt, conj)
+        @test f isa ComposedFunction
+    end
+    @testset "Broadcasted(::LinearBroadcasted) round-trip" begin
+        a = randn(ComplexF64, 3, 3)
+        b = randn(ComplexF64, 3, 3)
+
+        lb = linearbroadcasted(+, linearbroadcasted(*, 2, a), linearbroadcasted(conj, b))
+        bc = BC.Broadcasted(lb)
+        @test bc isa BC.Broadcasted
+        @test copy(bc) ≈ 2a + conj(b)
+    end
+    @testset "add! and copyto! with LinearBroadcasted" begin
+        a = randn(ComplexF64, 3, 3)
+        b = randn(ComplexF64, 3, 3)
+
+        # add! with ScaledBroadcasted
+        dest = zeros(ComplexF64, 3, 3)
+        TA.add!(dest, linearbroadcasted(*, 2, a), true, false)
+        @test dest ≈ 2a
+
+        # add! with AddBroadcasted
+        dest = zeros(ComplexF64, 3, 3)
+        TA.add!(dest, linearbroadcasted(+, a, b), true, false)
+        @test dest ≈ a + b
+
+        # add! with ConjBroadcasted
+        dest = zeros(ComplexF64, 3, 3)
+        TA.add!(dest, linearbroadcasted(conj, a), true, false)
+        @test dest ≈ conj(a)
+
+        # add! with β accumulation
+        dest = ones(ComplexF64, 3, 3)
+        TA.add!(dest, linearbroadcasted(*, 2, a), 3, 1)
+        @test dest ≈ ones(ComplexF64, 3, 3) + 6a
+    end
+    @testset "0-dimensional permutedimsopadd!" begin
+        a = fill(3.0 + 2.0im)
+        dest = fill(1.0 + 0.0im)
+        TA.permutedimsopadd!(dest, identity, a, (), 2, 3)
+        @test dest[] ≈ 3 * 1 + 2 * a[]
+
+        dest = fill(0.0 + 0.0im)
+        TA.permutedimsopadd!(dest, conj, a, (), 1, 0)
+        @test dest[] ≈ conj(a[])
+    end
 end
