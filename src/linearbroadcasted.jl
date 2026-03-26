@@ -32,6 +32,29 @@ function Base.show(io::IO, a::LinearBroadcasted)
 end
 iscall(::LinearBroadcasted) = true
 
+# Convert LinearBroadcasted back to Broadcasted (inverse of tryflattenlinear).
+# Used by similar(::LinearBroadcasted) to delegate allocation to the Broadcasted system.
+# Uses BC.Broadcasted constructor directly (not BC.broadcasted) to avoid style-based
+# dispatch that could re-enter LinearBroadcasted conversion.
+_to_broadcasted(a::AbstractArray) = a
+_to_broadcasted(a::Number) = a
+function _to_broadcasted(a::ScaledBroadcasted)
+    args = (coeff(a), _to_broadcasted(unscaled(a)))
+    return BC.Broadcasted(BC.combine_styles(args...), *, args)
+end
+function _to_broadcasted(a::ConjBroadcasted)
+    args = (_to_broadcasted(unconj(a)),)
+    return BC.Broadcasted(BC.combine_styles(args...), conj, args)
+end
+function _to_broadcasted(a::AddBroadcasted)
+    args = map(_to_broadcasted, addends(a))
+    return BC.Broadcasted(BC.combine_styles(args...), +, args)
+end
+
+function Base.similar(a::LinearBroadcasted, elt::Type, ax)
+    return similar(_to_broadcasted(a), elt, ax)
+end
+
 # --- ScaledBroadcasted --------------------------------------------------------
 
 struct ScaledBroadcasted{C <: Number, A} <: LinearBroadcasted
@@ -48,10 +71,6 @@ function Base.eltype(a::ScaledBroadcasted)
 end
 Base.ndims(a::ScaledBroadcasted) = ndims(unscaled(a))
 
-function Base.similar(a::ScaledBroadcasted, elt::Type, ax)
-    return similar(unscaled(a), elt, ax)
-end
-
 operation(::ScaledBroadcasted) = *
 arguments(a::ScaledBroadcasted) = (coeff(a), unscaled(a))
 
@@ -66,10 +85,6 @@ unconj(a::ConjBroadcasted) = a.parent
 Base.axes(a::ConjBroadcasted) = axes(unconj(a))
 Base.eltype(a::ConjBroadcasted) = eltype(unconj(a))
 Base.ndims(a::ConjBroadcasted) = ndims(unconj(a))
-
-function Base.similar(a::ConjBroadcasted, elt::Type, ax)
-    return similar(unconj(a), elt, ax)
-end
 
 operation(::ConjBroadcasted) = conj
 arguments(a::ConjBroadcasted) = (unconj(a),)
@@ -86,10 +101,6 @@ addends(a::AddBroadcasted) = a.args
 Base.axes(a::AddBroadcasted) = BC.combine_axes(addends(a)...)
 Base.eltype(a::AddBroadcasted) = Base.promote_op(+, eltype.(addends(a))...)
 Base.ndims(a::AddBroadcasted) = ndims(first(addends(a)))
-
-function Base.similar(a::AddBroadcasted, elt::Type, ax)
-    return similar(BC.Broadcasted(+, addends(a)), elt, ax)
-end
 
 operation(::AddBroadcasted) = +
 arguments(a::AddBroadcasted) = addends(a)
