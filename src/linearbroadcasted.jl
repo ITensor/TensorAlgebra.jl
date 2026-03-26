@@ -35,13 +35,11 @@ iscall(::LinearBroadcasted) = true
 # Convert LinearBroadcasted back to Broadcasted (inverse of tryflattenlinear).
 # Uses BC.Broadcasted constructor directly (not BC.broadcasted) to avoid style-based
 # dispatch that could re-enter LinearBroadcasted conversion.
-_to_broadcasted(a) = a
-function _to_broadcasted(a::LinearBroadcasted)
-    args = map(_to_broadcasted, arguments(a))
-    return BC.Broadcasted(BC.combine_styles(args...), operation(a), args)
-end
 function BC.Broadcasted(a::LinearBroadcasted)
-    return _to_broadcasted(a)
+    args = map(arguments(a)) do arg
+        arg isa LinearBroadcasted ? BC.Broadcasted(arg) : arg
+    end
+    return BC.Broadcasted(BC.combine_styles(args...), operation(a), args)
 end
 
 function Base.similar(a::LinearBroadcasted, elt::Type, ax)
