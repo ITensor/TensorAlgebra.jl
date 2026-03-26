@@ -9,39 +9,58 @@ function maybestrided(as::AbstractArray...)
     return all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
 end
 
-"""
-    add!(dest, src)
-
-Equivalent to `dest .+= src`, but maybe with a more optimized/specialized implementation.
-Generally calls `add!(dest, src, true, true)`.
-"""
-add!(dest::AbstractArray, src::AbstractArray) = add!(dest, src, true, true)
+# ---------------------------------------------------------------------------- #
+# permutedimsopadd! — the single materialization primitive
+# ---------------------------------------------------------------------------- #
 
 """
-    add!(dest, src, α, β)
+    permutedimsopadd!(dest, op, src, perm, α, β)
 
-Equivalent to `dest .= β .* dest .+ α .* src`, but maybe with a more optimized/specialized
-implementation.
+`dest = β * dest + α * permutedims(op.(src), perm)`.
+
+This is the single materialization primitive for `LinearBroadcasted` types.
+Downstream array types should implement this function. The `op` is an element-wise
+linear map (e.g., `identity`, `conj`, `adjoint`, `transpose`, `Float32`).
+
+The default implementation applies `op` element-wise, permutes, then accumulates
+via broadcasting with Strided.jl optimization when possible.
 """
-function add!(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
-    add!_broadcast(maybestrided(dest, src)..., α, β)
-    return dest
-end
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
+    )
+    # TODO: Remove this 0-dimensional special case once GradedArray is its own type
+    # (not an alias for BlockSparseArray), so the GradedArray permutedimsopadd! overload
+    # catches the 0-dimensional contraction result.
+    if iszero(ndims(dest))
+        dest[] = β * dest[] + α * op(src[])
+        return dest
+    end
 
-# Broadcasting implementation of add!.
-function add!_broadcast(dest::AbstractArray, src::AbstractArray, α::Number, β::Number)
     # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
     # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
     # TODO: Delete this and bump the version of Strided.jl once that is fixed.
     isempty(dest) && return dest
 
-    if iszero(β)
-        dest .= α .* src
+    dest′, src′ = maybestrided(dest, permuteddims(src, perm))
+    if op === identity
+        if iszero(β)
+            dest′ .= α .* src′
+        else
+            dest′ .= β .* dest′ .+ α .* src′
+        end
     else
-        dest .= β .* dest .+ α .* src
+        if iszero(β)
+            dest′ .= α .* op.(src′)
+        else
+            dest′ .= β .* dest′ .+ α .* op.(src′)
+        end
     end
     return dest
 end
+
+# ---------------------------------------------------------------------------- #
+# Convenience functions that lower to permutedimsopadd!
+# ---------------------------------------------------------------------------- #
 
 """
     permutedimsadd!(dest, src, perm, α, β)
@@ -51,5 +70,21 @@ end
 function permutedimsadd!(
         dest::AbstractArray, src::AbstractArray, perm, α::Number, β::Number
     )
-    return add!(dest, permuteddims(src, perm), α, β)
+    return permutedimsopadd!(dest, identity, src, perm, α, β)
 end
+
+"""
+    add!(dest, src, α, β)
+
+`dest = β * dest + α * src`.
+"""
+function add!(dest::AbstractArray, src, α::Number, β::Number)
+    return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), α, β)
+end
+
+"""
+    add!(dest, src)
+
+`dest .+= src`.
+"""
+add!(dest::AbstractArray, src) = add!(dest, src, true, true)
