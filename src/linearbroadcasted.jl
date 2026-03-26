@@ -33,26 +33,19 @@ end
 iscall(::LinearBroadcasted) = true
 
 # Convert LinearBroadcasted back to Broadcasted (inverse of tryflattenlinear).
-# Used by similar(::LinearBroadcasted) to delegate allocation to the Broadcasted system.
 # Uses BC.Broadcasted constructor directly (not BC.broadcasted) to avoid style-based
 # dispatch that could re-enter LinearBroadcasted conversion.
-_to_broadcasted(a::AbstractArray) = a
-_to_broadcasted(a::Number) = a
-function _to_broadcasted(a::ScaledBroadcasted)
-    args = (coeff(a), _to_broadcasted(unscaled(a)))
-    return BC.Broadcasted(BC.combine_styles(args...), *, args)
+_to_broadcasted(a) = a
+function _to_broadcasted(a::LinearBroadcasted)
+    args = map(_to_broadcasted, arguments(a))
+    return BC.Broadcasted(BC.combine_styles(args...), operation(a), args)
 end
-function _to_broadcasted(a::ConjBroadcasted)
-    args = (_to_broadcasted(unconj(a)),)
-    return BC.Broadcasted(BC.combine_styles(args...), conj, args)
-end
-function _to_broadcasted(a::AddBroadcasted)
-    args = map(_to_broadcasted, addends(a))
-    return BC.Broadcasted(BC.combine_styles(args...), +, args)
+function BC.Broadcasted(a::LinearBroadcasted)
+    return _to_broadcasted(a)
 end
 
 function Base.similar(a::LinearBroadcasted, elt::Type, ax)
-    return similar(_to_broadcasted(a), elt, ax)
+    return similar(BC.Broadcasted(a), elt, ax)
 end
 
 # --- ScaledBroadcasted --------------------------------------------------------
