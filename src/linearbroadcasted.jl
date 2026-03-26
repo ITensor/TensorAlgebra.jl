@@ -37,7 +37,7 @@ iscall(::LinearBroadcasted) = true
 # dispatch that could re-enter LinearBroadcasted conversion.
 function BC.Broadcasted(a::LinearBroadcasted)
     args = map(arguments(a)) do arg
-        arg isa LinearBroadcasted ? BC.Broadcasted(arg) : arg
+        return arg isa LinearBroadcasted ? BC.Broadcasted(arg) : arg
     end
     return BC.Broadcasted(BC.combine_styles(args...), operation(a), args)
 end
