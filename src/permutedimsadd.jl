@@ -28,6 +28,14 @@ via broadcasting with Strided.jl optimization when possible.
 function permutedimsopadd!(
         dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
     )
+    # TODO: Remove this 0-dimensional special case once GradedArray is its own type
+    # (not an alias for BlockSparseArray), so the GradedArray permutedimsopadd! overload
+    # catches the 0-dimensional contraction result.
+    if iszero(ndims(dest))
+        dest[] = β * dest[] + α * op(src[])
+        return dest
+    end
+
     # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
     # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
     # TODO: Delete this and bump the version of Strided.jl once that is fixed.
