@@ -218,6 +218,37 @@ function matricize(
     return matricize(style, a, blocks(biperm_dest)...)
 end
 
+# ====================================  matricizeop  =======================================
+
+"""
+    matricizeop(op, a, perm_codomain, perm_domain)
+
+Matricize `a` with element-wise operation `op` folded in. Returns a matrix representing
+`op.(matricize(a, perm_codomain, perm_domain))`.
+
+Has "maybe alias" semantics: the result may be a view/wrapper aliasing `a` or a fresh
+copy, depending on the fusion style and array type. The caller should treat the result
+as read-only.
+"""
+function matricizeop(op, a::AbstractArray, perm_codomain, perm_domain)
+    return matricizeop(FusionStyle(a), op, a, perm_codomain, perm_domain)
+end
+function matricizeop(
+        style::FusionStyle, op, a::AbstractArray, perm_codomain, perm_domain
+    )
+    return matricizeop(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
+end
+function matricizeop(
+        style::FusionStyle, op, a::AbstractArray,
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+    )
+    m = matricize(style, a, perm_codomain, perm_domain)
+    return _apply_op(op, m)
+end
+
+_apply_op(::typeof(identity), m::AbstractMatrix) = m
+_apply_op(op, m::AbstractMatrix) = op.(m)
+
 # ====================================  unmatricize  =======================================
 # This is the primary function that should be overloaded for new fusion styles.
 function unmatricize(

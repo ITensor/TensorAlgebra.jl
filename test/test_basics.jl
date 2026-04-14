@@ -1,3 +1,4 @@
+import TensorAlgebra
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BlockedTuple, ContractAlgorithm, bipermutedims, bipermutedims!,
@@ -83,6 +84,40 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         a_fused = matricize(ones(elt), (), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 1, 1)
+    end
+
+    @testset "matricizeop (eltype=$elt)" for elt in elts
+        rng = StableRNG(123)
+        a = randn(rng, elt, 2, 3, 4)
+
+        # identity op: should match matricize exactly
+        m = TensorAlgebra.matricizeop(identity, a, (1,), (2, 3))
+        m_ref = matricize(a, (1,), (2, 3))
+        @test m ≈ m_ref
+
+        m = TensorAlgebra.matricizeop(identity, a, (3, 1), (2,))
+        m_ref = matricize(a, (3, 1), (2,))
+        @test m ≈ m_ref
+
+        m = TensorAlgebra.matricizeop(identity, a, (2, 3), (1,))
+        m_ref = matricize(a, (2, 3), (1,))
+        @test m ≈ m_ref
+
+        # conj op (only for Complex eltypes)
+        if elt <: Complex
+            m = TensorAlgebra.matricizeop(conj, a, (1,), (2, 3))
+            m_ref = conj.(matricize(a, (1,), (2, 3)))
+            @test m ≈ m_ref
+
+            m = TensorAlgebra.matricizeop(conj, a, (3, 1), (2,))
+            m_ref = conj.(matricize(a, (3, 1), (2,)))
+            @test m ≈ m_ref
+        end
+
+        # general op
+        m = TensorAlgebra.matricizeop(abs, a, (1,), (2, 3))
+        m_ref = abs.(matricize(a, (1,), (2, 3)))
+        @test m ≈ m_ref
     end
 
     @testset "unmatricize (eltype=$elt)" for elt in elts
