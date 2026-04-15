@@ -2,8 +2,8 @@ import TensorAlgebra
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BlockedTuple, ContractAlgorithm, bipermutedims, bipermutedims!,
-    blockedpermvcat, contract, contract!, contractadd!, contractopadd!, length_codomain,
-    length_domain, matricize, tuplemortar, unmatricize, unmatricize!
+    blockedpermvcat, contract, contract!, contractadd!, length_codomain, length_domain,
+    matricize, tuplemortar, unmatricize, unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -307,7 +307,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
             # identity ops should match contractadd!
             a_dest = copy(a_dest_init)
-            contractopadd!(
+            TensorAlgebra.contractopadd!(
                 a_dest, labels_dest,
                 identity, a1, labels1,
                 identity, a2, labels2,
@@ -320,7 +320,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             # conj on first input (only for Complex elt1)
             if elt1 <: Complex
                 a_dest = copy(a_dest_init)
-                contractopadd!(
+                TensorAlgebra.contractopadd!(
                     a_dest, labels_dest,
                     conj, a1, labels1,
                     identity, a2, labels2,
@@ -332,7 +332,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
                 # compare against TensorOperations backend
                 a_dest_to = copy(a_dest_init)
-                contractopadd!(
+                TensorAlgebra.contractopadd!(
                     a_dest_to, labels_dest,
                     conj, a1, labels1,
                     identity, a2, labels2,
@@ -344,7 +344,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             # conj on second input (only for Complex elt2)
             if elt2 <: Complex
                 a_dest = copy(a_dest_init)
-                contractopadd!(
+                TensorAlgebra.contractopadd!(
                     a_dest, labels_dest,
                     identity, a1, labels1,
                     conj, a2, labels2,
@@ -356,7 +356,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
                 # compare against TensorOperations backend
                 a_dest_to = copy(a_dest_init)
-                contractopadd!(
+                TensorAlgebra.contractopadd!(
                     a_dest_to, labels_dest,
                     identity, a1, labels1,
                     conj, a2, labels2,
@@ -368,7 +368,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             # conj on both inputs (only for Complex elt1 and elt2)
             if elt1 <: Complex && elt2 <: Complex
                 a_dest = copy(a_dest_init)
-                contractopadd!(
+                TensorAlgebra.contractopadd!(
                     a_dest, labels_dest,
                     conj, a1, labels1,
                     conj, a2, labels2,
@@ -382,7 +382,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
                 # compare against TensorOperations backend
                 a_dest_to = copy(a_dest_init)
-                contractopadd!(
+                TensorAlgebra.contractopadd!(
                     a_dest_to, labels_dest,
                     conj, a1, labels1,
                     conj, a2, labels2,
