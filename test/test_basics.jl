@@ -316,6 +316,80 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             a_dest_ref = copy(a_dest_init)
             contractadd!(a_dest_ref, labels_dest, a1, labels1, a2, labels2, α, β)
             @test a_dest ≈ a_dest_ref
+
+            # conj on first input (only for Complex elt1)
+            if elt1 <: Complex
+                a_dest = copy(a_dest_init)
+                TensorAlgebra.contractopadd!(
+                    a_dest, labels_dest,
+                    conj, a1, labels1,
+                    identity, a2, labels2,
+                    α, β
+                )
+                a_dest_ref = copy(a_dest_init)
+                contractadd!(a_dest_ref, labels_dest, conj.(a1), labels1, a2, labels2, α, β)
+                @test a_dest ≈ a_dest_ref
+
+                # compare against TensorOperations backend
+                a_dest_to = copy(a_dest_init)
+                TensorAlgebra.contractopadd!(
+                    a_dest_to, labels_dest,
+                    conj, a1, labels1,
+                    identity, a2, labels2,
+                    α, β; alg = alg_tensoroperations
+                )
+                @test a_dest ≈ a_dest_to
+            end
+
+            # conj on second input (only for Complex elt2)
+            if elt2 <: Complex
+                a_dest = copy(a_dest_init)
+                TensorAlgebra.contractopadd!(
+                    a_dest, labels_dest,
+                    identity, a1, labels1,
+                    conj, a2, labels2,
+                    α, β
+                )
+                a_dest_ref = copy(a_dest_init)
+                contractadd!(a_dest_ref, labels_dest, a1, labels1, conj.(a2), labels2, α, β)
+                @test a_dest ≈ a_dest_ref
+
+                # compare against TensorOperations backend
+                a_dest_to = copy(a_dest_init)
+                TensorAlgebra.contractopadd!(
+                    a_dest_to, labels_dest,
+                    identity, a1, labels1,
+                    conj, a2, labels2,
+                    α, β; alg = alg_tensoroperations
+                )
+                @test a_dest ≈ a_dest_to
+            end
+
+            # conj on both inputs (only for Complex elt1 and elt2)
+            if elt1 <: Complex && elt2 <: Complex
+                a_dest = copy(a_dest_init)
+                TensorAlgebra.contractopadd!(
+                    a_dest, labels_dest,
+                    conj, a1, labels1,
+                    conj, a2, labels2,
+                    α, β
+                )
+                a_dest_ref = copy(a_dest_init)
+                contractadd!(
+                    a_dest_ref, labels_dest, conj.(a1), labels1, conj.(a2), labels2, α, β
+                )
+                @test a_dest ≈ a_dest_ref
+
+                # compare against TensorOperations backend
+                a_dest_to = copy(a_dest_init)
+                TensorAlgebra.contractopadd!(
+                    a_dest_to, labels_dest,
+                    conj, a1, labels1,
+                    conj, a2, labels2,
+                    α, β; alg = alg_tensoroperations
+                )
+                @test a_dest ≈ a_dest_to
+            end
         end
     end
     @testset "scalar contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
