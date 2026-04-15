@@ -6,7 +6,6 @@ using Test: @test, @testset
         :TensorAlgebra,
         :contract,
         :contract!,
-        :contractopadd!,
         :eigen,
         :eigvals,
         :factorize,
@@ -14,7 +13,6 @@ using Test: @test, @testset
         :left_orth,
         :left_polar,
         :lq,
-        :matricizeop,
         :orth,
         :polar,
         :qr,
@@ -24,6 +22,10 @@ using Test: @test, @testset
         :svd,
         :svdvals,
     ]
+    # `public` (Julia 1.11+) adds names to `names()`; include them on 1.11+.
+    if VERSION >= v"1.11.0-DEV.469"
+        append!(exports, [:contractopadd!, :matricizeop])
+    end
     @test issetequal(names(TensorAlgebra), exports)
 
     exports = [
