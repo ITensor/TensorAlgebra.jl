@@ -87,18 +87,47 @@ function contractadd!(
         α::Number, β::Number;
         kwargs...
     )
-    biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
-    return contractadd!(
-        a_dest, blocks(biperm_dest)...,
-        a1, blocks(biperm1)...,
-        a2, blocks(biperm2)...,
-        α, β; kwargs...
+    return contractopadd!(
+        a_dest, labels_dest, identity, a1, labels1, identity, a2, labels2, α, β; kwargs...
     )
 end
+# contractadd! (bipartitioned permutations)
 function contractadd!(
         a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain,
+        α::Number, β::Number;
+        kwargs...
+    )
+    return contractopadd!(
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        identity, a1, perm1_codomain, perm1_domain,
+        identity, a2, perm2_codomain, perm2_domain,
+        α, β; kwargs...
+    )
+end
+
+# contractopadd! (labels)
+function contractopadd!(
+        a_dest::AbstractArray, labels_dest,
+        op1, a1::AbstractArray, labels1,
+        op2, a2::AbstractArray, labels2,
+        α::Number, β::Number;
+        kwargs...
+    )
+    biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
+    return contractopadd!(
+        a_dest, blocks(biperm_dest)...,
+        op1, a1, blocks(biperm1)...,
+        op2, a2, blocks(biperm2)...,
+        α, β; kwargs...
+    )
+end
+# contractopadd! (bipartitioned permutations, algorithm selection)
+function contractopadd!(
+        a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
+        op1, a1::AbstractArray, perm1_codomain, perm1_domain,
+        op2, a2::AbstractArray, perm2_codomain, perm2_domain,
         α::Number, β::Number;
         alg = DefaultContractAlgorithm(), kwargs...
     )
@@ -109,38 +138,38 @@ function contractadd!(
         a2, perm2_codomain, perm2_domain
     )
     algorithm = select_contract_algorithm(alg, a1, a2; kwargs...)
-    return contractadd!(
+    return contractopadd!(
         algorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain,
         α, β
     )
 end
-# contractadd! (dispatched on the algorithm, bipartitioned permutations)
+# contractopadd! (dispatched on the algorithm, bipartitioned permutations)
 # Required interface if not using matricized contraction
-function contractadd!(
+function contractopadd!(
         algorithm::ContractAlgorithm,
         a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain,
+        op1, a1::AbstractArray, perm1_codomain, perm1_domain,
+        op2, a2::AbstractArray, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
     return throw(
         MethodError(
-            contractadd!,
+            contractopadd!,
             (
                 algorithm,
                 a_dest, perm_dest_codomain, perm_dest_domain,
-                a1, perm1_codomain, perm1_domain,
-                a2, perm2_codomain, perm2_domain,
+                op1, a1, perm1_codomain, perm1_domain,
+                op2, a2, perm2_codomain, perm2_domain,
                 α, β,
             )
         )
     )
 end
 
-# BlockPermutation versions of contract[add][!]
+# BlockPermutation versions of contract[opadd][!]
 function contract(
         a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
         a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
@@ -187,18 +216,16 @@ function contractadd!(
         α, β; kwargs...
     )
 end
-function contractadd!(
-        algorithm::ContractAlgorithm,
+function contractopadd!(
         a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
-        a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
-        a2::AbstractArray, biperm2::AbstractBlockPermutation{2},
-        α::Number, β::Number
+        op1, a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
+        op2, a2::AbstractArray, biperm2::AbstractBlockPermutation{2},
+        α::Number, β::Number; kwargs...
     )
-    return contractadd!(
-        algorithm,
+    return contractopadd!(
         a_dest, blocks(biperm_dest)...,
-        a1, blocks(biperm1)...,
-        a2, blocks(biperm2)...,
-        α, β
+        op1, a1, blocks(biperm1)...,
+        op2, a2, blocks(biperm2)...,
+        α, β; kwargs...
     )
 end

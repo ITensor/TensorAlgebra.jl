@@ -52,35 +52,22 @@ function TA.contract(
 end
 
 # in-place
-function TA.contractadd!(
+function TA.contractopadd!(
         algorithm::TensorOperationsAlgorithm,
         a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain,
+        op1, a1::AbstractArray, perm1_codomain, perm1_domain,
+        op2, a2::AbstractArray, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
     permblocks1 = Tuple.((perm1_codomain, perm1_domain))
     permblocks2 = Tuple.((perm2_codomain, perm2_domain))
     permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))
-    conj1, conj2 = false, false
+    conj1 = op1 === conj
+    conj2 = op2 === conj
+    a1′ = (op1 === identity || op1 === conj) ? a1 : op1.(a1)
+    a2′ = (op2 === identity || op2 === conj) ? a2 : op2.(a2)
     return TO.tensorcontract!(
-        a_dest, a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, β, algorithm.backend
-    )
-end
-
-function TA.contractadd!(
-        algorithm::TensorOperationsAlgorithm,
-        a_dest::AbstractArray, labels_dest,
-        a1::AbstractArray, labels1,
-        a2::AbstractArray, labels2,
-        α::Number, β::Number
-    )
-    permblocks1, permblocks2, permblocks_dest =
-        TO.contract_indices(labels1, labels2, labels_dest)
-    conj1, conj2 = false, false
-    return TO.tensorcontract!(
-        a_dest, a1, permblocks1, conj1, a2, permblocks2, conj2,
+        a_dest, a1′, permblocks1, conj1, a2′, permblocks2, conj2,
         permblocks_dest, α, β, algorithm.backend
     )
 end
@@ -96,14 +83,13 @@ function TO.tensorcontract!(
         backend::TA.ContractAlgorithm,
         allocator
     )
-    # TODO: FIXME: Use `conjed` to do the conjugation lazily.
-    a1′ = conj1 ? conj(a1) : a1
-    a2′ = conj2 ? conj(a2) : a2
-    return TA.contractadd!(
+    op1 = conj1 ? conj : identity
+    op2 = conj2 ? conj : identity
+    return TA.contractopadd!(
         backend,
         a_dest, permblocks_dest...,
-        a1′, permblocks1...,
-        a2′, permblocks2...,
+        op1, a1, permblocks1...,
+        op2, a2, permblocks2...,
         α, β
     )
 end

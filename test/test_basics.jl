@@ -283,6 +283,41 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 4, 2, 3)
         )
     end
+    @testset "contractopadd! (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
+        elt_dest = promote_type(elt1, elt2)
+        dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
+        labels = (:a, :b, :c, :d, :e, :f, :g, :h, :i)
+        rng = StableRNG(123)
+        for (d1s, d2s, d_dests) in (
+                ((1, 2), (2, 3), (1, 3)),
+                ((1, 2), (2, 3), (3, 1)),
+                ((1, 2, 3), (2, 3, 4), (1, 4)),
+                ((3, 2, 1), (4, 2, 3), (4, 1)),
+                ((1, 2, 3), (3, 4), (2, 4, 1)),
+            )
+            a1 = randn(rng, elt1, map(i -> dims[i], d1s))
+            labels1 = map(i -> labels[i], d1s)
+            a2 = randn(rng, elt2, map(i -> dims[i], d2s))
+            labels2 = map(i -> labels[i], d2s)
+            labels_dest = map(i -> labels[i], d_dests)
+
+            α = elt_dest(1.2)
+            β = elt_dest(2.4)
+            a_dest_init = randn(rng, elt_dest, map(i -> dims[i], d_dests))
+
+            # identity ops should match contractadd!
+            a_dest = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest, labels_dest,
+                identity, a1, labels1,
+                identity, a2, labels2,
+                α, β
+            )
+            a_dest_ref = copy(a_dest_init)
+            contractadd!(a_dest_ref, labels_dest, a1, labels1, a2, labels2, α, β)
+            @test a_dest ≈ a_dest_ref
+        end
+    end
     @testset "scalar contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
             elt2 in elts
 
