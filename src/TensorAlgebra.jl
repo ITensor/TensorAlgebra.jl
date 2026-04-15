@@ -3,7 +3,9 @@ module TensorAlgebra
 export contract, contract!, eigen, eigvals, factorize, left_null, left_orth, left_polar,
     lq, qr, right_null, right_orth, right_polar, orth, polar, svd, svdvals
 
-public contractopadd!, matricizeop
+if VERSION >= v"1.11.0-DEV.469"
+    eval(Meta.parse("public contractopadd!, matricizeop"))
+end
 
 include("MatrixAlgebra.jl")
 include("blockedtuple.jl")
