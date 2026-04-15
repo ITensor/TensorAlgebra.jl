@@ -1,7 +1,8 @@
 module TensorAlgebra
 
-export contract, contract!, eigen, eigvals, factorize, left_null, left_orth, left_polar,
-    lq, qr, right_null, right_orth, right_polar, orth, polar, svd, svdvals
+export contract, contract!, contractopadd!, eigen, eigvals, factorize, left_null,
+    left_orth, left_polar, lq, qr, right_null, right_orth, right_polar, orth, polar, svd,
+    svdvals
 
 include("MatrixAlgebra.jl")
 include("blockedtuple.jl")
