@@ -1,3 +1,4 @@
+import TensorAlgebra
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BlockedTuple, ContractAlgorithm, bipermutedims, bipermutedims!,
@@ -83,6 +84,38 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         a_fused = matricize(ones(elt), (), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 1, 1)
+    end
+
+    @testset "matricizeop (eltype=$elt)" for elt in elts
+        rng = StableRNG(123)
+        a = randn(rng, elt, 2, 3, 4)
+
+        # identity op: should match matricize exactly
+        m = TensorAlgebra.matricizeop(identity, a, (1,), (2, 3))
+        m_ref = matricize(a, (1,), (2, 3))
+        @test m ≈ m_ref
+
+        m = TensorAlgebra.matricizeop(identity, a, (3, 1), (2,))
+        m_ref = matricize(a, (3, 1), (2,))
+        @test m ≈ m_ref
+
+        m = TensorAlgebra.matricizeop(identity, a, (2, 3), (1,))
+        m_ref = matricize(a, (2, 3), (1,))
+        @test m ≈ m_ref
+
+        # conj op
+        m = TensorAlgebra.matricizeop(conj, a, (1,), (2, 3))
+        m_ref = conj.(matricize(a, (1,), (2, 3)))
+        @test m ≈ m_ref
+
+        m = TensorAlgebra.matricizeop(conj, a, (3, 1), (2,))
+        m_ref = conj.(matricize(a, (3, 1), (2,)))
+        @test m ≈ m_ref
+
+        # general op
+        m = TensorAlgebra.matricizeop(abs, a, (1,), (2, 3))
+        m_ref = abs.(matricize(a, (1,), (2, 3)))
+        @test m ≈ m_ref
     end
 
     @testset "unmatricize (eltype=$elt)" for elt in elts
@@ -247,6 +280,109 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         @test a_dest ≈ permutedims(
             reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 4, 2, 3)
         )
+    end
+    @testset "contractopadd! (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
+        elt_dest = promote_type(elt1, elt2)
+        dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
+        labels = (:a, :b, :c, :d, :e, :f, :g, :h, :i)
+        rng = StableRNG(123)
+        for (d1s, d2s, d_dests) in (
+                ((1, 2), (2, 3), (1, 3)),
+                ((1, 2), (2, 3), (3, 1)),
+                ((1, 2, 3), (2, 3, 4), (1, 4)),
+                ((3, 2, 1), (4, 2, 3), (4, 1)),
+                ((1, 2, 3), (3, 4), (2, 4, 1)),
+            )
+            a1 = randn(rng, elt1, map(i -> dims[i], d1s))
+            labels1 = map(i -> labels[i], d1s)
+            a2 = randn(rng, elt2, map(i -> dims[i], d2s))
+            labels2 = map(i -> labels[i], d2s)
+            labels_dest = map(i -> labels[i], d_dests)
+
+            α = elt_dest(1.2)
+            β = elt_dest(2.4)
+            a_dest_init = randn(rng, elt_dest, map(i -> dims[i], d_dests))
+
+            # identity ops should match contractadd!
+            a_dest = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest, labels_dest,
+                identity, a1, labels1,
+                identity, a2, labels2,
+                α, β
+            )
+            a_dest_ref = copy(a_dest_init)
+            contractadd!(a_dest_ref, labels_dest, a1, labels1, a2, labels2, α, β)
+            @test a_dest ≈ a_dest_ref
+
+            # conj on first input
+            a_dest = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest, labels_dest,
+                conj, a1, labels1,
+                identity, a2, labels2,
+                α, β
+            )
+            a_dest_ref = copy(a_dest_init)
+            contractadd!(a_dest_ref, labels_dest, conj.(a1), labels1, a2, labels2, α, β)
+            @test a_dest ≈ a_dest_ref
+
+            # compare against TensorOperations backend
+            a_dest_to = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest_to, labels_dest,
+                conj, a1, labels1,
+                identity, a2, labels2,
+                α, β; alg = alg_tensoroperations
+            )
+            @test a_dest ≈ a_dest_to
+
+            # conj on second input
+            a_dest = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest, labels_dest,
+                identity, a1, labels1,
+                conj, a2, labels2,
+                α, β
+            )
+            a_dest_ref = copy(a_dest_init)
+            contractadd!(a_dest_ref, labels_dest, a1, labels1, conj.(a2), labels2, α, β)
+            @test a_dest ≈ a_dest_ref
+
+            # compare against TensorOperations backend
+            a_dest_to = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest_to, labels_dest,
+                identity, a1, labels1,
+                conj, a2, labels2,
+                α, β; alg = alg_tensoroperations
+            )
+            @test a_dest ≈ a_dest_to
+
+            # conj on both inputs
+            a_dest = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest, labels_dest,
+                conj, a1, labels1,
+                conj, a2, labels2,
+                α, β
+            )
+            a_dest_ref = copy(a_dest_init)
+            contractadd!(
+                a_dest_ref, labels_dest, conj.(a1), labels1, conj.(a2), labels2, α, β
+            )
+            @test a_dest ≈ a_dest_ref
+
+            # compare against TensorOperations backend
+            a_dest_to = copy(a_dest_init)
+            TensorAlgebra.contractopadd!(
+                a_dest_to, labels_dest,
+                conj, a1, labels1,
+                conj, a2, labels2,
+                α, β; alg = alg_tensoroperations
+            )
+            @test a_dest ≈ a_dest_to
+        end
     end
     @testset "scalar contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
             elt2 in elts

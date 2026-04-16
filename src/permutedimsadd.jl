@@ -10,27 +10,49 @@ function maybestrided(as::AbstractArray...)
 end
 
 # ---------------------------------------------------------------------------- #
-# permutedimsopadd! — the single materialization primitive
+# bipermutedimsopadd! — the primary materialization primitive
 # ---------------------------------------------------------------------------- #
 
-"""
-    permutedimsopadd!(dest, op, src, perm, α, β)
+function bipermutedimsopadd! end
 
-`dest = β * dest + α * permutedims(op.(src), perm)`.
-
-This is the single materialization primitive for `LinearBroadcasted` types.
-Downstream array types should implement this function. The `op` is an element-wise
-linear map (e.g., `identity`, `conj`, `adjoint`, `transpose`, `Float32`).
-
-The default implementation applies `op` element-wise, permutes, then accumulates
-via broadcasting with Strided.jl optimization when possible.
-"""
-function permutedimsopadd!(
-        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
+function check_input(
+        ::typeof(bipermutedimsopadd!), dest::AbstractArray, src::AbstractArray,
+        perm_codomain, perm_domain
     )
+    perm = (perm_codomain..., perm_domain...)
+    ndims(dest) == length(perm) ||
+        throw(DimensionMismatch("destination ndims does not match permutation length"))
+    axes(dest) == ntuple(d -> axes(src, perm[d]), ndims(dest)) ||
+        throw(DimensionMismatch("destination axes do not match permuted source axes"))
+    return nothing
+end
+
+"""
+    bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+
+`dest = β * dest + α * permutedims(op.(src), (perm_codomain..., perm_domain...))`.
+
+This is the primary overload point for downstream array types that want to
+implement op-aware bipartitioned permutation + accumulation (e.g., fuse `conj`
+into the copy, or use lazy wrappers like `StridedView` with op metadata).
+
+The `op` is an element-wise linear map (e.g., `identity`, `conj`).
+
+The default implementation flattens the bipartitioned permutation, applies `op`
+element-wise, permutes, then accumulates via broadcasting with Strided.jl
+optimization when possible.
+"""
+function bipermutedimsopadd!(
+        dest::AbstractArray, op, src::AbstractArray,
+        perm_codomain, perm_domain,
+        α::Number, β::Number
+    )
+    perm = (perm_codomain..., perm_domain...)
+    check_input(bipermutedimsopadd!, dest, src, perm_codomain, perm_domain)
+
     # TODO: Remove this 0-dimensional special case once GradedArray is its own type
-    # (not an alias for BlockSparseArray), so the GradedArray permutedimsopadd! overload
-    # catches the 0-dimensional contraction result.
+    # (not an alias for BlockSparseArray), so the GradedArray overload catches the
+    # 0-dimensional contraction result.
     if iszero(ndims(dest))
         dest[] = β * dest[] + α * op(src[])
         return dest
@@ -56,6 +78,26 @@ function permutedimsopadd!(
         end
     end
     return dest
+end
+
+# ---------------------------------------------------------------------------- #
+# permutedimsopadd! — flat-permutation interface
+# ---------------------------------------------------------------------------- #
+
+"""
+    permutedimsopadd!(dest, op, src, perm, α, β)
+
+`dest = β * dest + α * permutedims(op.(src), perm)`.
+
+This is the single materialization primitive for `LinearBroadcasted` types.
+Downstream array types should implement `bipermutedimsopadd!` for the
+bipartitioned permutation version; this flat-permutation overload forwards to it
+with `perm_domain = ()`.
+"""
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
+    )
+    return bipermutedimsopadd!(dest, op, src, perm, (), α, β)
 end
 
 # ---------------------------------------------------------------------------- #

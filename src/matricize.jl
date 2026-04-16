@@ -123,16 +123,40 @@ function matricize_axes(a::AbstractArray, ndims_codomain::Val)
     return matricize_axes(FusionStyle(a), a, ndims_codomain)
 end
 
+# Default similar with bipartitioned axes: flatten to a plain tuple of axes.
+# Downstream types (e.g., FusionTensor) can override to preserve bipartition.
+function Base.similar(a::AbstractArray, T::Type, axes::BlockedTuple{2})
+    return similar(a, T, Tuple(axes))
+end
+
+"""
+    permutedimsop(op, src, perm_codomain, perm_domain)
+
+Non-mutating version of `bipermutedimsopadd!`: returns
+`op.(permutedims(src, (perm_codomain..., perm_domain...)))`.
+"""
+function permutedimsop(op, src::AbstractArray, perm_codomain, perm_domain)
+    dest = allocate_output(permutedimsop, op, src, perm_codomain, perm_domain)
+    return bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
+end
+
+function allocate_output(::typeof(permutedimsop), op, src::AbstractArray, perm_co, perm_do)
+    T = Base.promote_op(op, eltype(src))
+    axes_co = map(i -> axes(src, i), perm_co)
+    axes_do = map(i -> axes(src, i), perm_do)
+    return similar(src, T, tuplemortar((axes_co, axes_do)))
+end
+
 # Inner version takes a list of sub-permutations, overload this one if needed.
 # TODO: Remove _permutedims once support for Julia 1.10 is dropped
 # define permutedims with a BlockedPermuation. Default is to flatten it.
 # TODO: Deprecate `permuteblockeddims` in favor of `bipermutedims`.
 # Keeping it here for backwards compatibility.
 function bipermutedims(a::AbstractArray, perm1, perm2)
-    return _permutedims(a, (perm1..., perm2...))
+    return permutedimsop(identity, a, perm1, perm2)
 end
 function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
-    return _permutedims!(a_dest, a_src, (perm1..., perm2...))
+    return bipermutedimsopadd!(a_dest, identity, a_src, perm1, perm2, true, false)
 end
 function bipermutedims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
     return bipermutedims(a, blocks(biperm)...)
@@ -165,15 +189,14 @@ function matricize(
     )
     return matricize(FusionStyle(a), a, perm_codomain, perm_domain)
 end
-# This is a more advanced version to overload where the permutation is actually performed.
+# Thin wrapper around `matricizeop` with identity op — the actual matricization logic
+# (and the fusion-style overload point for folding ops into matricization) lives in
+# `matricizeop`.
 function matricize(
         style::FusionStyle, a::AbstractArray,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    ndims(a) == length(perm_codomain) + length(perm_domain) ||
-        throw(ArgumentError("Invalid bipermutation"))
-    a_perm = bipermutedims(a, perm_codomain, perm_domain)
-    return matricize(style, a_perm, Val(length(perm_codomain)))
+    return matricizeop(style, identity, a, perm_codomain, perm_domain)
 end
 
 # Process inputs such as `EllipsisNotation.Ellipsis`.
@@ -216,6 +239,39 @@ function matricize(
         style::FusionStyle, a::AbstractArray, biperm_dest::AbstractBlockPermutation{2}
     )
     return matricize(style, a, blocks(biperm_dest)...)
+end
+
+# ====================================  matricizeop  =======================================
+
+"""
+    matricizeop(op, a, perm_codomain, perm_domain)
+
+Matricize `a` with element-wise operation `op` folded in. Returns a matrix representing
+`op.(matricize(a, perm_codomain, perm_domain))`.
+
+Has "maybe alias" semantics: the result may be a view/wrapper aliasing `a` or a fresh
+copy, depending on the fusion style and array type. The caller should treat the result
+as read-only.
+"""
+function matricizeop(op, a::AbstractArray, perm_codomain, perm_domain)
+    return matricizeop(FusionStyle(a), op, a, perm_codomain, perm_domain)
+end
+function matricizeop(
+        style::FusionStyle, op, a::AbstractArray, perm_codomain, perm_domain
+    )
+    return matricizeop(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
+end
+# This is the primary function that should be overloaded for new fusion styles to fold
+# ops into matricization (e.g., fuse `conj` into the permutation copy, or use lazy
+# wrappers like StridedView with op metadata for zero-copy).
+function matricizeop(
+        style::FusionStyle, op, a::AbstractArray,
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+    )
+    ndims(a) == length(perm_codomain) + length(perm_domain) ||
+        throw(ArgumentError("Invalid bipermutation"))
+    a_perm_op = permutedimsop(op, a, perm_codomain, perm_domain)
+    return matricize(style, a_perm_op, Val(length(perm_codomain)))
 end
 
 # ====================================  unmatricize  =======================================
