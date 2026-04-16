@@ -133,8 +133,7 @@ end
     permutedimsop(op, src, perm_codomain, perm_domain)
 
 Non-mutating version of `bipermutedimsopadd!`: returns
-`op.(permutedims(src, (perm_codomain..., perm_domain...)))`. Has "maybe alias"
-semantics — the result may be a view/wrapper aliasing `src` or a fresh copy.
+`op.(permutedims(src, (perm_codomain..., perm_domain...)))`.
 """
 function permutedimsop(op, src::AbstractArray, perm_codomain, perm_domain)
     dest = allocate_output(permutedimsop, op, src, perm_codomain, perm_domain)
