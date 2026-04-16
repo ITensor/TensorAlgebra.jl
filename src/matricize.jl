@@ -125,7 +125,7 @@ end
 
 # Default similar with bipartitioned axes: flatten to a plain tuple of axes.
 # Downstream types (e.g., FusionTensor) can override to preserve bipartition.
-function Base.similar(a::AbstractArray, T::Type, axes::AbstractBlockTuple{2})
+function Base.similar(a::AbstractArray, T::Type, axes::BlockedTuple{2})
     return similar(a, T, Tuple(axes))
 end
 
