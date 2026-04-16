@@ -132,13 +132,13 @@ end
 """
     permutedimsop(op, src, perm_codomain, perm_domain)
 
-Non-mutating version of bipermutation `permutedimsopadd!`: returns
+Non-mutating version of `bipermutedimsopadd!`: returns
 `op.(permutedims(src, (perm_codomain..., perm_domain...)))`. Has "maybe alias"
 semantics — the result may be a view/wrapper aliasing `src` or a fresh copy.
 """
 function permutedimsop(op, src::AbstractArray, perm_codomain, perm_domain)
     dest = allocate_output(permutedimsop, op, src, perm_codomain, perm_domain)
-    return permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
+    return bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
 end
 
 function allocate_output(::typeof(permutedimsop), op, src::AbstractArray, perm_co, perm_do)
@@ -157,7 +157,7 @@ function bipermutedims(a::AbstractArray, perm1, perm2)
     return permutedimsop(identity, a, perm1, perm2)
 end
 function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
-    return permutedimsopadd!(a_dest, identity, a_src, perm1, perm2, true, false)
+    return bipermutedimsopadd!(a_dest, identity, a_src, perm1, perm2, true, false)
 end
 function bipermutedims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
     return bipermutedims(a, blocks(biperm)...)
