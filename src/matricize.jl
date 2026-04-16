@@ -123,6 +123,12 @@ function matricize_axes(a::AbstractArray, ndims_codomain::Val)
     return matricize_axes(FusionStyle(a), a, ndims_codomain)
 end
 
+# Default similar with bipartitioned axes: flatten to a plain tuple of axes.
+# Downstream types (e.g., FusionTensor) can override to preserve bipartition.
+function Base.similar(a::AbstractArray, T::Type, axes::AbstractBlockTuple{2})
+    return similar(a, T, Tuple(axes))
+end
+
 """
     permutedimsop(op, src, perm_codomain, perm_domain)
 
@@ -131,9 +137,15 @@ Non-mutating version of bipermutation `permutedimsopadd!`: returns
 semantics — the result may be a view/wrapper aliasing `src` or a fresh copy.
 """
 function permutedimsop(op, src::AbstractArray, perm_codomain, perm_domain)
-    perm = (perm_codomain..., perm_domain...)
-    dest = similar(src, map(i -> size(src, i), perm))
+    dest = allocate_output(permutedimsop, op, src, perm_codomain, perm_domain)
     return permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
+end
+
+function allocate_output(::typeof(permutedimsop), op, src::AbstractArray, perm_co, perm_do)
+    T = Base.promote_op(op, eltype(src))
+    axes_co = map(i -> axes(src, i), perm_co)
+    axes_do = map(i -> axes(src, i), perm_do)
+    return similar(src, T, tuplemortar((axes_co, axes_do)))
 end
 
 # Inner version takes a list of sub-permutations, overload this one if needed.

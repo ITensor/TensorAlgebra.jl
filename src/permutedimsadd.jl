@@ -14,20 +14,27 @@ end
 # ---------------------------------------------------------------------------- #
 
 """
-    permutedimsopadd!(dest, op, src, perm, α, β)
+    permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
 
-`dest = β * dest + α * permutedims(op.(src), perm)`.
+`dest = β * dest + α * permutedims(op.(src), (perm_codomain..., perm_domain...))`.
 
-This is the single materialization primitive for `LinearBroadcasted` types.
-Downstream array types should implement this function. The `op` is an element-wise
-linear map (e.g., `identity`, `conj`, `adjoint`, `transpose`, `Float32`).
+This is the primary overload point for downstream array types that want to
+implement op-aware bipartitioned permutation + accumulation (e.g., fuse `conj`
+into the copy, or use lazy wrappers like `StridedView` with op metadata).
 
-The default implementation applies `op` element-wise, permutes, then accumulates
-via broadcasting with Strided.jl optimization when possible.
+The `op` is an element-wise linear map (e.g., `identity`, `conj`).
+
+The default implementation flattens the bipartitioned permutation, applies `op`
+element-wise, permutes, then accumulates via broadcasting with Strided.jl
+optimization when possible.
 """
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
+        dest::AbstractArray, op, src::AbstractArray,
+        perm_codomain, perm_domain,
+        α::Number, β::Number
     )
+    perm = (perm_codomain..., perm_domain...)
+
     # TODO: Remove this 0-dimensional special case once GradedArray is its own type
     # (not an alias for BlockSparseArray), so the GradedArray permutedimsopadd! overload
     # catches the 0-dimensional contraction result.
@@ -58,23 +65,18 @@ function permutedimsopadd!(
     return dest
 end
 
-# Bipartitioned permutation overload. Intended to become a primary overload point
-# for downstream array types that want to fold ops into a bipartitioned permutation
-# copy (e.g., fuse `conj` into the copy, or use lazy wrappers like `StridedView`
-# with op metadata). For now it delegates to the flat-permutation version by
-# concatenating the perms; in a future PR the dependency will flip.
-
 """
-    permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+    permutedimsopadd!(dest, op, src, perm, α, β)
 
-Like `permutedimsopadd!`, but takes a bipartitioned permutation as two tuples.
+`dest = β * dest + α * permutedims(op.(src), perm)`.
+
+Flat-permutation convenience overload. Forwards to the bipartitioned version
+with `perm_domain = ()`.
 """
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::AbstractArray,
-        perm_codomain, perm_domain,
-        α::Number, β::Number
+        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
     )
-    return permutedimsopadd!(dest, op, src, (perm_codomain..., perm_domain...), α, β)
+    return permutedimsopadd!(dest, op, src, perm, (), α, β)
 end
 
 # ---------------------------------------------------------------------------- #
