@@ -165,15 +165,14 @@ function matricize(
     )
     return matricize(FusionStyle(a), a, perm_codomain, perm_domain)
 end
-# This is a more advanced version to overload where the permutation is actually performed.
+# Thin wrapper around `matricizeop` with identity op — the actual matricization logic
+# (and the fusion-style overload point for folding ops into matricization) lives in
+# `matricizeop`.
 function matricize(
         style::FusionStyle, a::AbstractArray,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    ndims(a) == length(perm_codomain) + length(perm_domain) ||
-        throw(ArgumentError("Invalid bipermutation"))
-    a_perm = bipermutedims(a, perm_codomain, perm_domain)
-    return matricize(style, a_perm, Val(length(perm_codomain)))
+    return matricizeop(style, identity, a, perm_codomain, perm_domain)
 end
 
 # Process inputs such as `EllipsisNotation.Ellipsis`.
@@ -238,11 +237,17 @@ function matricizeop(
     )
     return matricizeop(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
+# This is the primary function that should be overloaded for new fusion styles to fold
+# ops into matricization (e.g., fuse `conj` into the permutation copy, or use lazy
+# wrappers like StridedView with op metadata for zero-copy).
 function matricizeop(
         style::FusionStyle, op, a::AbstractArray,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    m = matricize(style, a, perm_codomain, perm_domain)
+    ndims(a) == length(perm_codomain) + length(perm_domain) ||
+        throw(ArgumentError("Invalid bipermutation"))
+    a_perm = bipermutedims(a, perm_codomain, perm_domain)
+    m = matricize(style, a_perm, Val(length(perm_codomain)))
     return _apply_op(op, m)
 end
 
