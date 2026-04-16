@@ -13,6 +13,8 @@ end
 # bipermutedimsopadd! — the primary materialization primitive
 # ---------------------------------------------------------------------------- #
 
+function bipermutedimsopadd! end
+
 function check_input(
         ::typeof(bipermutedimsopadd!), dest::AbstractArray, src::AbstractArray,
         perm_codomain, perm_domain
