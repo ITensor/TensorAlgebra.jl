@@ -13,6 +13,18 @@ end
 # bipermutedimsopadd! — the primary materialization primitive
 # ---------------------------------------------------------------------------- #
 
+function check_input(
+        ::typeof(bipermutedimsopadd!), dest::AbstractArray, src::AbstractArray,
+        perm_codomain, perm_domain
+    )
+    perm = (perm_codomain..., perm_domain...)
+    ndims(dest) == length(perm) ||
+        throw(DimensionMismatch("destination ndims does not match permutation length"))
+    axes(dest) == ntuple(d -> axes(src, perm[d]), ndims(dest)) ||
+        throw(DimensionMismatch("destination axes do not match permuted source axes"))
+    return nothing
+end
+
 """
     bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
 
@@ -34,6 +46,7 @@ function bipermutedimsopadd!(
         α::Number, β::Number
     )
     perm = (perm_codomain..., perm_domain...)
+    check_input(bipermutedimsopadd!, dest, src, perm_codomain, perm_domain)
 
     # TODO: Remove this 0-dimensional special case once GradedArray is its own type
     # (not an alias for BlockSparseArray), so the GradedArray overload catches the
