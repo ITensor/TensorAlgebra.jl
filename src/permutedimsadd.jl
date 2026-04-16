@@ -58,6 +58,25 @@ function permutedimsopadd!(
     return dest
 end
 
+# Bipartitioned permutation overload. Intended to become a primary overload point
+# for downstream array types that want to fold ops into a bipartitioned permutation
+# copy (e.g., fuse `conj` into the copy, or use lazy wrappers like `StridedView`
+# with op metadata). For now it delegates to the flat-permutation version by
+# concatenating the perms; in a future PR the dependency will flip.
+
+"""
+    permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+
+Like `permutedimsopadd!`, but takes a bipartitioned permutation as two tuples.
+"""
+function permutedimsopadd!(
+        dest::AbstractArray, op, src::AbstractArray,
+        perm_codomain, perm_domain,
+        α::Number, β::Number
+    )
+    return permutedimsopadd!(dest, op, src, (perm_codomain..., perm_domain...), α, β)
+end
+
 # ---------------------------------------------------------------------------- #
 # Convenience functions that lower to permutedimsopadd!
 # ---------------------------------------------------------------------------- #
