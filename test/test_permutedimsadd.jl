@@ -1,6 +1,6 @@
 using Adapt: adapt
 using JLArrays: JLArray
-using TensorAlgebra: add!, permutedimsadd!, permutedimsopadd!
+using TensorAlgebra: add!, bipermutedimsopadd!, permutedimsadd!, permutedimsopadd!
 using Test: @test, @testset
 
 @testset "[permutedims]add!" begin
@@ -46,6 +46,26 @@ using Test: @test, @testset
             permutedimsadd!(b′, a, perm, α, β)
             @test b′ ≈ β * b + α * permutedims(a, perm)
         end
+    end
+    @testset "bipermutedimsopadd! 0-dim with β=0 must not read dest (eltype=$T)" for T in
+        (
+            Float64,
+            BigFloat,
+        )
+        # With β=0, `dest` is write-only by BLAS convention; its contents need not be
+        # defined. For element types whose `undef` storage is unreadable (e.g. mutable
+        # `BigFloat`), reading the slot would throw `UndefRefError`.
+        src = fill(T(7))
+        for op in (identity, conj)
+            dest = Array{T, 0}(undef)
+            bipermutedimsopadd!(dest, op, src, (), (), true, false)
+            @test dest[] == op(src[])
+        end
+        # With β nonzero, both reads and writes go through with the accumulating
+        # semantics `dest = β * dest + α * op(src)`.
+        dest = fill(T(2))
+        bipermutedimsopadd!(dest, identity, src, (), (), T(3), T(5))
+        @test dest[] == 3 * 7 + 5 * 2
     end
     @testset "permutedimsopadd! (arraytype=$arrayt)" for arrayt in (Array,)
         dev = adapt(arrayt)
