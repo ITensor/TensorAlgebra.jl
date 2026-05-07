@@ -51,6 +51,22 @@ function bipermutedimsopadd!(
     perm = (perm_codomain..., perm_domain...)
     check_input(bipermutedimsopadd!, dest, src, perm_codomain, perm_domain)
 
+    # 0-dim short-circuit: avoid the permute-broadcast path entirely so that
+    # downstream array types (e.g. `BlockSparseArray{T, 0}`) don't have to define
+    # `getindex` on a 0-dim `PermutedDimsArray` wrapper around them.
+    # The `iszero(β)` guard follows the BLAS convention that `β = 0` means `dest`
+    # is write-only — its slot need not be defined. This matters for element types
+    # whose `undef` storage is unreadable, e.g. `Array{BigFloat, 0}(undef)[]` throws
+    # `UndefRefError`.
+    if iszero(ndims(dest))
+        if iszero(β)
+            dest[] = α * op(src[])
+        else
+            dest[] = β * dest[] + α * op(src[])
+        end
+        return dest
+    end
+
     dest′, src′ = maybestrided(dest, permuteddims(src, perm))
     if op === identity
         if iszero(β)
