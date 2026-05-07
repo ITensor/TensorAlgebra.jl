@@ -1,5 +1,6 @@
 import StridedViews as SV
 using FunctionImplementations: permuteddims
+using Strided: Strided
 
 # Specify if an array is on CPU. This is helpful for backends that don't support
 # operations on GPU, such as Strided.jl.
@@ -50,18 +51,21 @@ function bipermutedimsopadd!(
     perm = (perm_codomain..., perm_domain...)
     check_input(bipermutedimsopadd!, dest, src, perm_codomain, perm_domain)
 
-    # TODO: Remove this 0-dimensional special case once GradedArray is its own type
-    # (not an alias for BlockSparseArray), so the GradedArray overload catches the
-    # 0-dimensional contraction result.
+    # 0-dim short-circuit: avoid the permute-broadcast path entirely so that
+    # downstream array types (e.g. `BlockSparseArray{T, 0}`) don't have to define
+    # `getindex` on a 0-dim `PermutedDimsArray` wrapper around them.
+    # The `iszero(β)` guard follows the BLAS convention that `β = 0` means `dest`
+    # is write-only — its slot need not be defined. This matters for element types
+    # whose `undef` storage is unreadable, e.g. `Array{BigFloat, 0}(undef)[]` throws
+    # `UndefRefError`.
     if iszero(ndims(dest))
-        dest[] = β * dest[] + α * op(src[])
+        if iszero(β)
+            dest[] = α * op(src[])
+        else
+            dest[] = β * dest[] + α * op(src[])
+        end
         return dest
     end
-
-    # This works around a bug in Strided.jl v2.3.4 and below when broadcasting
-    # empty StridedViews: https://github.com/QuantumKitHub/Strided.jl/pull/50
-    # TODO: Delete this and bump the version of Strided.jl once that is fixed.
-    isempty(dest) && return dest
 
     dest′, src′ = maybestrided(dest, permuteddims(src, perm))
     if op === identity
