@@ -6,6 +6,10 @@ export eigen,
     eigvals!!,
     factorize,
     factorize!!,
+    gram_eigh_full,
+    gram_eigh_full!!,
+    gram_eigh_full_with_pinv,
+    gram_eigh_full_with_pinv!!,
     lq,
     lq!!,
     orth,
@@ -20,7 +24,7 @@ export eigen,
     svdvals!!
 
 import MatrixAlgebraKit as MAK
-using LinearAlgebra: LinearAlgebra, norm
+using LinearAlgebra: LinearAlgebra, Diagonal, diag, norm
 
 for (f, f_full, f_compact) in (
         (:qr, :qr_full, :qr_compact),
@@ -73,6 +77,81 @@ for (eigvals, eigh_vals, eig_vals) in
         end
     end
 end
+
+"""
+    pinv_tol(λ; atol=0, rtol=...) -> tol
+    pinv_tol(λ, pinv::NamedTuple) -> tol
+
+Tolerance used by [`gram_eigh_full`](@ref) and
+[`gram_eigh_full_with_pinv`](@ref) to clamp small eigenvalues to zero:
+`tol = max(atol, rtol * maximum(abs, λ))`. The `NamedTuple` form splats
+its fields as keyword arguments.
+"""
+pinv_tol(λ, pinv::NamedTuple) = pinv_tol(λ; pinv...)
+function pinv_tol(
+        λ; atol = zero(real(eltype(λ))),
+        rtol = iszero(atol) ? eps(real(eltype(λ))) * length(λ) :
+            zero(real(eltype(λ)))
+    )
+    return max(atol, rtol * maximum(abs, λ; init = zero(real(eltype(λ)))))
+end
+
+"""
+    sqrt_safe(a::Number, tol=MatrixAlgebraKit.defaulttol(a))
+
+Compute `sqrt(a)` when `abs(a) ≥ tol`, otherwise return `zero(a)`.
+"""
+sqrt_safe(a::Number, tol = MAK.defaulttol(a)) = abs(a) < tol ? zero(a) : sqrt(a)
+
+for (gram, gram_with_pinv, eigh_full) in (
+        (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
+        (:gram_eigh_full!!, :gram_eigh_full_with_pinv!!, :eigh_full!),
+    )
+    @eval begin
+        function $gram(A::AbstractMatrix; alg = nothing, pinv = (;))
+            D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
+            λ = diag(D)
+            sqrtλ = map(l -> sqrt_safe(l, pinv_tol(λ, pinv)), λ)
+            return V * Diagonal(sqrtλ)
+        end
+        function $gram_with_pinv(A::AbstractMatrix; alg = nothing, pinv = (;))
+            D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
+            λ = diag(D)
+            sqrtλ = map(l -> sqrt_safe(l, pinv_tol(λ, pinv)), λ)
+            inv_sqrtλ = map(s -> iszero(s) ? s : inv(s), sqrtλ)
+            return V * Diagonal(sqrtλ), Diagonal(inv_sqrtλ) * V'
+        end
+    end
+end
+
+"""
+    gram_eigh_full(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X
+    gram_eigh_full!!(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X
+
+Gram factorization of a Hermitian positive semi-definite matrix via its
+eigendecomposition: returns `X = V * Diagonal(sqrt.(Λ))` such that
+`A ≈ X * X'`, where `A = V * Diagonal(Λ) * V'`. Eigenvalues below
+[`pinv_tol`](@ref) are clamped to zero. The `!!` variant may destroy `A`.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+  - `pinv::NamedTuple`: forwarded to [`pinv_tol`](@ref) (e.g. `(; atol, rtol)`).
+
+See also [`gram_eigh_full_with_pinv`](@ref).
+"""
+gram_eigh_full, gram_eigh_full!!
+
+"""
+    gram_eigh_full_with_pinv(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X, Y
+    gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X, Y
+
+Like [`gram_eigh_full`](@ref), but additionally returns
+`Y = Diagonal(inv.(sqrt.(Λ))) * V' ≈ pinv(X)` so that `Y * X ≈ I` on the
+rank subspace. Eigenvalues below [`pinv_tol`](@ref) are clamped to zero
+in both factors. The `!!` variant may destroy `A`.
+"""
+gram_eigh_full_with_pinv, gram_eigh_full_with_pinv!!
 
 for (svd, svd_trunc, svd_full, svd_compact) in (
         (:svd, :svd_trunc, :svd_full, :svd_compact),

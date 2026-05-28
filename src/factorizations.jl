@@ -11,6 +11,7 @@ for (f, f_mat) in (
         (:right_orth, :(MatrixAlgebraKit.right_orth)),
         (:orth, :(MatrixAlgebra.orth)),
         (:factorize, :(MatrixAlgebra.factorize)),
+        (:gram_eigh_full_with_pinv, :(MatrixAlgebra.gram_eigh_full_with_pinv)),
     )
     @eval begin
         function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -31,6 +32,7 @@ end
 for f in (
         :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
         :factorize, :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
+        :gram_eigh_full, :gram_eigh_full_with_pinv,
     )
     @eval begin
         function $f(
@@ -433,3 +435,66 @@ end
 function right_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
     return right_null!!(copy(A), ndims_codomain; kwargs...)
 end
+
+"""
+    gram_eigh_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X
+    gram_eigh_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X
+    gram_eigh_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> X
+    gram_eigh_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X
+
+Gram factorization of a generic N-dimensional array, interpreting it as a
+Hermitian positive semi-definite linear map from the domain to the codomain
+indices. Returns `X` such that `A ≈ X * X'` (contracted on the rank leg).
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+  - `pinv::NamedTuple`: tolerance options used to clamp small eigenvalues to
+    zero (see `MatrixAlgebra.pinv_tol`).
+
+See also [`gram_eigh_full_with_pinv`](@ref) and
+`MatrixAlgebra.gram_eigh_full`.
+"""
+gram_eigh_full
+
+function gram_eigh_full!!(
+        style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...
+    )
+    A_mat = matricize(style, A, ndims_codomain)
+    X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
+    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
+    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
+    return unmatricize(style, X, axes_X)
+end
+function gram_eigh_full!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return gram_eigh_full!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function gram_eigh_full(
+        style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...
+    )
+    return gram_eigh_full!!(style, copy(A), ndims_codomain; kwargs...)
+end
+function gram_eigh_full(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return gram_eigh_full!!(copy(A), ndims_codomain; kwargs...)
+end
+
+"""
+    gram_eigh_full_with_pinv(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractArray, ndims_codomain::Val; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
+
+Like [`gram_eigh_full`](@ref), but additionally returns `Y ≈ pinv(X)` such
+that `Y * X ≈ I` on the rank subspace.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+  - `pinv::NamedTuple`: tolerance options used to clamp small eigenvalues to
+    zero in both `X` and `Y` (see `MatrixAlgebra.pinv_tol`).
+
+See also `MatrixAlgebra.gram_eigh_full_with_pinv`.
+"""
+gram_eigh_full_with_pinv

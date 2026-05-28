@@ -1,7 +1,8 @@
-using LinearAlgebra: LinearAlgebra, diag, norm
+using LinearAlgebra: LinearAlgebra, I, diag, norm
 using MatrixAlgebraKit: truncrank
-using TensorAlgebra: contract, eigen, eigvals, factorize, left_null, left_orth, left_polar,
-    lq, orth, polar, qr, right_null, right_orth, right_polar, svd, svdvals
+using TensorAlgebra: contract, eigen, eigvals, factorize, gram_eigh_full,
+    gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq, orth, polar, qr,
+    right_null, right_orth, right_polar, svd, svdvals
 using Test: @test, @testset
 using TestExtras: @constinferred
 
@@ -328,4 +329,54 @@ end
         X, Y = factorize(A, (2, 1), (4, 3); orth)
         @test A ≈ contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
     end
+end
+
+# Gram factorization
+# ------------------
+# Build a Hermitian positive semi-definite tensor A[a,b,c,d] with codomain
+# (a, b) and domain (c, d): pick a random B[a, b, k] (k = aux), then form
+# A = B * B' over k. By construction A ≈ X * X' for X[a, b, r] with rank r
+# bounded by k.
+@testset "Full-rank gram_eigh_full ($T)" for T in elts
+    B = randn(T, 2, 3, 6) # k = 6, codomain = (a, b) of size 2*3 = 6 -> full rank
+    A = contract((:a, :b, :c, :d), B, (:a, :b, :k), conj(B), (:c, :d, :k))
+    labels_A = (:a, :b, :c, :d)
+    labels_X = (:a, :b)
+    labels_Y = (:c, :d)
+
+    Acopy = deepcopy(A)
+    X = @constinferred gram_eigh_full(A, labels_A, labels_X, labels_Y)
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, X, (:a, :b, :r), conj(X), (:c, :d, :r))
+    @test A ≈ A′
+    @test size(X, 3) == size(A, 1) * size(A, 2)
+
+    # `Val`, perm, and label entries agree.
+    @test gram_eigh_full(A, Val(2)) ≈ X
+    @test gram_eigh_full(A, (1, 2), (3, 4)) ≈ X
+
+    # `with_pinv` variant: Y ≈ pinv(X) so Y * X ≈ I on the full-rank
+    # subspace.
+    X2, Y2 = @constinferred gram_eigh_full_with_pinv(A, labels_A, labels_X, labels_Y)
+    @test A ≈ contract(labels_A, X2, (:a, :b, :r), conj(X2), (:c, :d, :r))
+    YX = contract((:r, :s), Y2, (:r, :a, :b), X2, (:a, :b, :s))
+    @test YX ≈ I
+end
+
+@testset "Rank-deficient gram_eigh_full ($T)" for T in elts
+    B = randn(T, 2, 3, 4) # k = 4 < codomain dim 6, so A is rank-4
+    A = contract((:a, :b, :c, :d), B, (:a, :b, :k), conj(B), (:c, :d, :k))
+
+    # Recovery of A is independent of the `pinv` tolerance because all
+    # nonzero eigenvalues sit far above any reasonable pinv cutoff.
+    X = gram_eigh_full(A, Val(2); pinv = (; rtol = 1.0e-10))
+    @test A ≈ contract(
+        (:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r)
+    )
+
+    # Moore–Penrose-like identity: X * Y * X ≈ X when Y is pinv(X).
+    X2, Y2 = gram_eigh_full_with_pinv(A, Val(2); pinv = (; rtol = 1.0e-10))
+    P = contract((:a, :b, :c, :d), X2, (:a, :b, :r), Y2, (:r, :c, :d))
+    XPX = contract((:a, :b, :r), P, (:a, :b, :c, :d), X2, (:c, :d, :r))
+    @test XPX ≈ X2
 end
