@@ -112,14 +112,14 @@ for (gram, gram_with_pinv, eigh_full) in (
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
             λ = diag(D)
             sqrtλ = map(l -> sqrt_safe(l, pinv_tol(λ, pinv)), λ)
-            return V * Diagonal(sqrtλ)
+            return Diagonal(sqrtλ) * V'
         end
         function $gram_with_pinv(A::AbstractMatrix; alg = nothing, pinv = (;))
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
             λ = diag(D)
             sqrtλ = map(l -> sqrt_safe(l, pinv_tol(λ, pinv)), λ)
             inv_sqrtλ = map(s -> iszero(s) ? s : inv(s), sqrtλ)
-            return V * Diagonal(sqrtλ), Diagonal(inv_sqrtλ) * V'
+            return Diagonal(sqrtλ) * V', V * Diagonal(inv_sqrtλ)
         end
     end
 end
@@ -129,9 +129,12 @@ end
     gram_eigh_full!!(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X
 
 Gram factorization of a Hermitian positive semi-definite matrix via its
-eigendecomposition: returns `X = V * Diagonal(sqrt.(Λ))` such that
-`A ≈ X * X'`, where `A = V * Diagonal(Λ) * V'`. Eigenvalues below
+eigendecomposition: returns `X = Diagonal(sqrt.(Λ)) * V'` such that
+`A ≈ X' * X`, where `A = V * Diagonal(Λ) * V'`. Eigenvalues below
 [`pinv_tol`](@ref) are clamped to zero. The `!!` variant may destroy `A`.
+
+The orientation follows Julia's `LinearAlgebra.cholesky` convention
+(`A = U' * U`) and standard Gram-matrix expositions.
 
 ## Keyword arguments
 
@@ -147,7 +150,7 @@ gram_eigh_full, gram_eigh_full!!
     gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns
-`Y = Diagonal(inv.(sqrt.(Λ))) * V' ≈ pinv(X)` so that `Y * X ≈ I` on the
+`Y = V * Diagonal(inv.(sqrt.(Λ))) ≈ pinv(X)` so that `X * Y ≈ I` on the
 rank subspace. Eigenvalues below [`pinv_tol`](@ref) are clamped to zero
 in both factors. The `!!` variant may destroy `A`.
 """

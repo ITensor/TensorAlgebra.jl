@@ -295,29 +295,29 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         B = randn(elt, n, n)
         A = B * B'
         X = MatrixAlgebra.gram_eigh_full(A)
-        @test X * X' ≈ A
+        @test X' * X ≈ A
         @test size(X) == (n, n)
 
         X2, Y2 = MatrixAlgebra.gram_eigh_full_with_pinv(A)
-        @test X2 * X2' ≈ A
-        @test Y2 * X2 ≈ I(n)
+        @test X2' * X2 ≈ A
+        @test X2 * Y2 ≈ I(n)
 
         # `!!` variant accepts a destroyable copy.
         Xb = MatrixAlgebra.gram_eigh_full!!(copy(A))
-        @test Xb * Xb' ≈ A
+        @test Xb' * Xb ≈ A
 
         # Rank deficient: A is n×n of rank k < n. Recovery of A still holds;
-        # Y * X is the projector onto the rank-k subspace (idempotent,
-        # rank k), and X * Y * X ≈ X (Moore–Penrose).
+        # X * Y is the projector onto the rank-k subspace (idempotent,
+        # rank k), and P * X ≈ X (Moore–Penrose).
         k = 3
         Brd = randn(elt, n, k)
         Ard = Brd * Brd'
         Xrd, Yrd = MatrixAlgebra.gram_eigh_full_with_pinv(
             Ard; pinv = (; rtol = sqrt(eps(real(elt))))
         )
-        @test Xrd * Xrd' ≈ Ard
-        P = Yrd * Xrd
+        @test Xrd' * Xrd ≈ Ard
+        P = Xrd * Yrd
         @test P * P ≈ P
-        @test Xrd * P ≈ Xrd
+        @test P * Xrd ≈ Xrd
     end
 end
