@@ -293,7 +293,7 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         n = 5
         # Full-rank Hermitian PSD.
         B = randn(elt, n, n)
-        A = B * B'
+        A = B' * B
         X = MatrixAlgebra.gram_eigh_full(A)
         @test X' * X ≈ A
         @test size(X) == (n, n)
@@ -310,8 +310,8 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         # X * Y is the projector onto the rank-k subspace (idempotent,
         # rank k), and P * X ≈ X (Moore–Penrose).
         k = 3
-        Brd = randn(elt, n, k)
-        Ard = Brd * Brd'
+        Brd = randn(elt, k, n)
+        Ard = Brd' * Brd
         Xrd, Yrd = MatrixAlgebra.gram_eigh_full_with_pinv(
             Ard; rtol = sqrt(eps(real(elt)))
         )
@@ -324,7 +324,7 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
     @testset "powh_safe / sqrth_safe / invsqrth_safe" begin
         n = 4
         B = randn(elt, n, n)
-        A = B * B'
+        A = B' * B
         sqrtA = MatrixAlgebra.sqrth_safe(A)
         @test sqrtA * sqrtA ≈ A
         @test sqrtA ≈ sqrtA'
@@ -339,5 +339,20 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         D = Diagonal(rand(real(elt), n))
         @test MatrixAlgebra.sqrth_safe(D) ≈
             MatrixAlgebra.pow_diag_safe(D, 1 // 2)
+
+        # `isdiag` fast-path: a dense matrix that happens to be diagonal-
+        # structured goes through `pow_diag_safe`, not `eigh_full`, and
+        # the result is still a `Diagonal` (from `MAK.diagonal`).
+        Mdiag = Matrix(D)
+        sqrtMdiag = MatrixAlgebra.powh_safe(Mdiag, 1 // 2)
+        @test sqrtMdiag isa Diagonal
+        @test sqrtMdiag ≈ MatrixAlgebra.pow_diag_safe(D, 1 // 2)
+
+        # `pow_diag_safe` directly on a diagonal-structured `AbstractMatrix`.
+        @test MatrixAlgebra.pow_diag_safe(Mdiag, 1 // 2) ≈
+            MatrixAlgebra.pow_diag_safe(D, 1 // 2)
+
+        # `pow_diag_safe` rejects non-diagonal inputs.
+        @test_throws ArgumentError MatrixAlgebra.pow_diag_safe(A, 1 // 2)
     end
 end
