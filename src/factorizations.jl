@@ -84,7 +84,7 @@ end
     qr(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -104,7 +104,7 @@ qr
     lq(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -124,7 +124,7 @@ lq
     left_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -142,7 +142,7 @@ left_polar
     right_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -160,7 +160,7 @@ right_polar
     left_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -178,7 +178,7 @@ left_orth
     right_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -196,7 +196,7 @@ right_orth
     factorize(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
 
 Compute the decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -214,7 +214,7 @@ factorize
     eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -257,7 +257,7 @@ end
     eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation. The output is a vector of eigenvalues.
 
 ## Keyword arguments
@@ -292,7 +292,7 @@ end
     svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
 
 Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -333,7 +333,7 @@ end
     svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation. The output is a vector of singular values.
 
 See also `MatrixAlgebraKit.svd_vals!`.
@@ -362,7 +362,7 @@ end
     left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 
@@ -402,7 +402,7 @@ end
     right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 
