@@ -88,8 +88,12 @@ end
 Shared documentation for the `atol` and `rtol` keyword arguments of the
 `pow_diag_safe` / `powh_safe` family.
 """
-const _CLAMP_KWARGS_DOC = """  - `atol::Real`: absolute clamping threshold. Default `0`.
-- `rtol::Real`: relative clamping threshold. Default `eps(real(eltype(D)))^(3//4)` when `atol = 0`, else `0`."""
+const _CLAMP_KWARGS_DOC = join(
+    (
+        "  - `atol::Real`: absolute clamping threshold. Default `0`.",
+        "  - `rtol::Real`: relative clamping threshold. Default `eps(real(eltype(D)))^(3//4)` when `atol = 0`, else `0`.",
+    ), "\n"
+)
 
 """
     pow_diag_safe(D::Diagonal, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
@@ -159,7 +163,8 @@ power `p`. For a general `M`, this is computed via the eigendecomposition
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
     `M` is non-diagonal).
-    $(_CLAMP_KWARGS_DOC)
+
+$(_CLAMP_KWARGS_DOC)
 """
 powh_safe(D::Diagonal, p; kwargs...) = pow_diag_safe(D, p; kwargs...)
 
@@ -178,7 +183,8 @@ Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
     `M` is non-diagonal).
-    $(_CLAMP_KWARGS_DOC)
+
+$(_CLAMP_KWARGS_DOC)
 """
 sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
 
@@ -192,7 +198,8 @@ matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
     `M` is non-diagonal).
-    $(_CLAMP_KWARGS_DOC)
+
+$(_CLAMP_KWARGS_DOC)
 """
 invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
 
@@ -225,7 +232,8 @@ destroy `A`.
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-    $(_CLAMP_KWARGS_DOC)
+
+$(_CLAMP_KWARGS_DOC)
 
 See also [`gram_eigh_full_with_pinv`](@ref).
 """
@@ -243,7 +251,8 @@ factors. The `!!` variant may destroy `A`.
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-    $(_CLAMP_KWARGS_DOC)
+
+$(_CLAMP_KWARGS_DOC)
 """
 gram_eigh_full_with_pinv, gram_eigh_full_with_pinv!!
 
