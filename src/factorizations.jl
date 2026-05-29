@@ -443,8 +443,7 @@ end
 
 Gram factorization of a generic N-dimensional array, interpreting it as a
 Hermitian positive semi-definite linear map from the domain to the codomain
-indices. Returns `X` such that `A ≈ X' * X` (contracted on the rank leg).
-The orientation follows Julia's `LinearAlgebra.cholesky` convention.
+dimensions. Returns `X` such that `A ≈ X' * X` (contracted on the rank leg).
 
 ## Keyword arguments
 

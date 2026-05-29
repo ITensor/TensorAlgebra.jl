@@ -133,9 +133,6 @@ eigendecomposition: returns `X = Diagonal(sqrt.(Λ)) * V'` such that
 `A ≈ X' * X`, where `A = V * Diagonal(Λ) * V'`. Eigenvalues below
 [`pinv_tol`](@ref) are clamped to zero. The `!!` variant may destroy `A`.
 
-The orientation follows Julia's `LinearAlgebra.cholesky` convention
-(`A = U' * U`) and standard Gram-matrix expositions.
-
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
