@@ -132,7 +132,7 @@ function pow_diag_safe(
 end
 
 """
-    sqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
+    sqrt_diag_safe(D::Diagonal; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
 
 Square root of a diagonal matrix `D`, equivalent to
 `pow_diag_safe(D, 1//2; atol, rtol)`.
@@ -141,10 +141,10 @@ Square root of a diagonal matrix `D`, equivalent to
 
 $(_clamp_kwargs_doc("D"))
 """
-sqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
+sqrt_diag_safe(D::Diagonal; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
 
 """
-    invsqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
+    invsqrt_diag_safe(D::Diagonal; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
 
 Inverse square root of a diagonal matrix `D`, treating diagonal entries
 below tolerance as zero (Moore-Penrose convention). Equivalent to
@@ -154,60 +154,55 @@ below tolerance as zero (Moore-Penrose convention). Equivalent to
 
 $(_clamp_kwargs_doc("D"))
 """
-invsqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
+invsqrt_diag_safe(D::Diagonal; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
 
 """
     powh_safe(M::AbstractMatrix, p; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^p
-    powh_safe(D::Diagonal, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
 
 Raise an approximately Hermitian positive semi-definite matrix to the
-power `p`. For a general `M`, this is computed via the eigendecomposition
-`M = V * D * V'` as `V * pow_diag_safe(D, p; atol, rtol) * V'`. For a
-`Diagonal` input, this dispatches to [`pow_diag_safe`](@ref).
+power `p`. Computed via the eigendecomposition `M = V * D * V'` as
+`V * pow_diag_safe(D, p; atol, rtol) * V'`.
 
 ## Keyword arguments
 
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
-    `M` is non-diagonal).
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
 $(_clamp_kwargs_doc("M"))
 """
-powh_safe(D::Diagonal, p; kwargs...) = pow_diag_safe(D, p; kwargs...)
-
 function powh_safe(M::AbstractMatrix, p; alg = nothing, kwargs...)
     D, V = MAK.eigh_full(M, MAK.select_algorithm(MAK.eigh_full, M, alg))
     return V * pow_diag_safe(D, p; kwargs...) * V'
 end
 
+powh_safe(D::Diagonal, p; kwargs...) = pow_diag_safe(D, p; kwargs...)
+
 """
-    sqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2)
+    sqrth_safe(M::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2)
 
 Square root of an approximately Hermitian positive semi-definite matrix.
 Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
 
 ## Keyword arguments
 
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
-    `M` is non-diagonal).
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
 $(_clamp_kwargs_doc("M"))
 """
-sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
+sqrth_safe(M::AbstractMatrix; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
 
 """
-    invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(-1//2)
+    invsqrth_safe(M::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(-1//2)
 
 Inverse square root of an approximately Hermitian positive semi-definite
 matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 
 ## Keyword arguments
 
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
-    `M` is non-diagonal).
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
 $(_clamp_kwargs_doc("M"))
 """
-invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
+invsqrth_safe(M::AbstractMatrix; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
 
 for (gram, gram_with_pinv, eigh_full) in (
         (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
@@ -248,7 +243,7 @@ julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full
 
 julia> B = [1.0 0.5; 0.5 2.0];
 
-julia> A = B * B';
+julia> A = B' * B;
 
 julia> X = gram_eigh_full(A);
 
@@ -284,7 +279,7 @@ julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full_with_pinv
 
 julia> B = [1.0 0.5; 0.5 2.0];
 
-julia> A = B * B';
+julia> A = B' * B;
 
 julia> X, Y = gram_eigh_full_with_pinv(A);
 
