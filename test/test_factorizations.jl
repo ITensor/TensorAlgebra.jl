@@ -16,7 +16,7 @@ elts = (Float64, ComplexF64)
     labels_Q = (:b, :a)
     labels_R = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     Q, R = @constinferred qr(A, labels_A, labels_Q, labels_R; full = true)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
@@ -36,7 +36,7 @@ end
     labels_Q = (:b, :a)
     labels_R = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     Q, R = @constinferred qr(A, labels_A, labels_Q, labels_R; full = false)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
@@ -52,7 +52,7 @@ end
     labels_Q = (:d, :c)
     labels_L = (:b, :a)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full = true)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
@@ -69,7 +69,7 @@ end
     labels_Q = (:d, :c)
     labels_L = (:b, :a)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full = false)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
@@ -85,7 +85,7 @@ end
     labels_V = (:b, :a)
     labels_V′ = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     # type-unstable because of `ishermitian` difference
     D, V = eigen(A, labels_A, labels_V, labels_V′; ishermitian = false)
     @test A == Acopy # should not have altered initial array
@@ -108,7 +108,7 @@ end
     labels_V = (:b, :a)
     labels_V′ = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     # type-unstable because of `ishermitian` difference
     D, V = eigen(A, labels_A, labels_V, labels_V′; ishermitian = true)
     @test A == Acopy # should not have altered initial array
@@ -133,7 +133,7 @@ end
     labels_U = (:b, :a)
     labels_Vᴴ = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = Val(true))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
@@ -167,7 +167,7 @@ end
     labels_U = (:b, :a)
     labels_Vᴴ = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = Val(false))
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
@@ -201,7 +201,7 @@ end
     labels_Vᴴ = (:d, :c)
 
     # test truncated SVD
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     _, S_untrunc, _ = svd(A, labels_A, labels_U, labels_Vᴴ)
 
     trunc = truncrank(size(S_untrunc, 1) - 1)
@@ -220,7 +220,7 @@ end
     labels_codomain = (:b, :a)
     labels_domain = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     N = @constinferred left_null(A, labels_A, labels_codomain, labels_domain)
     @test A == Acopy # should not have altered initial array
     # N^ba_n' * A^ba_dc = 0
@@ -244,7 +244,7 @@ end
     labels_W = (:b, :a)
     labels_P = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     for (W, P) in (
             left_polar(A, labels_A, labels_W, labels_P),
             polar(A, labels_A, labels_W, labels_P; side = :left),
@@ -263,7 +263,7 @@ end
     labels_P = (:b, :a)
     labels_W = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     for (P, W) in (
             right_polar(A, labels_A, labels_P, labels_W),
             polar(A, labels_A, labels_P, labels_W; side = :right),
@@ -281,7 +281,7 @@ end
     labels_W = (:b, :a)
     labels_P = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     for (W, P) in (
             left_orth(A, labels_A, labels_W, labels_P),
             orth(A, labels_A, labels_W, labels_P; side = :left),
@@ -300,7 +300,7 @@ end
     labels_P = (:b, :a)
     labels_W = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     for (P, W) in (
             right_orth(A, labels_A, labels_P, labels_W),
             orth(A, labels_A, labels_P, labels_W; side = :right),
@@ -318,7 +318,7 @@ end
     labels_X = (:b, :a)
     labels_Y = (:d, :c)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     for orth in (:left, :right)
         X, Y = factorize(A, labels_A, labels_X, labels_Y; orth)
         @test A == Acopy # should not have altered initial array
@@ -345,7 +345,7 @@ end
     labels_X = (:a, :b)
     labels_Y = (:c, :d)
 
-    Acopy = deepcopy(A)
+    Acopy = copy(A)
     X = @constinferred gram_eigh_full(A, labels_A, labels_X, labels_Y)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, conj(X), (:r, :a, :b), X, (:r, :c, :d))
