@@ -368,9 +368,9 @@ end
     B = randn(T, 4, 2, 3) # k = 4 < codomain dim 6, so A is rank-4
     A = contract((:a, :b, :c, :d), conj(B), (:k, :a, :b), B, (:k, :c, :d))
 
-    # Recovery of A is independent of the `pinv` tolerance because all
-    # nonzero eigenvalues sit far above any reasonable pinv cutoff.
-    X = gram_eigh_full(A, Val(2); pinv = (; rtol = 1.0e-10))
+    # Recovery of A is independent of the `rtol` cutoff because all
+    # nonzero eigenvalues sit far above any reasonable threshold.
+    X = gram_eigh_full(A, Val(2); rtol = 1.0e-10)
     @test A ≈ contract(
         (:a, :b, :c, :d), conj(X), (:r, :a, :b), X, (:r, :c, :d)
     )
@@ -378,7 +378,7 @@ end
     # Moore–Penrose-like identity: X * Y * X ≈ X when Y is pinv(X). With
     # rank-first X and rank-last Y, contract X[r, a, b] * Y[a, b, s] → P[r, s]
     # (projector onto the rank subspace), then P * X → X.
-    X2, Y2 = gram_eigh_full_with_pinv(A, Val(2); pinv = (; rtol = 1.0e-10))
+    X2, Y2 = gram_eigh_full_with_pinv(A, Val(2); rtol = 1.0e-10)
     P = contract((:r, :s), X2, (:r, :a, :b), Y2, (:a, :b, :s))
     PX = contract((:r, :c, :d), P, (:r, :s), X2, (:s, :c, :d))
     @test PX ≈ X2

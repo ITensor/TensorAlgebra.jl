@@ -10,14 +10,17 @@ export eigen,
     gram_eigh_full!!,
     gram_eigh_full_with_pinv,
     gram_eigh_full_with_pinv!!,
+    invsqrt_safe,
     lq,
     lq!!,
     orth,
     orth!!,
     polar,
     polar!!,
+    pow_safe,
     qr,
     qr!!,
+    sqrt_safe,
     svd,
     svd!!,
     svdvals,
@@ -79,85 +82,91 @@ for (eigvals, eigh_vals, eig_vals) in
 end
 
 """
-    pinv_tol(D; atol=0, rtol=...) -> tol
-    pinv_tol(D, pinv::NamedTuple) -> tol
+    pow_safe(D, p; atol=0, rtol=...) -> D^p
 
-Tolerance used by [`gram_eigh_full`](@ref) and
-[`gram_eigh_full_with_pinv`](@ref) to clamp small eigenvalues of a
-diagonal matrix `D` to zero: `tol = max(atol, rtol * maximum(abs, D.diag))`.
-The `NamedTuple` form splats its fields as keyword arguments.
+Raise an approximately Hermitian positive semi-definite matrix `D` to
+the power `p`. Diagonal entries `d` with `abs(d) < tol` are clamped to
+zero before exponentiation, where
+`tol = max(atol, rtol * maximum(abs, diagview(D)))`. Default
+`rtol = eps^(3//4)` (matching PEPSKit's `sdiag_pow` convention).
+Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
+`p = 1//2`) and pass through for integer `p`, so the operation itself
+enforces the PSD precondition per-power.
+
+This is the single hook for diagonal-like types: extending `pow_safe` to
+a new type (e.g. graded/block diagonal) automatically extends
+[`sqrt_safe`](@ref) and [`invsqrt_safe`](@ref).
 """
-pinv_tol(D::Diagonal, pinv::NamedTuple) = pinv_tol(D; pinv...)
-function pinv_tol(
-        D::Diagonal; atol = zero(real(eltype(D))),
-        rtol = iszero(atol) ? eps(real(eltype(D))) * size(D, 1) :
+function pow_safe(
+        D::Diagonal, p;
+        atol = zero(real(eltype(D))),
+        rtol = iszero(atol) ? eps(real(eltype(D)))^(3 // 4) :
             zero(real(eltype(D)))
     )
-    return max(atol, rtol * maximum(abs, D.diag; init = zero(real(eltype(D)))))
+    σ = D.diag
+    tol = max(atol, rtol * maximum(abs, σ; init = zero(real(eltype(D)))))
+    return Diagonal(map(d -> abs(d) < tol ? zero(d) : real(d)^p, σ))
 end
 
 """
-    sqrt_safe(D::AbstractMatrix, tol=MatrixAlgebraKit.defaulttol(D))
+    sqrt_safe(D; atol=0, rtol=...) -> D^(1//2)
 
-Compute `sqrt(D)`, clamping diagonal entries with `abs < tol` to zero.
+Square root of an approximately Hermitian positive semi-definite matrix
+`D`. Equivalent to `pow_safe(D, 1//2; kwargs...)`.
 """
-function sqrt_safe(D::Diagonal, tol = MAK.defaulttol(D))
-    return Diagonal(map(d -> abs(d) < tol ? zero(d) : sqrt(d), D.diag))
-end
+sqrt_safe(D; kwargs...) = pow_safe(D, 1 // 2; kwargs...)
 
 """
-    inv_safe(D::AbstractMatrix)
+    invsqrt_safe(D; atol=0, rtol=...) -> D^(-1//2)
 
-Invert each nonzero diagonal entry of `D`, leaving exact-zero entries
-unchanged. Used to form `pinv(sqrt_safe(D, tol))` without re-thresholding.
+Inverse square root of an approximately Hermitian positive semi-definite
+matrix `D`, treating eigenvalues below tolerance as zero (Moore-Penrose
+convention). Equivalent to `pow_safe(D, -1//2; kwargs...)`.
 """
-function inv_safe(D::Diagonal)
-    return Diagonal(map(d -> iszero(d) ? d : inv(d), D.diag))
-end
+invsqrt_safe(D; kwargs...) = pow_safe(D, -1 // 2; kwargs...)
 
 for (gram, gram_with_pinv, eigh_full) in (
         (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
         (:gram_eigh_full!!, :gram_eigh_full_with_pinv!!, :eigh_full!),
     )
     @eval begin
-        function $gram(A::AbstractMatrix; alg = nothing, pinv = (;))
+        function $gram(A::AbstractMatrix; alg = nothing, kwargs...)
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            return sqrt_safe(D, pinv_tol(D, pinv)) * V'
+            return sqrt_safe(D; kwargs...) * V'
         end
-        function $gram_with_pinv(A::AbstractMatrix; alg = nothing, pinv = (;))
+        function $gram_with_pinv(A::AbstractMatrix; alg = nothing, kwargs...)
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            sqrtD = sqrt_safe(D, pinv_tol(D, pinv))
-            return sqrtD * V', V * inv_safe(sqrtD)
+            return sqrt_safe(D; kwargs...) * V', V * invsqrt_safe(D; kwargs...)
         end
     end
 end
 
 """
-    gram_eigh_full(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X
-    gram_eigh_full!!(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X
+    gram_eigh_full(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X
+    gram_eigh_full!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X
 
 Gram factorization of a Hermitian positive semi-definite matrix via its
-eigendecomposition: returns `X = Diagonal(sqrt.(Λ)) * V'` such that
-`A ≈ X' * X`, where `A = V * Diagonal(Λ) * V'`. Eigenvalues below
-[`pinv_tol`](@ref) are clamped to zero. The `!!` variant may destroy `A`.
+eigendecomposition: returns `X = sqrt_safe(D) * V'` such that
+`A ≈ X' * X`, where `A = V * D * V'`. Eigenvalues below `tol` (see
+[`sqrt_safe`](@ref)) are clamped to zero. The `!!` variant may destroy `A`.
 
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-  - `pinv::NamedTuple`: forwarded to [`pinv_tol`](@ref) (e.g. `(; atol, rtol)`).
+  - `atol`, `rtol`: forwarded to [`sqrt_safe`](@ref).
 
 See also [`gram_eigh_full_with_pinv`](@ref).
 """
 gram_eigh_full, gram_eigh_full!!
 
 """
-    gram_eigh_full_with_pinv(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X, Y
-    gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, pinv=(;)) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X, Y
+    gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns
-`Y = V * Diagonal(inv.(sqrt.(Λ))) ≈ pinv(X)` so that `X * Y ≈ I` on the
-rank subspace. Eigenvalues below [`pinv_tol`](@ref) are clamped to zero
-in both factors. The `!!` variant may destroy `A`.
+`Y = V * invsqrt_safe(D) ≈ pinv(X)` so that `X * Y ≈ I` on the rank
+subspace. Eigenvalues below `tol` are clamped to zero in both factors.
+The `!!` variant may destroy `A`.
 """
 gram_eigh_full_with_pinv, gram_eigh_full_with_pinv!!
 

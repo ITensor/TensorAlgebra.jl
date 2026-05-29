@@ -313,7 +313,7 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         Brd = randn(elt, n, k)
         Ard = Brd * Brd'
         Xrd, Yrd = MatrixAlgebra.gram_eigh_full_with_pinv(
-            Ard; pinv = (; rtol = sqrt(eps(real(elt))))
+            Ard; rtol = sqrt(eps(real(elt)))
         )
         @test Xrd' * Xrd ≈ Ard
         P = Xrd * Yrd
