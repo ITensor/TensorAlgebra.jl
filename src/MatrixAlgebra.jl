@@ -85,15 +85,21 @@ for (eigvals, eigh_vals, eig_vals) in
 end
 
 """
+    _clamp_kwargs_doc(arg::AbstractString)
+
 Shared documentation for the `atol` and `rtol` keyword arguments of the
-`pow_diag_safe` / `powh_safe` family.
+`pow_diag_safe` / `powh_safe` family. `arg` is the name of the matrix
+argument used in the signatures of the host docstring, so the default
+`rtol` formula reads against the right variable.
 """
-const _CLAMP_KWARGS_DOC = join(
-    (
-        "  - `atol::Real`: absolute clamping threshold. Default `0`.",
-        "  - `rtol::Real`: relative clamping threshold. Default `eps(real(eltype(D)))^(3//4)` when `atol = 0`, else `0`.",
-    ), "\n"
-)
+function _clamp_kwargs_doc(arg::AbstractString)
+    return join(
+        (
+            "  - `atol::Real`: absolute clamping threshold. Default `0`.",
+            "  - `rtol::Real`: relative clamping threshold. Default `eps(real(eltype($arg)))^(3//4)` when `atol = 0`, else `0`.",
+        ), "\n"
+    )
+end
 
 """
     pow_diag_safe(D::Diagonal, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
@@ -112,7 +118,7 @@ extends [`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref), and the
 
 ## Keyword arguments
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("D"))
 """
 function pow_diag_safe(
         D::Diagonal, p;
@@ -133,7 +139,7 @@ Square root of a diagonal matrix `D`, equivalent to
 
 ## Keyword arguments
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("D"))
 """
 sqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
 
@@ -146,7 +152,7 @@ below tolerance as zero (Moore-Penrose convention). Equivalent to
 
 ## Keyword arguments
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("D"))
 """
 invsqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
 
@@ -164,7 +170,7 @@ power `p`. For a general `M`, this is computed via the eigendecomposition
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
     `M` is non-diagonal).
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("M"))
 """
 powh_safe(D::Diagonal, p; kwargs...) = pow_diag_safe(D, p; kwargs...)
 
@@ -184,7 +190,7 @@ Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
     `M` is non-diagonal).
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("M"))
 """
 sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
 
@@ -199,7 +205,7 @@ matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
     `M` is non-diagonal).
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("M"))
 """
 invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
 
@@ -233,7 +239,7 @@ destroy `A`.
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("A"))
 
 See also [`gram_eigh_full_with_pinv`](@ref).
 """
@@ -252,7 +258,7 @@ factors. The `!!` variant may destroy `A`.
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
-$(_CLAMP_KWARGS_DOC)
+$(_clamp_kwargs_doc("A"))
 """
 gram_eigh_full_with_pinv, gram_eigh_full_with_pinv!!
 

@@ -449,7 +449,7 @@ dimensions. Returns `X` such that `A ≈ X' * X` (contracted on the rank leg).
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
-$(MatrixAlgebra._CLAMP_KWARGS_DOC)
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
 
 See also [`gram_eigh_full_with_pinv`](@ref) and
 `MatrixAlgebra.gram_eigh_full`.
@@ -492,7 +492,7 @@ that `X * Y ≈ I` on the rank subspace.
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
-$(MatrixAlgebra._CLAMP_KWARGS_DOC)
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
 
 See also `MatrixAlgebra.gram_eigh_full_with_pinv`.
 """
