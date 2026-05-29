@@ -84,14 +84,6 @@ for (eigvals, eigh_vals, eig_vals) in
     end
 end
 
-"""
-    _clamp_kwargs_doc(arg::AbstractString)
-
-Shared documentation for the `atol` and `rtol` keyword arguments of the
-`pow_diag_safe` / `powh_safe` family. `arg` is the name of the matrix
-argument used in the signatures of the host docstring, so the default
-`rtol` formula reads against the right variable.
-"""
 function _clamp_kwargs_doc(arg::AbstractString)
     return join(
         (
