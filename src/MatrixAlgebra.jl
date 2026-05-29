@@ -247,7 +247,8 @@ $(_clamp_kwargs_doc("A"))
 julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full
 
 julia> B = [1.0 0.5; 0.5 2.0];
-       A = B * B';
+
+julia> A = B * B';
 
 julia> X = gram_eigh_full(A);
 
@@ -282,7 +283,8 @@ julia> using LinearAlgebra: I
 julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full_with_pinv
 
 julia> B = [1.0 0.5; 0.5 2.0];
-       A = B * B';
+
+julia> A = B * B';
 
 julia> X, Y = gram_eigh_full_with_pinv(A);
 

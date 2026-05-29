@@ -457,7 +457,8 @@ $(MatrixAlgebra._clamp_kwargs_doc("A"))
 julia> using TensorAlgebra: contract, gram_eigh_full
 
 julia> B = randn(3, 2, 2);
-       A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
+
+julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
 
 julia> X = gram_eigh_full(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
 
@@ -516,7 +517,8 @@ julia> using LinearAlgebra: I
 julia> using TensorAlgebra: contract, gram_eigh_full_with_pinv
 
 julia> B = randn(8, 2, 2);
-       A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
+
+julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
 
 julia> X, Y = gram_eigh_full_with_pinv(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
 
