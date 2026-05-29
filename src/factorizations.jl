@@ -467,7 +467,7 @@ true
 ```
 
 See also [`gram_eigh_full_with_pinv`](@ref) and
-`MatrixAlgebra.gram_eigh_full`.
+[`MatrixAlgebra.gram_eigh_full`](@ref).
 """
 gram_eigh_full
 
@@ -529,7 +529,7 @@ julia> contract((:r, :s), X, (:r, :a, :b), Y, (:a, :b, :s)) ≈ I
 true
 ```
 
-See also `MatrixAlgebra.gram_eigh_full_with_pinv`.
+See also [`MatrixAlgebra.gram_eigh_full_with_pinv`](@ref).
 """
 gram_eigh_full_with_pinv
 
