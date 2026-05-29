@@ -85,20 +85,30 @@ for (eigvals, eigh_vals, eig_vals) in
 end
 
 """
-    pow_diag_safe(D::Diagonal, p; atol=0, rtol=...) -> D^p
+Shared documentation for the `atol` and `rtol` keyword arguments of the
+`pow_diag_safe` / `powh_safe` family.
+"""
+const _CLAMP_KWARGS_DOC = """  - `atol::Real`: absolute clamping threshold. Default `0`.
+- `rtol::Real`: relative clamping threshold. Default `eps(real(eltype(D)))^(3//4)` when `atol = 0`, else `0`."""
+
+"""
+    pow_diag_safe(D::Diagonal, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
 
 Raise a diagonal matrix `D` to the power `p`. Diagonal entries `d` with
 `abs(d) < tol` are clamped to zero before exponentiation, where
-`tol = max(atol, rtol * maximum(abs, D.diag))`. Default
-`rtol = eps^(3//4)` (matching PEPSKit's `sdiag_pow` convention).
-Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
-`p = 1//2`) and pass through for integer `p`, so the operation itself
-enforces the PSD precondition per-power.
+`tol = max(atol, rtol * maximum(abs, D.diag))`. Negative `d` above `tol`
+cause `d^p` to error for fractional `p` (e.g. `p = 1//2`) and pass
+through for integer `p`, so the operation itself enforces the PSD
+precondition per-power.
 
 This is the leaf operation for diagonal-like types: extending it to a
 new diagonal-like type (e.g. graded or block diagonal) automatically
 extends [`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref), and the
 [`powh_safe`](@ref) family.
+
+## Keyword arguments
+
+$(_CLAMP_KWARGS_DOC)
 """
 function pow_diag_safe(
         D::Diagonal, p;
@@ -112,33 +122,44 @@ function pow_diag_safe(
 end
 
 """
-    sqrt_diag_safe(D; atol=0, rtol=...) -> D^(1//2)
+    sqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
 
 Square root of a diagonal matrix `D`, equivalent to
-`pow_diag_safe(D, 1//2; kwargs...)`.
+`pow_diag_safe(D, 1//2; atol, rtol)`.
+
+## Keyword arguments
+
+$(_CLAMP_KWARGS_DOC)
 """
 sqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
 
 """
-    invsqrt_diag_safe(D; atol=0, rtol=...) -> D^(-1//2)
+    invsqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
 
 Inverse square root of a diagonal matrix `D`, treating diagonal entries
 below tolerance as zero (Moore-Penrose convention). Equivalent to
-`pow_diag_safe(D, -1//2; kwargs...)`.
+`pow_diag_safe(D, -1//2; atol, rtol)`.
+
+## Keyword arguments
+
+$(_CLAMP_KWARGS_DOC)
 """
 invsqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
 
 """
-    powh_safe(M::AbstractMatrix, p; alg=nothing, atol=0, rtol=...) -> M^p
-    powh_safe(D::Diagonal, p; atol=0, rtol=...) -> D^p
+    powh_safe(M::AbstractMatrix, p; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^p
+    powh_safe(D::Diagonal, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
 
 Raise an approximately Hermitian positive semi-definite matrix to the
 power `p`. For a general `M`, this is computed via the eigendecomposition
-`M = V * D * V'` as `V * powh_safe(D, p) * V'`. For a `Diagonal` input,
-this dispatches to [`pow_diag_safe`](@ref).
+`M = V * D * V'` as `V * pow_diag_safe(D, p; atol, rtol) * V'`. For a
+`Diagonal` input, this dispatches to [`pow_diag_safe`](@ref).
 
-See [`pow_diag_safe`](@ref) for tolerance semantics and the
-specialization hook.
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
+    `M` is non-diagonal).
+    $(_CLAMP_KWARGS_DOC)
 """
 powh_safe(D::Diagonal, p; kwargs...) = pow_diag_safe(D, p; kwargs...)
 
@@ -148,18 +169,30 @@ function powh_safe(M::AbstractMatrix, p; alg = nothing, kwargs...)
 end
 
 """
-    sqrth_safe(M; alg=nothing, atol=0, rtol=...) -> M^(1//2)
+    sqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2)
 
 Square root of an approximately Hermitian positive semi-definite matrix.
-Equivalent to `powh_safe(M, 1//2; kwargs...)`.
+Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
+    `M` is non-diagonal).
+    $(_CLAMP_KWARGS_DOC)
 """
 sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
 
 """
-    invsqrth_safe(M; alg=nothing, atol=0, rtol=...) -> M^(-1//2)
+    invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(-1//2)
 
 Inverse square root of an approximately Hermitian positive semi-definite
-matrix. Equivalent to `powh_safe(M, -1//2; kwargs...)`.
+matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full` (only used when
+    `M` is non-diagonal).
+    $(_CLAMP_KWARGS_DOC)
 """
 invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
 
@@ -180,32 +213,37 @@ for (gram, gram_with_pinv, eigh_full) in (
 end
 
 """
-    gram_eigh_full(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X
-    gram_eigh_full!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X
+    gram_eigh_full(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X
+    gram_eigh_full!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X
 
 Gram factorization of a Hermitian positive semi-definite matrix via its
-eigendecomposition: returns `X = sqrth_safe(D) * V'` such that
-`A ≈ X' * X`, where `A = V * D * V'`. Eigenvalues below `tol` (see
+eigendecomposition: returns `X = sqrth_safe(D; atol, rtol) * V'` such
+that `A ≈ X' * X`, where `A = V * D * V'`. Eigenvalues below `tol` (see
 [`pow_diag_safe`](@ref)) are clamped to zero. The `!!` variant may
 destroy `A`.
 
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-  - `atol`, `rtol`: forwarded to [`pow_diag_safe`](@ref).
+    $(_CLAMP_KWARGS_DOC)
 
 See also [`gram_eigh_full_with_pinv`](@ref).
 """
 gram_eigh_full, gram_eigh_full!!
 
 """
-    gram_eigh_full_with_pinv(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X, Y
-    gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X, Y
+    gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns
-`Y = V * invsqrth_safe(D) ≈ pinv(X)` so that `X * Y ≈ I` on the rank
-subspace. Eigenvalues below `tol` are clamped to zero in both factors.
-The `!!` variant may destroy `A`.
+`Y = V * invsqrth_safe(D; atol, rtol) ≈ pinv(X)` so that `X * Y ≈ I` on
+the rank subspace. Eigenvalues below `tol` are clamped to zero in both
+factors. The `!!` variant may destroy `A`.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+    $(_CLAMP_KWARGS_DOC)
 """
 gram_eigh_full_with_pinv, gram_eigh_full_with_pinv!!
 

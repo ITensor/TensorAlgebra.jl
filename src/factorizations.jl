@@ -448,8 +448,7 @@ dimensions. Returns `X` such that `A ≈ X' * X` (contracted on the rank leg).
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-  - `atol`, `rtol`: tolerance options used to clamp small eigenvalues to
-    zero (see `MatrixAlgebra.pow_diag_safe`).
+    $(MatrixAlgebra._CLAMP_KWARGS_DOC)
 
 See also [`gram_eigh_full_with_pinv`](@ref) and
 `MatrixAlgebra.gram_eigh_full`.
@@ -491,8 +490,7 @@ that `X * Y ≈ I` on the rank subspace.
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-  - `atol`, `rtol`: tolerance options used to clamp small eigenvalues to
-    zero in both `X` and `Y` (see `MatrixAlgebra.pow_diag_safe`).
+    $(MatrixAlgebra._CLAMP_KWARGS_DOC)
 
 See also `MatrixAlgebra.gram_eigh_full_with_pinv`.
 """
