@@ -24,7 +24,7 @@ export eigen,
     svdvals!!
 
 import MatrixAlgebraKit as MAK
-using LinearAlgebra: LinearAlgebra, Diagonal, diag, norm
+using LinearAlgebra: LinearAlgebra, Diagonal, norm
 
 for (f, f_full, f_compact) in (
         (:qr, :qr_full, :qr_compact),
@@ -79,29 +79,41 @@ for (eigvals, eigh_vals, eig_vals) in
 end
 
 """
-    pinv_tol(λ; atol=0, rtol=...) -> tol
-    pinv_tol(λ, pinv::NamedTuple) -> tol
+    pinv_tol(D; atol=0, rtol=...) -> tol
+    pinv_tol(D, pinv::NamedTuple) -> tol
 
 Tolerance used by [`gram_eigh_full`](@ref) and
-[`gram_eigh_full_with_pinv`](@ref) to clamp small eigenvalues to zero:
-`tol = max(atol, rtol * maximum(abs, λ))`. The `NamedTuple` form splats
-its fields as keyword arguments.
+[`gram_eigh_full_with_pinv`](@ref) to clamp small eigenvalues of a
+diagonal matrix `D` to zero: `tol = max(atol, rtol * maximum(abs, D.diag))`.
+The `NamedTuple` form splats its fields as keyword arguments.
 """
-pinv_tol(λ, pinv::NamedTuple) = pinv_tol(λ; pinv...)
+pinv_tol(D::Diagonal, pinv::NamedTuple) = pinv_tol(D; pinv...)
 function pinv_tol(
-        λ; atol = zero(real(eltype(λ))),
-        rtol = iszero(atol) ? eps(real(eltype(λ))) * length(λ) :
-            zero(real(eltype(λ)))
+        D::Diagonal; atol = zero(real(eltype(D))),
+        rtol = iszero(atol) ? eps(real(eltype(D))) * size(D, 1) :
+            zero(real(eltype(D)))
     )
-    return max(atol, rtol * maximum(abs, λ; init = zero(real(eltype(λ)))))
+    return max(atol, rtol * maximum(abs, D.diag; init = zero(real(eltype(D)))))
 end
 
 """
-    sqrt_safe(a::Number, tol=MatrixAlgebraKit.defaulttol(a))
+    sqrt_safe(D::AbstractMatrix, tol=MatrixAlgebraKit.defaulttol(D))
 
-Compute `sqrt(a)` when `abs(a) ≥ tol`, otherwise return `zero(a)`.
+Compute `sqrt(D)`, clamping diagonal entries with `abs < tol` to zero.
 """
-sqrt_safe(a::Number, tol = MAK.defaulttol(a)) = abs(a) < tol ? zero(a) : sqrt(a)
+function sqrt_safe(D::Diagonal, tol = MAK.defaulttol(D))
+    return Diagonal(map(d -> abs(d) < tol ? zero(d) : sqrt(d), D.diag))
+end
+
+"""
+    inv_safe(D::AbstractMatrix)
+
+Invert each nonzero diagonal entry of `D`, leaving exact-zero entries
+unchanged. Used to form `pinv(sqrt_safe(D, tol))` without re-thresholding.
+"""
+function inv_safe(D::Diagonal)
+    return Diagonal(map(d -> iszero(d) ? d : inv(d), D.diag))
+end
 
 for (gram, gram_with_pinv, eigh_full) in (
         (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
@@ -110,16 +122,12 @@ for (gram, gram_with_pinv, eigh_full) in (
     @eval begin
         function $gram(A::AbstractMatrix; alg = nothing, pinv = (;))
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            λ = diag(D)
-            sqrtλ = map(l -> sqrt_safe(l, pinv_tol(λ, pinv)), λ)
-            return Diagonal(sqrtλ) * V'
+            return sqrt_safe(D, pinv_tol(D, pinv)) * V'
         end
         function $gram_with_pinv(A::AbstractMatrix; alg = nothing, pinv = (;))
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            λ = diag(D)
-            sqrtλ = map(l -> sqrt_safe(l, pinv_tol(λ, pinv)), λ)
-            inv_sqrtλ = map(s -> iszero(s) ? s : inv(s), sqrtλ)
-            return Diagonal(sqrtλ) * V', V * Diagonal(inv_sqrtλ)
+            sqrtD = sqrt_safe(D, pinv_tol(D, pinv))
+            return sqrtD * V', V * inv_safe(sqrtD)
         end
     end
 end
