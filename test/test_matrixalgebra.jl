@@ -291,8 +291,12 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     @testset "gram_eigh_full" begin
         n = 5
-        # Full-rank Hermitian PSD.
-        B = randn(elt, n, n)
+        # Full-rank Hermitian PSD. Use a tall random factor so `B' * B`
+        # is comfortably full rank even at Float32 precision (a square
+        # random `B` can produce a `B' * B` whose smallest eigenvalue
+        # falls below the default rtol clamp on some seeds).
+        rng = StableRNG(123)
+        B = randn(rng, elt, 2n, n)
         A = B' * B
         X = MatrixAlgebra.gram_eigh_full(A)
         @test X' * X ≈ A
@@ -310,7 +314,7 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         # X * Y is the projector onto the rank-k subspace (idempotent,
         # rank k), and P * X ≈ X (Moore–Penrose).
         k = 3
-        Brd = randn(elt, k, n)
+        Brd = randn(rng, elt, k, n)
         Ard = Brd' * Brd
         Xrd, Yrd = MatrixAlgebra.gram_eigh_full_with_pinv(
             Ard; rtol = sqrt(eps(real(elt)))
@@ -323,7 +327,8 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     @testset "powh_safe / sqrth_safe / invsqrth_safe" begin
         n = 4
-        B = randn(elt, n, n)
+        rng = StableRNG(123)
+        B = randn(rng, elt, 2n, n)
         A = B' * B
         sqrtA = MatrixAlgebra.sqrth_safe(A)
         @test sqrtA * sqrtA ≈ A
