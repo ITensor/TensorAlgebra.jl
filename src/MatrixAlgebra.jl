@@ -241,6 +241,20 @@ destroy `A`.
 
 $(_clamp_kwargs_doc("A"))
 
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full
+
+julia> B = [1.0 0.5; 0.5 2.0];
+       A = B * B';
+
+julia> X = gram_eigh_full(A);
+
+julia> X' * X ≈ A
+true
+```
+
 See also [`gram_eigh_full_with_pinv`](@ref).
 """
 gram_eigh_full, gram_eigh_full!!
@@ -259,6 +273,25 @@ factors. The `!!` variant may destroy `A`.
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
 
 $(_clamp_kwargs_doc("A"))
+
+# Examples
+
+```jldoctest
+julia> using LinearAlgebra: I
+
+julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full_with_pinv
+
+julia> B = [1.0 0.5; 0.5 2.0];
+       A = B * B';
+
+julia> X, Y = gram_eigh_full_with_pinv(A);
+
+julia> X' * X ≈ A
+true
+
+julia> X * Y ≈ I
+true
+```
 """
 gram_eigh_full_with_pinv, gram_eigh_full_with_pinv!!
 
