@@ -10,17 +10,20 @@ export eigen,
     gram_eigh_full!!,
     gram_eigh_full_with_pinv,
     gram_eigh_full_with_pinv!!,
-    invsqrt_safe,
+    invsqrt_diag_safe,
+    invsqrth_safe,
     lq,
     lq!!,
     orth,
     orth!!,
     polar,
     polar!!,
-    pow_safe,
+    pow_diag_safe,
+    powh_safe,
     qr,
     qr!!,
-    sqrt_safe,
+    sqrt_diag_safe,
+    sqrth_safe,
     svd,
     svd!!,
     svdvals,
@@ -82,22 +85,22 @@ for (eigvals, eigh_vals, eig_vals) in
 end
 
 """
-    pow_safe(D, p; atol=0, rtol=...) -> D^p
+    pow_diag_safe(D::Diagonal, p; atol=0, rtol=...) -> D^p
 
-Raise an approximately Hermitian positive semi-definite matrix `D` to
-the power `p`. Diagonal entries `d` with `abs(d) < tol` are clamped to
-zero before exponentiation, where
-`tol = max(atol, rtol * maximum(abs, diagview(D)))`. Default
+Raise a diagonal matrix `D` to the power `p`. Diagonal entries `d` with
+`abs(d) < tol` are clamped to zero before exponentiation, where
+`tol = max(atol, rtol * maximum(abs, D.diag))`. Default
 `rtol = eps^(3//4)` (matching PEPSKit's `sdiag_pow` convention).
 Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
 `p = 1//2`) and pass through for integer `p`, so the operation itself
 enforces the PSD precondition per-power.
 
-This is the single hook for diagonal-like types: extending `pow_safe` to
-a new type (e.g. graded/block diagonal) automatically extends
-[`sqrt_safe`](@ref) and [`invsqrt_safe`](@ref).
+This is the leaf operation for diagonal-like types: extending it to a
+new diagonal-like type (e.g. graded or block diagonal) automatically
+extends [`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref), and the
+[`powh_safe`](@ref) family.
 """
-function pow_safe(
+function pow_diag_safe(
         D::Diagonal, p;
         atol = zero(real(eltype(D))),
         rtol = iszero(atol) ? eps(real(eltype(D)))^(3 // 4) :
@@ -109,21 +112,56 @@ function pow_safe(
 end
 
 """
-    sqrt_safe(D; atol=0, rtol=...) -> D^(1//2)
+    sqrt_diag_safe(D; atol=0, rtol=...) -> D^(1//2)
 
-Square root of an approximately Hermitian positive semi-definite matrix
-`D`. Equivalent to `pow_safe(D, 1//2; kwargs...)`.
+Square root of a diagonal matrix `D`, equivalent to
+`pow_diag_safe(D, 1//2; kwargs...)`.
 """
-sqrt_safe(D; kwargs...) = pow_safe(D, 1 // 2; kwargs...)
+sqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
 
 """
-    invsqrt_safe(D; atol=0, rtol=...) -> D^(-1//2)
+    invsqrt_diag_safe(D; atol=0, rtol=...) -> D^(-1//2)
+
+Inverse square root of a diagonal matrix `D`, treating diagonal entries
+below tolerance as zero (Moore-Penrose convention). Equivalent to
+`pow_diag_safe(D, -1//2; kwargs...)`.
+"""
+invsqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
+
+"""
+    powh_safe(M::AbstractMatrix, p; alg=nothing, atol=0, rtol=...) -> M^p
+    powh_safe(D::Diagonal, p; atol=0, rtol=...) -> D^p
+
+Raise an approximately Hermitian positive semi-definite matrix to the
+power `p`. For a general `M`, this is computed via the eigendecomposition
+`M = V * D * V'` as `V * powh_safe(D, p) * V'`. For a `Diagonal` input,
+this dispatches to [`pow_diag_safe`](@ref).
+
+See [`pow_diag_safe`](@ref) for tolerance semantics and the
+specialization hook.
+"""
+powh_safe(D::Diagonal, p; kwargs...) = pow_diag_safe(D, p; kwargs...)
+
+function powh_safe(M::AbstractMatrix, p; alg = nothing, kwargs...)
+    D, V = MAK.eigh_full(M, MAK.select_algorithm(MAK.eigh_full, M, alg))
+    return V * pow_diag_safe(D, p; kwargs...) * V'
+end
+
+"""
+    sqrth_safe(M; alg=nothing, atol=0, rtol=...) -> M^(1//2)
+
+Square root of an approximately Hermitian positive semi-definite matrix.
+Equivalent to `powh_safe(M, 1//2; kwargs...)`.
+"""
+sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
+
+"""
+    invsqrth_safe(M; alg=nothing, atol=0, rtol=...) -> M^(-1//2)
 
 Inverse square root of an approximately Hermitian positive semi-definite
-matrix `D`, treating eigenvalues below tolerance as zero (Moore-Penrose
-convention). Equivalent to `pow_safe(D, -1//2; kwargs...)`.
+matrix. Equivalent to `powh_safe(M, -1//2; kwargs...)`.
 """
-invsqrt_safe(D; kwargs...) = pow_safe(D, -1 // 2; kwargs...)
+invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
 
 for (gram, gram_with_pinv, eigh_full) in (
         (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
@@ -132,11 +170,11 @@ for (gram, gram_with_pinv, eigh_full) in (
     @eval begin
         function $gram(A::AbstractMatrix; alg = nothing, kwargs...)
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            return sqrt_safe(D; kwargs...) * V'
+            return sqrth_safe(D; kwargs...) * V'
         end
         function $gram_with_pinv(A::AbstractMatrix; alg = nothing, kwargs...)
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            return sqrt_safe(D; kwargs...) * V', V * invsqrt_safe(D; kwargs...)
+            return sqrth_safe(D; kwargs...) * V', V * invsqrth_safe(D; kwargs...)
         end
     end
 end
@@ -146,14 +184,15 @@ end
     gram_eigh_full!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X
 
 Gram factorization of a Hermitian positive semi-definite matrix via its
-eigendecomposition: returns `X = sqrt_safe(D) * V'` such that
+eigendecomposition: returns `X = sqrth_safe(D) * V'` such that
 `A ≈ X' * X`, where `A = V * D * V'`. Eigenvalues below `tol` (see
-[`sqrt_safe`](@ref)) are clamped to zero. The `!!` variant may destroy `A`.
+[`pow_diag_safe`](@ref)) are clamped to zero. The `!!` variant may
+destroy `A`.
 
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-  - `atol`, `rtol`: forwarded to [`sqrt_safe`](@ref).
+  - `atol`, `rtol`: forwarded to [`pow_diag_safe`](@ref).
 
 See also [`gram_eigh_full_with_pinv`](@ref).
 """
@@ -164,7 +203,7 @@ gram_eigh_full, gram_eigh_full!!
     gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=...) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns
-`Y = V * invsqrt_safe(D) ≈ pinv(X)` so that `X * Y ≈ I` on the rank
+`Y = V * invsqrth_safe(D) ≈ pinv(X)` so that `X * Y ≈ I` on the rank
 subspace. Eigenvalues below `tol` are clamped to zero in both factors.
 The `!!` variant may destroy `A`.
 """

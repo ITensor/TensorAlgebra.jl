@@ -320,4 +320,24 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         @test P * P ≈ P
         @test P * Xrd ≈ Xrd
     end
+
+    @testset "powh_safe / sqrth_safe / invsqrth_safe" begin
+        n = 4
+        B = randn(elt, n, n)
+        A = B * B'
+        sqrtA = MatrixAlgebra.sqrth_safe(A)
+        @test sqrtA * sqrtA ≈ A
+        @test sqrtA ≈ sqrtA'
+
+        invsqrtA = MatrixAlgebra.invsqrth_safe(A)
+        @test invsqrtA * sqrtA ≈ I(n)
+
+        # Integer power: passes through without clamping affecting result.
+        @test MatrixAlgebra.powh_safe(A, 2) ≈ A * A
+
+        # Diagonal-input dispatch path.
+        D = Diagonal(rand(real(elt), n))
+        @test MatrixAlgebra.sqrth_safe(D) ≈
+            MatrixAlgebra.pow_diag_safe(D, 1 // 2)
+    end
 end
