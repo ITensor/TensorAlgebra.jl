@@ -31,6 +31,7 @@ end
 for f in (
         :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
         :factorize, :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
+        :gram_eigh_full, :gram_eigh_full_with_pinv,
     )
     @eval begin
         function $f(
@@ -83,7 +84,7 @@ end
     qr(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
 Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -103,7 +104,7 @@ qr
     lq(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
 
 Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -123,7 +124,7 @@ lq
     left_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -141,7 +142,7 @@ left_polar
     right_polar(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -159,7 +160,7 @@ right_polar
     left_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -177,7 +178,7 @@ left_orth
     right_orth(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -195,7 +196,7 @@ right_orth
     factorize(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
 
 Compute the decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -213,7 +214,7 @@ factorize
     eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -256,7 +257,7 @@ end
     eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation. The output is a vector of eigenvalues.
 
 ## Keyword arguments
@@ -291,7 +292,7 @@ end
     svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
 
 Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 
 ## Keyword arguments
@@ -332,7 +333,7 @@ end
     svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation. The output is a vector of singular values.
 
 See also `MatrixAlgebraKit.svd_vals!`.
@@ -361,7 +362,7 @@ end
     left_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 
@@ -401,7 +402,7 @@ end
     right_null(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain indices. These can be specified either via
+a linear map from the domain to the codomain dimensions. These can be specified either via
 their labels or directly through a bi-permutation.
 The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 
@@ -432,4 +433,126 @@ function right_null(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; k
 end
 function right_null(A::AbstractArray, ndims_codomain::Val; kwargs...)
     return right_null!!(copy(A), ndims_codomain; kwargs...)
+end
+
+"""
+    gram_eigh_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X
+    gram_eigh_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X
+    gram_eigh_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> X
+    gram_eigh_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X
+
+Gram factorization of a generic N-dimensional array, interpreting it as a
+Hermitian positive semi-definite linear map from the domain to the codomain
+dimensions. Returns `X` such that `A ≈ X' * X` (contracted on the rank leg).
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: contract, gram_eigh_full
+
+julia> B = randn(3, 2, 2);
+
+julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
+
+julia> X = gram_eigh_full(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
+
+julia> A ≈ contract((:a, :b, :c, :d), conj(X), (:r, :a, :b), X, (:r, :c, :d))
+true
+```
+
+See also [`gram_eigh_full_with_pinv`](@ref) and
+[`MatrixAlgebra.gram_eigh_full`](@ref).
+"""
+gram_eigh_full
+
+function gram_eigh_full!!(
+        style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...
+    )
+    A_mat = matricize(style, A, ndims_codomain)
+    X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
+    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
+    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_X = tuplemortar(((axes(X, 1),), axes_codomain))
+    return unmatricize(style, X, axes_X)
+end
+function gram_eigh_full!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return gram_eigh_full!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function gram_eigh_full(
+        style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...
+    )
+    return gram_eigh_full!!(style, copy(A), ndims_codomain; kwargs...)
+end
+function gram_eigh_full(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return gram_eigh_full!!(copy(A), ndims_codomain; kwargs...)
+end
+
+"""
+    gram_eigh_full_with_pinv(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractArray, ndims_codomain::Val; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
+
+Like [`gram_eigh_full`](@ref), but additionally returns `Y ≈ pinv(X)` such
+that `X * Y ≈ I` on the rank subspace.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
+
+# Examples
+
+```jldoctest
+julia> using LinearAlgebra: I
+
+julia> using TensorAlgebra: contract, gram_eigh_full_with_pinv
+
+julia> B = randn(8, 2, 2);
+
+julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
+
+julia> X, Y = gram_eigh_full_with_pinv(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
+
+julia> A ≈ contract((:a, :b, :c, :d), conj(X), (:r, :a, :b), X, (:r, :c, :d))
+true
+
+julia> contract((:r, :s), X, (:r, :a, :b), Y, (:a, :b, :s)) ≈ I
+true
+```
+
+See also [`MatrixAlgebra.gram_eigh_full_with_pinv`](@ref).
+"""
+gram_eigh_full_with_pinv
+
+function gram_eigh_full_with_pinv!!(
+        style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...
+    )
+    A_mat = matricize(style, A, ndims_codomain)
+    X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
+    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
+    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_X = tuplemortar(((axes(X, 1),), axes_codomain))
+    axes_Y = tuplemortar((axes_codomain, (axes(Y, 2),)))
+    return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
+end
+function gram_eigh_full_with_pinv!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return gram_eigh_full_with_pinv!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function gram_eigh_full_with_pinv(
+        style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...
+    )
+    return gram_eigh_full_with_pinv!!(style, copy(A), ndims_codomain; kwargs...)
+end
+function gram_eigh_full_with_pinv(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return gram_eigh_full_with_pinv!!(copy(A), ndims_codomain; kwargs...)
 end
