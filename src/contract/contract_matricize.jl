@@ -1,5 +1,3 @@
-using LinearAlgebra: mul!
-
 function contractopadd!(
         algorithm::Matricize,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
