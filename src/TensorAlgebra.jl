@@ -23,6 +23,7 @@ include("contract/contract_matricize.jl")
 include("factorizations.jl")
 include("matrixfunctions.jl")
 include("similar_map.jl")
+include("projectto.jl")
 include("linearbroadcasted.jl")
 
 end
