@@ -1,6 +1,6 @@
 using LinearAlgebra: LinearAlgebra, I, diag, norm
 using MatrixAlgebraKit: truncrank
-using TensorAlgebra: contract, eigen, eigvals, factorize, gram_eigh_full,
+using TensorAlgebra: TensorAlgebra, contract, eigen, eigvals, factorize, gram_eigh_full,
     gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq, orth, polar, qr,
     right_null, right_orth, right_polar, svd, svdvals
 using Test: @test, @testset
@@ -382,4 +382,39 @@ end
     P = contract((:r, :s), Y2, (:r, :a, :b), X2, (:a, :b, :s))
     XP = contract((:c, :d, :r), X2, (:c, :d, :s), P, (:s, :r))
     @test XP ≈ X2
+end
+
+# one (identity tensor)
+# ---------------------
+# An identity tensor matricized along its codomain/domain partition is the
+# identity matrix.
+@testset "one ($T)" for T in elts
+    A = randn(T, 2, 3, 2, 3)
+    labels_A = (:a, :b, :c, :d)
+    labels_cod = (:a, :b)
+    labels_dom = (:c, :d)
+
+    Acopy = copy(A)
+    Id = @constinferred TensorAlgebra.one(A, labels_A, labels_cod, labels_dom)
+    @test A == Acopy # should not have altered initial array
+
+    @test size(Id) == size(A)
+    @test eltype(Id) === T
+
+    @test TensorAlgebra.matricize(Id, Val(2)) ≈ I
+
+    # `Val`, perm, and label entries agree.
+    @test TensorAlgebra.one(A, Val(2)) ≈ Id
+    @test TensorAlgebra.one(A, (1, 2), (3, 4)) ≈ Id
+
+    # Non-trivial codomain/domain partition: codomain (a, b) interleaved with
+    # domain (c, d) in the input layout. The result is permuted into the
+    # canonical (cod, dom) order before matricizing, and the matricized form
+    # is again the identity matrix.
+    B = randn(T, 2, 2, 2, 2)
+    labels_B = (:a, :c, :b, :d)
+    Id_perm = TensorAlgebra.one(B, labels_B, labels_cod, labels_dom)
+    @test TensorAlgebra.matricize(Id_perm, Val(2)) ≈ I
+    # Perm- and biperm-tuple forms agree with the label form.
+    @test TensorAlgebra.one(B, (1, 3), (2, 4)) ≈ Id_perm
 end

@@ -31,7 +31,7 @@ end
 for f in (
         :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
         :factorize, :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
-        :gram_eigh_full, :gram_eigh_full_with_pinv,
+        :gram_eigh_full, :gram_eigh_full_with_pinv, :one,
     )
     @eval begin
         function $f(
@@ -559,4 +559,56 @@ function gram_eigh_full_with_pinv(
 end
 function gram_eigh_full_with_pinv(A::AbstractArray, ndims_codomain::Val; kwargs...)
     return gram_eigh_full_with_pinv!!(copy(A), ndims_codomain; kwargs...)
+end
+
+"""
+    TensorAlgebra.one(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> Id
+    TensorAlgebra.one(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> Id
+    TensorAlgebra.one(A::AbstractArray, ndims_codomain::Val) -> Id
+    TensorAlgebra.one(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> Id
+
+Construct the identity operator tensor whose shape mirrors `A`, interpreted as a
+linear map from the domain to the codomain dimensions. The codomain and domain
+partition is specified either via labels or directly through a bi-permutation;
+fused codomain and domain sizes must match. `A` is treated as a shape prototype
+and is not mutated.
+
+Not exported, since exporting would clash with the implicit `Base.one`. Qualify
+as `TensorAlgebra.one(A, ...)`.
+
+See also `MatrixAlgebraKit.one!`.
+
+# Examples
+
+```jldoctest
+julia> using LinearAlgebra: I
+
+julia> using TensorAlgebra: TensorAlgebra, matricize
+
+julia> A = randn(2, 3, 2, 3);
+
+julia> Id = TensorAlgebra.one(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
+
+julia> matricize(Id, Val(2)) ≈ I
+true
+```
+"""
+one
+
+function one!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    MatrixAlgebraKit.one!(A_mat)
+    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
+    axes_codomain, axes_domain = blocks(axes(A)[biperm])
+    return unmatricize(style, A_mat, axes_codomain, axes_domain)
+end
+function one!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return one!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+function one(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return one!!(style, copy(A), ndims_codomain; kwargs...)
+end
+function one(A::AbstractArray, ndims_codomain::Val; kwargs...)
+    return one!!(copy(A), ndims_codomain; kwargs...)
 end
