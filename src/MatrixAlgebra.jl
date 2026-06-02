@@ -206,11 +206,11 @@ for (gram, gram_with_pinv, eigh_full) in (
     @eval begin
         function $gram(A::AbstractMatrix; alg = nothing, kwargs...)
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            return sqrth_safe(D; kwargs...) * V'
+            return V * sqrth_safe(D; kwargs...)
         end
         function $gram_with_pinv(A::AbstractMatrix; alg = nothing, kwargs...)
             D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
-            return sqrth_safe(D; kwargs...) * V', V * invsqrth_safe(D; kwargs...)
+            return V * sqrth_safe(D; kwargs...), invsqrth_safe(D; kwargs...) * V'
         end
     end
 end
@@ -220,10 +220,11 @@ end
     gram_eigh_full!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X
 
 Gram factorization of a Hermitian positive semi-definite matrix via its
-eigendecomposition: returns `X = sqrth_safe(D; atol, rtol) * V'` such
-that `A ≈ X' * X`, where `A = V * D * V'`. Eigenvalues below `tol` (see
-[`pow_diag_safe`](@ref)) are clamped to zero. The `!!` variant may
-destroy `A`.
+eigendecomposition (balanced eigh): returns `X = V * sqrth_safe(D; atol, rtol)`
+such that `A ≈ X * X'`, where `A = V * D * V'`. The square-root of `D` is
+absorbed symmetrically into the two factors of the eigendecomposition.
+Eigenvalues below `tol` (see [`pow_diag_safe`](@ref)) are clamped to zero.
+The `!!` variant may destroy `A`.
 
 ## Keyword arguments
 
@@ -242,7 +243,7 @@ julia> A = B' * B;
 
 julia> X = gram_eigh_full(A);
 
-julia> X' * X ≈ A
+julia> X * X' ≈ A
 true
 ```
 
@@ -255,9 +256,9 @@ gram_eigh_full, gram_eigh_full!!
     gram_eigh_full_with_pinv!!(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns
-`Y = V * invsqrth_safe(D; atol, rtol) ≈ pinv(X)` so that `X * Y ≈ I` on
-the rank subspace. Eigenvalues below `tol` are clamped to zero in both
-factors. The `!!` variant may destroy `A`.
+`Y = invsqrth_safe(D; atol, rtol) * V' ≈ pinv(X)`, a left inverse of `X`
+on the rank subspace: `Y * X ≈ I`. Eigenvalues below `tol` are clamped to
+zero in both factors. The `!!` variant may destroy `A`.
 
 ## Keyword arguments
 
@@ -278,10 +279,10 @@ julia> A = B' * B;
 
 julia> X, Y = gram_eigh_full_with_pinv(A);
 
-julia> X' * X ≈ A
+julia> X * X' ≈ A
 true
 
-julia> X * Y ≈ I
+julia> Y * X ≈ I
 true
 ```
 """

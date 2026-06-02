@@ -348,20 +348,20 @@ end
     Acopy = copy(A)
     X = @constinferred gram_eigh_full(A, labels_A, labels_X, labels_Y)
     @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, conj(X), (:r, :a, :b), X, (:r, :c, :d))
+    A′ = contract(labels_A, X, (:a, :b, :r), conj(X), (:c, :d, :r))
     @test A ≈ A′
-    @test size(X, 1) == size(A, 1) * size(A, 2)
+    @test size(X, ndims(X)) == size(A, 1) * size(A, 2)
 
     # `Val`, perm, and label entries agree.
     @test gram_eigh_full(A, Val(2)) ≈ X
     @test gram_eigh_full(A, (1, 2), (3, 4)) ≈ X
 
-    # `with_pinv` variant: Y ≈ pinv(X) so X * Y ≈ I on the full-rank
-    # subspace.
+    # `with_pinv` variant: Y is a left inverse of X (Y * X ≈ I on the
+    # rank subspace).
     X2, Y2 = @constinferred gram_eigh_full_with_pinv(A, labels_A, labels_X, labels_Y)
-    @test A ≈ contract(labels_A, conj(X2), (:r, :a, :b), X2, (:r, :c, :d))
-    XY = contract((:r, :s), X2, (:r, :a, :b), Y2, (:a, :b, :s))
-    @test XY ≈ I
+    @test A ≈ contract(labels_A, X2, (:a, :b, :r), conj(X2), (:c, :d, :r))
+    YX = contract((:r, :s), Y2, (:r, :a, :b), X2, (:a, :b, :s))
+    @test YX ≈ I
 end
 
 @testset "Rank-deficient gram_eigh_full ($T)" for T in elts
@@ -372,14 +372,14 @@ end
     # nonzero eigenvalues sit far above any reasonable threshold.
     X = gram_eigh_full(A, Val(2); rtol = 1.0e-10)
     @test A ≈ contract(
-        (:a, :b, :c, :d), conj(X), (:r, :a, :b), X, (:r, :c, :d)
+        (:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r)
     )
 
     # Moore–Penrose-like identity: X * Y * X ≈ X when Y is pinv(X). With
-    # rank-first X and rank-last Y, contract X[r, a, b] * Y[a, b, s] → P[r, s]
-    # (projector onto the rank subspace), then P * X → X.
+    # cod-first X and rank-first Y, contract Y[r, a, b] * X[a, b, s] → P[r, s]
+    # (projector onto the rank subspace), then X * P → X.
     X2, Y2 = gram_eigh_full_with_pinv(A, Val(2); rtol = 1.0e-10)
-    P = contract((:r, :s), X2, (:r, :a, :b), Y2, (:a, :b, :s))
-    PX = contract((:r, :c, :d), P, (:r, :s), X2, (:s, :c, :d))
-    @test PX ≈ X2
+    P = contract((:r, :s), Y2, (:r, :a, :b), X2, (:a, :b, :s))
+    XP = contract((:c, :d, :r), X2, (:c, :d, :s), P, (:s, :r))
+    @test XP ≈ X2
 end

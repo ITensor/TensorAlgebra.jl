@@ -443,7 +443,9 @@ end
 
 Gram factorization of a generic N-dimensional array, interpreting it as a
 Hermitian positive semi-definite linear map from the domain to the codomain
-dimensions. Returns `X` such that `A ≈ X' * X` (contracted on the rank leg).
+dimensions. Returns `X` such that `A ≈ X * X'` (contracted on the rank leg),
+i.e. the codomain axes of `X` match the codomain axes of `A` and `X` has a
+single trailing rank axis.
 
 ## Keyword arguments
 
@@ -462,7 +464,7 @@ julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
 
 julia> X = gram_eigh_full(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
 
-julia> A ≈ contract((:a, :b, :c, :d), conj(X), (:r, :a, :b), X, (:r, :c, :d))
+julia> A ≈ contract((:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r))
 true
 ```
 
@@ -478,7 +480,7 @@ function gram_eigh_full!!(
     X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain = first(blocks(axes(A)[biperm]))
-    axes_X = tuplemortar(((axes(X, 1),), axes_codomain))
+    axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
     return unmatricize(style, X, axes_X)
 end
 function gram_eigh_full!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -501,7 +503,9 @@ end
     gram_eigh_full_with_pinv(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns `Y ≈ pinv(X)` such
-that `X * Y ≈ I` on the rank subspace.
+that `Y * X ≈ I` on the rank subspace (a left inverse). The codomain axes
+of `X` match the codomain axes of `A`; `Y` has a leading rank axis followed
+by the codomain axes.
 
 ## Keyword arguments
 
@@ -522,10 +526,10 @@ julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
 
 julia> X, Y = gram_eigh_full_with_pinv(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
 
-julia> A ≈ contract((:a, :b, :c, :d), conj(X), (:r, :a, :b), X, (:r, :c, :d))
+julia> A ≈ contract((:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r))
 true
 
-julia> contract((:r, :s), X, (:r, :a, :b), Y, (:a, :b, :s)) ≈ I
+julia> contract((:r, :s), Y, (:r, :a, :b), X, (:a, :b, :s)) ≈ I
 true
 ```
 
@@ -540,8 +544,8 @@ function gram_eigh_full_with_pinv!!(
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain = first(blocks(axes(A)[biperm]))
-    axes_X = tuplemortar(((axes(X, 1),), axes_codomain))
-    axes_Y = tuplemortar((axes_codomain, (axes(Y, 2),)))
+    axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
+    axes_Y = tuplemortar(((axes(Y, 1),), axes_codomain))
     return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
 end
 function gram_eigh_full_with_pinv!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
