@@ -31,3 +31,29 @@ function checked_projectto!(
         throw(InexactError(:checked_projectto!, typeof(dest), src))
     return dest
 end
+
+"""
+    project_map(raw, codomain_axes, domain_axes) -> dest
+
+Allocate a map-shaped array via [`similar_map`](@ref) and project `raw` into it with
+[`projectto!`](@ref). Unchecked: any non-representable component of `raw` is dropped
+silently. The data-bearing member of the `_map` allocator family
+(`similar_map` / `zeros_map` / `project_map`); for the checked variant see
+[`checked_project_map`](@ref).
+"""
+function project_map(raw, codomain_axes, domain_axes)
+    return projectto!(similar_map(raw, eltype(raw), codomain_axes, domain_axes), raw)
+end
+
+"""
+    checked_project_map(raw, codomain_axes, domain_axes; atol=0, rtol=…) -> dest
+
+Allocate via [`similar_map`](@ref) and project `raw` into it with
+[`checked_projectto!`](@ref), throwing `InexactError` if the discarded component
+exceeds tolerance. Default kwargs match `checked_projectto!`.
+"""
+function checked_project_map(raw, codomain_axes, domain_axes; kwargs...)
+    return checked_projectto!(
+        similar_map(raw, eltype(raw), codomain_axes, domain_axes), raw; kwargs...
+    )
+end
