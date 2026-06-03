@@ -31,7 +31,7 @@ into it with [`projectto!`](@ref). See [`checked_project_map`](@ref) for
 a checked version.
 """
 function project_map(raw, codomain_axes, domain_axes)
-    return projectto!(similar_map(raw, eltype(raw), codomain_axes, domain_axes), raw)
+    return projectto!(similar_map(raw, codomain_axes, domain_axes), raw)
 end
 
 """
@@ -43,6 +43,6 @@ to [`checked_projectto!`](@ref).
 """
 function checked_project_map(raw, codomain_axes, domain_axes; kwargs...)
     return checked_projectto!(
-        similar_map(raw, eltype(raw), codomain_axes, domain_axes), raw; kwargs...
+        similar_map(raw, codomain_axes, domain_axes), raw; kwargs...
     )
 end
