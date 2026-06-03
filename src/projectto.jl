@@ -13,7 +13,8 @@ projectto!(dest, src) = copyto!(dest, src)
 Project `src` into the restricted space of `dest` via [`projectto!`](@ref)
 and verify via `isapprox(src, dest; kwargs...)` that the discarded
 component is within tolerance. Keyword arguments are forwarded to
-`isapprox`.
+`isapprox`. The default tolerances are subject to change in future
+versions.
 """
 function checked_projectto!(dest, src; kwargs...)
     projectto!(dest, src)
