@@ -1,33 +1,23 @@
 """
     projectto!(dest, src) -> dest
 
-Orthogonally project `src` onto the representable subspace of `dest`, in place.
-Per-backend primitive. Tolerance-free and magnitude-blind: drops the
-non-representable component regardless of its size. Pair with
-[`checked_projectto!`](@ref) (or `isapprox`-after) when the discarded weight
-needs to be verified.
-
-The default falls through to `copyto!`, which is the right behavior for dense
-backends where the representable subspace is everything. Block-structured
-backends (e.g. `AbelianGradedArray`, `FusionTensor`) overload this to copy only
-the symmetry-allowed entries.
+Project `src` into the restricted space of `dest` without checking which
+components may have been projected out. Defaults to `copyto!`. See
+[`checked_projectto!`](@ref) for a checked version.
 """
 projectto!(dest, src) = copyto!(dest, src)
 
 """
-    checked_projectto!(dest, src; atol=0, rtol=…) -> dest
+    checked_projectto!(dest, src; kwargs...) -> dest
 
-Project `src` into `dest` via [`projectto!`](@ref), then verify that the
-discarded component is within the requested tolerance via `isapprox(src, dest; atol, rtol)`. Throws `InexactError` on failure. Backends may specialize this
-verb for a fused, cheaper check (e.g. a one-pass norm comparison).
+Project `src` into the restricted space of `dest` via [`projectto!`](@ref)
+and verify via `isapprox(src, dest; kwargs...)` that the discarded
+component is within tolerance. Keyword arguments are forwarded to
+`isapprox`.
 """
-function checked_projectto!(
-        dest, src;
-        atol::Real = 0,
-        rtol::Real = Base.rtoldefault(real(eltype(src)))
-    )
+function checked_projectto!(dest, src; kwargs...)
     projectto!(dest, src)
-    isapprox(src, dest; atol, rtol) ||
+    isapprox(src, dest; kwargs...) ||
         throw(InexactError(:checked_projectto!, typeof(dest), src))
     return dest
 end
@@ -35,22 +25,20 @@ end
 """
     project_map(raw, codomain_axes, domain_axes) -> dest
 
-Allocate a map-shaped array via [`similar_map`](@ref) and project `raw` into it with
-[`projectto!`](@ref). Unchecked: any non-representable component of `raw` is dropped
-silently. The data-bearing member of the `_map` allocator family
-(`similar_map` / `zeros_map` / `project_map`); for the checked variant see
-[`checked_project_map`](@ref).
+Allocate a map-shaped array via [`similar_map`](@ref) and project `raw`
+into it with [`projectto!`](@ref). See [`checked_project_map`](@ref) for
+a checked version.
 """
 function project_map(raw, codomain_axes, domain_axes)
     return projectto!(similar_map(raw, eltype(raw), codomain_axes, domain_axes), raw)
 end
 
 """
-    checked_project_map(raw, codomain_axes, domain_axes; atol=0, rtol=…) -> dest
+    checked_project_map(raw, codomain_axes, domain_axes; kwargs...) -> dest
 
-Allocate via [`similar_map`](@ref) and project `raw` into it with
-[`checked_projectto!`](@ref), throwing `InexactError` if the discarded component
-exceeds tolerance. Default kwargs match `checked_projectto!`.
+Allocate a map-shaped array via [`similar_map`](@ref) and project `raw`
+into it with [`checked_projectto!`](@ref). Keyword arguments are forwarded
+to [`checked_projectto!`](@ref).
 """
 function checked_project_map(raw, codomain_axes, domain_axes; kwargs...)
     return checked_projectto!(
