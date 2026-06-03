@@ -1,26 +1,21 @@
 """
-    similar_map(prototype, [T,] codomain_axes, domain_axes) -> O
+    similar_map(prototype, [T,] codomain_axes, domain_axes) -> M
 
 Allocate an array shaped as a linear map from `domain_axes` to
-`codomain_axes`, with axes `(codomain_axes..., conj.(domain_axes)...)` and
-element type `T` (defaulting to `eltype(prototype)`). The domain axes are
-conjugated so callers can pass both sides in the same (codomain) direction.
-For plain axes `conj` is a no-op. For graded axes it flips the sector arrows.
-`prototype` provides the array backend and is not mutated.
+`codomain_axes` with element type `T` (defaulting to `eltype(prototype)`),
+using `prototype` to determine the array backend. Defaults to
+`similar(prototype, T, (codomain_axes..., conj.(domain_axes)...))`.
 
 # Examples
 
 ```jldoctest
 julia> using TensorAlgebra: similar_map
 
-julia> O = similar_map(
-           randn(3),
-           Float32,
-           (Base.OneTo(2), Base.OneTo(3)),
-           (Base.OneTo(4), Base.OneTo(5))
-       );
+julia> cod, dom = (Base.OneTo(2), Base.OneTo(3)), (Base.OneTo(4), Base.OneTo(5));
 
-julia> eltype(O), size(O)
+julia> M = similar_map(randn(3), Float32, cod, dom);
+
+julia> eltype(M), size(M)
 (Float32, (2, 3, 4, 5))
 ```
 """
