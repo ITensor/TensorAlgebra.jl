@@ -1,5 +1,5 @@
-import Base.Broadcast as BC
-import LinearAlgebra as LA
+using Base.Broadcast: Broadcast as BC
+using LinearAlgebra: LinearAlgebra as LA
 
 # TermInterface-like interface.
 iscall(x) = false

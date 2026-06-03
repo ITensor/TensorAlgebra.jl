@@ -1,6 +1,6 @@
-import StridedViews as SV
 using FunctionImplementations: permuteddims
 using Strided: Strided
+using StridedViews: StridedViews as SV
 
 # Specify if an array is on CPU. This is helpful for backends that don't support
 # operations on GPU, such as Strided.jl.

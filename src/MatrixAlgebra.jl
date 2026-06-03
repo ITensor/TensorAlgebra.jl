@@ -29,8 +29,8 @@ export eigen,
     svdvals,
     svdvals!!
 
-import MatrixAlgebraKit as MAK
 using LinearAlgebra: LinearAlgebra, Diagonal, isdiag, norm
+using MatrixAlgebraKit: MatrixAlgebraKit as MAK
 
 for (f, f_full, f_compact) in (
         (:qr, :qr_full, :qr_compact),
