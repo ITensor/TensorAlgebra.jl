@@ -77,6 +77,19 @@ function tensor_product_fusionstyle(r1::AbstractUnitRange, r2::AbstractUnitRange
     return FusionStyle(FusionStyle(r1), FusionStyle(r2))
 end
 
+"""
+    TensorAlgebra.trivialrange(R::Type{<:AbstractUnitRange})
+    TensorAlgebra.trivialrange(r::AbstractUnitRange)
+
+Return the identity range for `tensor_product_axis` on ranges of type `R`,
+i.e. a one-dimensional range `t` for which fusing `t` with any other range
+of the same family leaves that range unchanged. Defaults to `Base.OneTo(1)`;
+downstream packages overload the type-level method to return their own
+identity (for example, a charge-0 one-dimensional sector for a graded range).
+"""
+trivialrange(r::AbstractUnitRange) = trivialrange(typeof(r))
+trivialrange(::Type{<:AbstractUnitRange}) = Base.OneTo(1)
+
 function fused_axis(
         style::FusionStyle, side::Val{:codomain}, a::AbstractArray,
         axes_codomain::Tuple{Vararg{AbstractUnitRange}},
