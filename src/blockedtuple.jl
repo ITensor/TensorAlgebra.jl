@@ -110,6 +110,10 @@ function Base.map(f, bt::AbstractBlockTuple)
     return widened_constructorof(typeof(bt))(t, Val(blocklengths(bt)))
 end
 
+function Base.invperm(bt::AbstractBlockTuple)
+    return widened_constructorof(typeof(bt))(invperm(Tuple(bt)), Val(blocklengths(bt)))
+end
+
 function Base.show(io::IO, bt::AbstractBlockTuple)
     return print(io, nameof(typeof(bt)), blocks(bt))
 end
