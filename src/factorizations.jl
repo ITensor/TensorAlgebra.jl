@@ -548,7 +548,7 @@ function gram_eigh_full_with_pinv!!(
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain = first(blocks(axes(A)[biperm]))
     axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
-    axes_Y = tuplemortar(((axes(Y, 1),), axes_codomain))
+    axes_Y = tuplemortar(((axes(Y, 1),), conj.(axes_codomain)))
     return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
 end
 function gram_eigh_full_with_pinv!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
