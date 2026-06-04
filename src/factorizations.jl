@@ -312,7 +312,7 @@ function svd!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
     axes_codomain, axes_domain = blocks(axes(A)[biperm])
     axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
-    axes_S = tuplemortar(((axes(U, 2),), (axes(Vᴴ, 1),)))
+    axes_S = tuplemortar(((axes(S, 1),), (axes(S, 2),)))
     axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
     return unmatricize(style, U, axes_U),
         unmatricize(style, S, axes_S),
