@@ -20,6 +20,11 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         @test length_domain(bt) == 1
     end
 
+    @testset "trivialrange" begin
+        @test TensorAlgebra.trivialrange(Base.OneTo{Int}) === Base.OneTo(1)
+        @test TensorAlgebra.trivialrange(Base.OneTo(5)) === Base.OneTo(1)
+    end
+
     @testset "bipermutedims (eltype=$elt)" for elt in elts
         a = randn(elt, 2, 3, 4, 5)
         a_perm = bipermutedims(a, blockedpermvcat((3, 1), (2, 4)))

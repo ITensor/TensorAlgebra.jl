@@ -63,6 +63,16 @@ using TestExtras: @constinferred
     @test @constinferred(replace(x -> x == 4 ? 40 : x, bt)) ==
         tuplemortar(((1,), (40, 2), (5, 3)))
 
+    # `invperm` returns the inverse permutation as a `BlockedTuple` with the
+    # same block structure, so that callers that wrap permutations in a block
+    # layout (e.g. `LittleSet{BlockedTuple}` in NamedDimsArrays' broadcast
+    # alignment) can invert them transparently.
+    perm = tuplemortar(((3, 1), (2,)))
+    inv_perm = invperm(perm)
+    @test inv_perm isa BlockedTuple
+    @test Tuple(inv_perm) == invperm(Tuple(perm))
+    @test blocklengths(inv_perm) == blocklengths(perm)
+
     bt = tuplemortar(((1:2, 1:2), (1:3,)))
     @test length.(bt) == tuplemortar(((2, 2), (3,)))
     # TODO: What is this testing? Should we fix it and bring it back?
