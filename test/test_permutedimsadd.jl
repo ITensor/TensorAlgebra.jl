@@ -47,6 +47,26 @@ using Test: @test, @testset
             @test b′ ≈ β * b + α * permutedims(a, perm)
         end
     end
+    @testset "bipermutedimsopadd! unwraps PermutedDimsArray src (arraytype=$arrayt)" for arrayt in
+        (
+            Array,
+            JLArray,
+        )
+        dev = adapt(arrayt)
+        parent = dev(randn(2, 3, 4, 5))
+        w = (3, 1, 4, 2)
+        src = PermutedDimsArray(parent, w)
+        for (pc, pd) in (((1, 2, 3, 4), ()), ((2, 4), (1, 3)), ((3, 1), (2, 4)))
+            perm = (pc..., pd...)
+            ref = permutedims(permutedims(parent, w), perm)
+            for β in (0, 3)
+                dest = dev(randn(size(ref)...))
+                dest′ = copy(dest)
+                bipermutedimsopadd!(dest′, identity, src, pc, pd, 2, β)
+                @test dest′ ≈ β * dest + 2 * ref
+            end
+        end
+    end
     @testset "bipermutedimsopadd! 0-dim with β=0 must not read dest (eltype=$T)" for T in
         (
             Float64,
