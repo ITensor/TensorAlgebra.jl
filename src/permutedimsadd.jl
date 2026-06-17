@@ -84,6 +84,21 @@ function bipermutedimsopadd!(
     return dest
 end
 
+_permuteddims_perm(::PermutedDimsArray{<:Any, <:Any, perm}) where {perm} = perm
+
+function bipermutedimsopadd!(
+        dest::AbstractArray, op, src::PermutedDimsArray,
+        perm_codomain, perm_domain,
+        α::Number, β::Number
+    )
+    w = _permuteddims_perm(src)
+    return bipermutedimsopadd!(
+        dest, op, parent(src),
+        map(j -> w[j], perm_codomain), map(j -> w[j], perm_domain),
+        α, β
+    )
+end
+
 # ---------------------------------------------------------------------------- #
 # permutedimsopadd! — flat-permutation interface
 # ---------------------------------------------------------------------------- #
