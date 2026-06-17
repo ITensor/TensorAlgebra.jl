@@ -1,13 +1,6 @@
+using FunctionImplementations: permuteddims
 using Strided: Strided
 using StridedViews: StridedViews as SV
-
-"""
-    permuteddims(a, perm)
-
-Lazily permute the dimensions of `a` by `perm`. Defaults to `PermutedDimsArray`;
-overload for array types with a more efficient lazy permuted representation.
-"""
-permuteddims(a::AbstractArray, perm) = PermutedDimsArray(a, perm)
 
 # Specify if an array is on CPU. This is helpful for backends that don't support
 # operations on GPU, such as Strided.jl.
