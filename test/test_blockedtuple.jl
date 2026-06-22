@@ -14,6 +14,12 @@ using TestExtras: @constinferred
 
     @test (@constinferred Tuple(bt)) == flat
     @test (@constinferred tuplemortar(((true,), ('a', 2), ("b", 3.0)))) == bt
+
+    # `eltype` forwards the underlying flat tuple's element type rather than `Any`.
+    @test eltype(bt) === eltype(flat)
+    bt_int = tuplemortar(((1,), (2, 3)))
+    @test eltype(bt_int) === Int
+    @test eltype(typeof(bt_int)) === Int
     @test BlockedTuple(flat, divs) == bt
     @test (@constinferred BlockedTuple(bt)) == bt
     @test blocklength(bt) == 3

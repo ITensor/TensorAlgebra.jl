@@ -262,6 +262,9 @@ end
 # Base interface
 Base.Tuple(bt::BlockedTuple) = bt.flat
 
+# Forward the flat tuple's element type; otherwise `eltype` falls back to `Any`.
+Base.eltype(::Type{<:BlockedTuple{<:Any, <:Any, Flat}}) where {Flat} = eltype(Flat)
+
 # BlockArrays interface
 function blocklengths(
         ::Type{<:BlockedTuple{<:Any, BlockLengths}}
