@@ -29,7 +29,7 @@ function blockedperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
     perm_codomain_dest = BaseExtensions.indexin(codomain, dimnames_dest)
     perm_domain_dest = BaseExtensions.indexin(domain, dimnames_dest)
     invbiperm = (perm_codomain_dest..., perm_domain_dest...)
-    biperm_dest = biperm(invperm(invbiperm), length_codomain(dimnames_dest))
+    biperm_dest = biperm(invperm(invbiperm), length(codomain))
 
     perm_codomain1 = BaseExtensions.indexin(codomain, dimnames1)
     perm_domain1 = BaseExtensions.indexin(contracted, dimnames1)

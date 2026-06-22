@@ -217,8 +217,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
             # Don't specify destination labels
             a_dest, labels_dest′ = contract(a1, labels1, a2, labels2)
-            @test labels_dest′ isa
-                BlockedTuple{2, (length(setdiff(d1s, d2s)), length(setdiff(d2s, d1s)))}
+            @test issetequal(labels_dest′, symdiff(labels1, labels2))
             a_dest_tensoroperations, = contract(
                 a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
@@ -270,7 +269,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         a2 = randn(rng, elt2, 4, 5)
 
         a_dest, labels = contract(a1, ("i", "j"), a2, ("k", "l"))
-        @test labels == tuplemortar((("i", "j"), ("k", "l")))
+        @test labels == ["i", "j", "k", "l"]
         @test eltype(a_dest) === elt_dest
         @test a_dest ≈ reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...))
 
@@ -403,17 +402,17 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
         # Array-scalar contraction.
         a_dest, labels_dest = contract(a, labels_a, s, ())
-        @test labels_dest == tuplemortar((labels_a, ()))
+        @test labels_dest == collect(labels_a)
         @test a_dest ≈ a * s[]
 
         # Scalar-array contraction.
         a_dest, labels_dest = contract(s, (), a, labels_a)
-        @test labels_dest == tuplemortar(((), labels_a))
+        @test labels_dest == collect(labels_a)
         @test a_dest ≈ a * s[]
 
         # Scalar-scalar contraction.
         a_dest, labels_dest = contract(s, (), t, ())
-        @test labels_dest == tuplemortar(((), ()))
+        @test isempty(labels_dest)
         @test a_dest[] ≈ s[] * t[]
 
         # Specify output labels.
