@@ -1,13 +1,15 @@
 module TensorAlgebra
 
-export contract, contract!, eigen, eigvals, factorize, gram_eigh_full,
-    gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq, qr,
-    right_null, right_orth, right_polar, orth, polar, svd, svdvals
+export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc,
+    eigh_vals, gram_eigh_full, gram_eigh_full_with_pinv, left_null, left_orth,
+    left_polar, lq_compact, lq_full, qr_compact, qr_full, right_null, right_orth,
+    right_polar, svd_compact, svd_full, svd_trunc, svd_vals
 
 if VERSION >= v"1.11.0-DEV.469"
-    eval(Meta.parse("public contractopadd!, matricizeop"))
+    eval(Meta.parse("public contractopadd!, matricizeop, zero!, scale!, permuteddims"))
 end
 
+include("inplace.jl")
 include("MatrixAlgebra.jl")
 include("blockedtuple.jl")
 include("blockedpermutation.jl")

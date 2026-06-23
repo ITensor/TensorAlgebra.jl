@@ -1,8 +1,9 @@
 using LinearAlgebra: LinearAlgebra, I, diag, norm
 using MatrixAlgebraKit: truncrank
-using TensorAlgebra: TensorAlgebra, contract, eigen, eigvals, factorize, gram_eigh_full,
-    gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq, orth, polar, qr,
-    right_null, right_orth, right_polar, svd, svdvals
+using TensorAlgebra: TensorAlgebra, contract, eig_full, eig_vals, eigh_full, eigh_vals,
+    gram_eigh_full, gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq_compact,
+    lq_full, qr_compact, qr_full, right_null, right_orth, right_polar, svd_compact,
+    svd_full, svd_trunc, svd_vals
 using Test: @test, @testset
 using TestExtras: @constinferred
 
@@ -17,16 +18,16 @@ elts = (Float64, ComplexF64)
     labels_R = (:d, :c)
 
     Acopy = copy(A)
-    Q, R = @constinferred qr(A, labels_A, labels_Q, labels_R; full = true)
+    Q, R = @constinferred qr_full(A, labels_A, labels_Q, labels_R)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
     @test A ≈ A′
     @test size(Q, 1) * size(Q, 2) == size(Q, 3) # Q is unitary
 
-    Q, R = qr(A, (2, 1), (4, 3); full = true)
+    Q, R = qr_full(A, (2, 1), (4, 3))
     @test A ≈ contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
 
-    Q, R = qr(A, Val(2); full = true)
+    Q, R = qr_full(A, Val(2))
     @test A ≈ contract((:a, :b, :c, :d), Q, (:a, :b, :q), R, (:q, :c, :d))
 end
 
@@ -37,7 +38,7 @@ end
     labels_R = (:d, :c)
 
     Acopy = copy(A)
-    Q, R = @constinferred qr(A, labels_A, labels_Q, labels_R; full = false)
+    Q, R = @constinferred qr_compact(A, labels_A, labels_Q, labels_R)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
     @test A ≈ A′
@@ -53,13 +54,13 @@ end
     labels_L = (:b, :a)
 
     Acopy = copy(A)
-    L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full = true)
+    L, Q = @constinferred lq_full(A, labels_A, labels_L, labels_Q)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
     @test A ≈ A′
     @test size(Q, 1) == size(Q, 2) * size(Q, 3) # Q is unitary
 
-    L, Q = lq(A, (2, 1), (4, 3); full = true)
+    L, Q = lq_full(A, (2, 1), (4, 3))
     @test A ≈ contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
 end
 
@@ -70,7 +71,7 @@ end
     labels_L = (:b, :a)
 
     Acopy = copy(A)
-    L, Q = @constinferred lq(A, labels_A, labels_L, labels_Q; full = false)
+    L, Q = @constinferred lq_compact(A, labels_A, labels_L, labels_Q)
     @test A == Acopy # should not have altered initial array
     A′ = contract(labels_A, L, (labels_L..., :q), Q, (:q, labels_Q...))
     @test A ≈ A′
@@ -86,8 +87,7 @@ end
     labels_V′ = (:d, :c)
 
     Acopy = copy(A)
-    # type-unstable because of `ishermitian` difference
-    D, V = eigen(A, labels_A, labels_V, labels_V′; ishermitian = false)
+    D, V = eig_full(A, labels_A, labels_V, labels_V′)
     @test A == Acopy # should not have altered initial array
     @test eltype(D) == eltype(V) && eltype(D) <: Complex
 
@@ -95,8 +95,7 @@ end
     VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
     @test AV ≈ VD
 
-    # type-unstable because of `ishermitian` difference
-    Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian = false)
+    Dvals = eig_vals(A, labels_A, labels_V, labels_V′)
     @test Dvals ≈ diag(D)
     @test eltype(Dvals) <: Complex
 end
@@ -109,8 +108,7 @@ end
     labels_V′ = (:d, :c)
 
     Acopy = copy(A)
-    # type-unstable because of `ishermitian` difference
-    D, V = eigen(A, labels_A, labels_V, labels_V′; ishermitian = true)
+    D, V = eigh_full(A, labels_A, labels_V, labels_V′)
     @test A == Acopy # should not have altered initial array
     @test eltype(D) <: Real
     @test eltype(V) == eltype(A)
@@ -119,8 +117,7 @@ end
     VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
     @test AV ≈ VD
 
-    # type-unstable because of `ishermitian` difference
-    Dvals = eigvals(A, labels_A, labels_V, labels_V′; ishermitian = true)
+    Dvals = eigh_vals(A, labels_A, labels_V, labels_V′)
     @test Dvals ≈ diag(D)
     @test eltype(Dvals) <: Real
 end
@@ -134,7 +131,7 @@ end
     labels_Vᴴ = (:d, :c)
 
     Acopy = copy(A)
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = Val(true))
+    U, S, Vᴴ = @constinferred svd_full(A, labels_A, labels_U, labels_Vᴴ)
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
@@ -142,18 +139,18 @@ end
     @test size(U, 1) * size(U, 2) == size(U, 3) # U is unitary
     @test size(Vᴴ, 1) == size(Vᴴ, 2) * size(Vᴴ, 3) # V is unitary
 
-    U, S, Vᴴ = svd(A, (2, 1), (4, 3); full = Val(true))
+    U, S, Vᴴ = svd_full(A, (2, 1), (4, 3))
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     @test A ≈ contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = Val(true))
+    U, S, Vᴴ = @constinferred svd_full(A, labels_A, labels_A, ())
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_A..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v,))
     @test A ≈ A′
     @test size(Vᴴ, 1) == 1
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full = Val(true))
+    U, S, Vᴴ = @constinferred svd_full(A, labels_A, (), labels_A)
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (:u,), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_A...))
@@ -168,7 +165,7 @@ end
     labels_Vᴴ = (:d, :c)
 
     Acopy = copy(A)
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; full = Val(false))
+    U, S, Vᴴ = @constinferred svd_compact(A, labels_A, labels_U, labels_Vᴴ)
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
@@ -176,17 +173,17 @@ end
     k = min(size(S)...)
     @test size(U, 3) == k == size(Vᴴ, 1)
 
-    Svals = @constinferred svdvals(A, labels_A, labels_U, labels_Vᴴ)
+    Svals = @constinferred svd_vals(A, labels_A, labels_U, labels_Vᴴ)
     @test Svals ≈ diag(S)
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_A, (); full = Val(false))
+    U, S, Vᴴ = @constinferred svd_compact(A, labels_A, labels_A, ())
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_A..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v,))
     @test A ≈ A′
     @test size(U, ndims(U)) == 1 == size(Vᴴ, 1)
 
-    U, S, Vᴴ = @constinferred svd(A, labels_A, (), labels_A; full = Val(false))
+    U, S, Vᴴ = @constinferred svd_compact(A, labels_A, (), labels_A)
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (:u,), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_A...))
@@ -202,10 +199,10 @@ end
 
     # test truncated SVD
     Acopy = copy(A)
-    _, S_untrunc, _ = svd(A, labels_A, labels_U, labels_Vᴴ)
+    _, S_untrunc, _ = svd_compact(A, labels_A, labels_U, labels_Vᴴ)
 
     trunc = truncrank(size(S_untrunc, 1) - 1)
-    U, S, Vᴴ = @constinferred svd(A, labels_A, labels_U, labels_Vᴴ; trunc)
+    U, S, Vᴴ = @constinferred svd_trunc(A, labels_A, labels_U, labels_Vᴴ; trunc)
 
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
@@ -245,16 +242,11 @@ end
     labels_P = (:d, :c)
 
     Acopy = copy(A)
-    for (W, P) in (
-            left_polar(A, labels_A, labels_W, labels_P),
-            polar(A, labels_A, labels_W, labels_P; side = :left),
-            polar(A, labels_A, labels_W, labels_P),
-        )
-        @test A == Acopy # should not have altered initial array
-        A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
-        @test A ≈ A′
-        @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
-    end
+    W, P = left_polar(A, labels_A, labels_W, labels_P)
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
+    @test A ≈ A′
+    @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
 end
 
 @testset "Right polar ($T)" for T in elts
@@ -264,15 +256,11 @@ end
     labels_W = (:d, :c)
 
     Acopy = copy(A)
-    for (P, W) in (
-            right_polar(A, labels_A, labels_P, labels_W),
-            polar(A, labels_A, labels_P, labels_W; side = :right),
-        )
-        @test A == Acopy # should not have altered initial array
-        A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-        @test A ≈ A′
-        @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
-    end
+    P, W = right_polar(A, labels_A, labels_P, labels_W)
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
+    @test A ≈ A′
+    @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
 end
 
 @testset "Left orth ($T)" for T in elts
@@ -282,16 +270,14 @@ end
     labels_P = (:d, :c)
 
     Acopy = copy(A)
-    for (W, P) in (
-            left_orth(A, labels_A, labels_W, labels_P),
-            orth(A, labels_A, labels_W, labels_P; side = :left),
-            orth(A, labels_A, labels_W, labels_P),
-        )
-        @test A == Acopy # should not have altered initial array
-        A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
-        @test A ≈ A′
-        @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
-    end
+    W, P = left_orth(A, labels_A, labels_W, labels_P)
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
+    @test A ≈ A′
+    @test size(W, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+
+    W, P = left_orth(A, (2, 1), (4, 3))
+    @test A ≈ contract(labels_A, W, (labels_W..., :w), P, (:w, labels_P...))
 end
 
 @testset "Right orth ($T)" for T in elts
@@ -301,34 +287,14 @@ end
     labels_W = (:d, :c)
 
     Acopy = copy(A)
-    for (P, W) in (
-            right_orth(A, labels_A, labels_P, labels_W),
-            orth(A, labels_A, labels_P, labels_W; side = :right),
-        )
-        @test A == Acopy # should not have altered initial array
-        A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-        @test A ≈ A′
-        @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
-    end
-end
+    P, W = right_orth(A, labels_A, labels_P, labels_W)
+    @test A == Acopy # should not have altered initial array
+    A′ = contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
+    @test A ≈ A′
+    @test size(W, 1) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
 
-@testset "factorize ($T)" for T in elts
-    A = randn(T, 2, 2, 2, 2)
-    labels_A = (:a, :b, :c, :d)
-    labels_X = (:b, :a)
-    labels_Y = (:d, :c)
-
-    Acopy = copy(A)
-    for orth in (:left, :right)
-        X, Y = factorize(A, labels_A, labels_X, labels_Y; orth)
-        @test A == Acopy # should not have altered initial array
-        A′ = contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
-        @test A ≈ A′
-        @test size(X, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
-
-        X, Y = factorize(A, (2, 1), (4, 3); orth)
-        @test A ≈ contract(labels_A, X, (labels_X..., :x), Y, (:x, labels_Y...))
-    end
+    P, W = right_orth(A, (2, 1), (4, 3))
+    @test A ≈ contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
 end
 
 # Gram factorization

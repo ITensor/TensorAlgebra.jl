@@ -2,7 +2,11 @@
 # These types allow to store a Tuple of heterogeneous Tuples with a BlockArrays.jl like
 # interface.
 
-using TypeParameterAccessors: type_parameters, unspecify_type_parameters
+# Local replacements for the two `TypeParameterAccessors` helpers this file used, so
+# `TensorAlgebra` does not depend on that package. Same definitions it provided.
+unspecify_type_parameters(type::Type) = Base.typename(type).wrapper
+type_parameters(type::Type, position) = Base.unwrap_unionall(type).parameters[position]
+type_parameters(object, position) = type_parameters(typeof(object), position)
 
 # BlockArrays-like interface
 struct Block{N, T}

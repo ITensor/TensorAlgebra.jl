@@ -1,23 +1,18 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-for (f, f_mat) in (
-        (:qr, :(MatrixAlgebra.qr)),
-        (:lq, :(MatrixAlgebra.lq)),
-        (:left_polar, :(MatrixAlgebraKit.left_polar)),
-        (:right_polar, :(MatrixAlgebraKit.right_polar)),
-        (:polar, :(MatrixAlgebra.polar)),
-        (:left_orth, :(MatrixAlgebraKit.left_orth)),
-        (:right_orth, :(MatrixAlgebraKit.right_orth)),
-        (:orth, :(MatrixAlgebra.orth)),
-        (:factorize, :(MatrixAlgebra.factorize)),
+# Two-output factorizations: the first factor `X` has the codomain axes plus a trailing
+# rank axis, the second factor `Y` has a leading rank axis plus the domain axes.
+for f in (
+        :qr_compact, :qr_full, :lq_compact, :lq_full,
+        :left_polar, :right_polar, :left_orth, :right_orth,
     )
     @eval begin
         function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
-            X, Y = $f_mat(A_mat; kwargs...)
+            X, Y = MatrixAlgebraKit.$f(A_mat; kwargs...)
             biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-            axes_codomain, axes_domain = blocks(axes(A)[biperm])
+            axes_codomain, axes_domain = blocks(blockpermute(axes(A), biperm))
             axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
             axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
             return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
@@ -29,9 +24,11 @@ for (f, f_mat) in (
 end
 
 for f in (
-        :qr, :lq, :left_polar, :right_polar, :polar, :left_orth, :right_orth, :orth,
-        :factorize, :eigen, :eigvals, :svd, :svdvals, :left_null, :right_null,
-        :gram_eigh_full, :gram_eigh_full_with_pinv, :one,
+        :qr_compact, :qr_full, :lq_compact, :lq_full,
+        :left_polar, :right_polar, :left_orth, :right_orth,
+        :svd_compact, :svd_full, :svd_trunc, :svd_vals,
+        :eigh_full, :eig_full, :eigh_trunc, :eig_trunc, :eigh_vals, :eig_vals,
+        :left_null, :right_null, :gram_eigh_full, :gram_eigh_full_with_pinv, :one,
     )
     @eval begin
         function $f(
@@ -78,44 +75,80 @@ for f in (
 end
 
 """
-    qr(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
-    qr(A::AbstractArray, ndims_codomain::Val; kwargs...) -> Q, R
-    qr(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
+    qr_compact(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
+    qr_compact(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr_compact(A::AbstractArray, ndims_codomain::Val; kwargs...) -> Q, R
+    qr_compact(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
-Compute the QR decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation.
+Compute the compact QR decomposition of a generic N-dimensional array, by interpreting it
+as a linear map from the domain to the codomain dimensions, where `R` is square. The
+partition is specified either via labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `R` is square, respectively.
   - `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
-See also `MatrixAlgebraKit.qr_full!` and `MatrixAlgebraKit.qr_compact!`.
+See also `MatrixAlgebraKit.qr_compact!`.
 """
-qr
+qr_compact
 
 """
-    lq(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
-    lq(A::AbstractArray, ndims_codomain::Val; kwargs...) -> L, Q
-    lq(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
+    qr_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
+    qr_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> Q, R
+    qr_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> Q, R
 
-Compute the LQ decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation.
+Compute the full QR decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain dimensions, where `Q` is unitary. The
+partition is specified either via labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - `full::Bool=false`: select between a "full" or a "compact" decomposition, where `Q` is unitary or `L` is square, respectively.
+  - `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.qr_full!`.
+"""
+qr_full
+
+"""
+    lq_compact(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
+    lq_compact(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq_compact(A::AbstractArray, ndims_codomain::Val; kwargs...) -> L, Q
+    lq_compact(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
+
+Compute the compact LQ decomposition of a generic N-dimensional array, by interpreting it
+as a linear map from the domain to the codomain dimensions, where `L` is square. The
+partition is specified either via labels or directly through a bi-permutation.
+
+## Keyword arguments
+
   - `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
-See also `MatrixAlgebraKit.lq_full!` and `MatrixAlgebraKit.lq_compact!`.
+See also `MatrixAlgebraKit.lq_compact!`.
 """
-lq
+lq_compact
+
+"""
+    lq_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
+    lq_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> L, Q
+    lq_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> L, Q
+
+Compute the full LQ decomposition of a generic N-dimensional array, by interpreting it as
+a linear map from the domain to the codomain dimensions, where `Q` is unitary. The
+partition is specified either via labels or directly through a bi-permutation.
+
+## Keyword arguments
+
+  - `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
+See also `MatrixAlgebraKit.lq_full!`.
+"""
+lq_full
 
 """
     left_polar(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
@@ -189,174 +222,201 @@ See also `MatrixAlgebraKit.right_orth!`.
 """
 right_orth
 
-"""
-    factorize(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    factorize(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X, Y
-    factorize(A::AbstractArray, ndims_codomain::Val; kwargs...) -> X, Y
-    factorize(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> X, Y
+# Three-output SVD: `U` carries the codomain axes plus a trailing rank axis, `S` is the
+# rank × rank spectrum, and `Vᴴ` carries a leading rank axis plus the domain axes.
+for f in (:svd_compact, :svd_full, :svd_trunc)
+    @eval begin
+        function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+            A_mat = matricize(style, A, ndims_codomain)
+            U, S, Vᴴ = MatrixAlgebraKit.$f(A_mat; kwargs...)
+            biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
+            axes_codomain, axes_domain = blocks(blockpermute(axes(A), biperm))
+            axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
+            axes_S = tuplemortar(((axes(S, 1),), (axes(S, 2),)))
+            axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
+            return unmatricize(style, U, axes_U),
+                unmatricize(style, S, axes_S),
+                unmatricize(style, Vᴴ, axes_Vᴴ)
+        end
+        function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
+            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+        end
+    end
+end
 
-Compute the decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation.
+# Eigendecomposition: `D` is the rank × rank spectrum, left as a matrix, while `V` carries
+# the codomain axes plus a trailing rank axis.
+for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
+    @eval begin
+        function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+            A_mat = matricize(style, A, ndims_codomain)
+            D, V = MatrixAlgebraKit.$f(A_mat; kwargs...)
+            biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
+            axes_codomain, = blocks(blockpermute(axes(A), biperm))
+            axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
+            return D, unmatricize(style, V, axes_V)
+        end
+        function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
+            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+        end
+    end
+end
+
+# Spectrum-only factorizations returning a vector of singular values / eigenvalues.
+for f in (:svd_vals, :eigh_vals, :eig_vals)
+    @eval begin
+        function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
+            A_mat = matricize(style, A, ndims_codomain)
+            return MatrixAlgebraKit.$f(A_mat; kwargs...)
+        end
+        function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
+            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+        end
+    end
+end
+
+"""
+    svd_compact(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
+    svd_compact(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd_compact(A::AbstractArray, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
+    svd_compact(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
+
+Compute the compact (thin) SVD of a generic N-dimensional array, by interpreting it as a
+linear map from the domain to the codomain dimensions, where `U` and `Vᴴ` are isometric.
+The partition is specified either via labels or directly through a bi-permutation.
+
+See also `MatrixAlgebraKit.svd_compact!`.
+"""
+svd_compact
+
+"""
+    svd_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
+    svd_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
+    svd_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
+
+Compute the full (thick) SVD of a generic N-dimensional array, by interpreting it as a
+linear map from the domain to the codomain dimensions, where `U` and `Vᴴ` are unitary.
+The partition is specified either via labels or directly through a bi-permutation.
+
+See also `MatrixAlgebraKit.svd_full!`.
+"""
+svd_full
+
+"""
+    svd_trunc(A::AbstractArray, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ
+    svd_trunc(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ
+    svd_trunc(A::AbstractArray, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ
+    svd_trunc(A::AbstractArray, biperm::AbstractBlockPermutation{2}; trunc, kwargs...) -> U, S, Vᴴ
+
+Compute the truncated SVD of a generic N-dimensional array, by interpreting it as a linear
+map from the domain to the codomain dimensions. The partition is specified either via
+labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - `orth::Symbol=:left`: specify the orthogonality of the decomposition.
-    Currently only `:left` and `:right` are supported.
-  - Other keywords are passed on directly to MatrixAlgebraKit.
-"""
-factorize
-
-"""
-    eigen(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eigen(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
-    eigen(A::AbstractArray, ndims_codomain::Val; kwargs...) -> D, V
-    eigen(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
-
-Compute the eigenvalue decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation.
-
-## Keyword arguments
-
-  - `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
-    computation. If `false`, the output `eltype` will always be `<:Complex`.
-  - `trunc`: Truncation keywords for `eig(h)_trunc`.
+  - `trunc`: truncation strategy, passed on to `MatrixAlgebraKit.svd_trunc`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
-See also `MatrixAlgebraKit.eig_full!`, `MatrixAlgebraKit.eig_trunc!`, `MatrixAlgebraKit.eig_vals!`,
-`MatrixAlgebraKit.eigh_full!`, `MatrixAlgebraKit.eigh_trunc!`, and `MatrixAlgebraKit.eigh_vals!`.
+See also `MatrixAlgebraKit.svd_trunc!`.
 """
-eigen
-
-function eigen!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
-    # tensor to matrix
-    A_mat = matricize(style, A, ndims_codomain)
-    D, V = MatrixAlgebra.eigen!!(A_mat; kwargs...)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain, = blocks(axes(A)[biperm])
-    axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
-    # TODO: Make sure `D` has the same basis as `V`.
-    return D, unmatricize(style, V, axes_V)
-end
-function eigen!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigen!!(FusionStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function eigen(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigen!!(style, copy(A), ndims_codomain; kwargs...)
-end
-function eigen(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigen!!(copy(A), ndims_codomain; kwargs...)
-end
+svd_trunc
 
 """
-    eigvals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eigvals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
-    eigvals(A::AbstractArray, ndims_codomain::Val; kwargs...) -> D
-    eigvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
+    svd_vals(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> S
+    svd_vals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> S
+    svd_vals(A::AbstractArray, ndims_codomain::Val) -> S
+    svd_vals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
 
-Compute the eigenvalues of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation. The output is a vector of eigenvalues.
-
-## Keyword arguments
-
-  - `ishermitian::Bool`: specify if the matrix is Hermitian, which can be used to speed up the
-    computation. If `false`, the output `eltype` will always be `<:Complex`.
-  - Other keywords are passed on directly to MatrixAlgebraKit.
-
-See also `MatrixAlgebraKit.eig_vals!` and `MatrixAlgebraKit.eigh_vals!`.
-"""
-eigvals
-
-function eigvals!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
-    return MatrixAlgebra.eigvals!!(A_mat; kwargs...)
-end
-function eigvals!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigvals!!(FusionStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function eigvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigvals!!(style, copy(A), ndims_codomain; kwargs...)
-end
-function eigvals(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return eigvals!!(copy(A), ndims_codomain; kwargs...)
-end
-
-"""
-    svd(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
-    svd(A::AbstractArray, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
-    svd(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> U, S, Vᴴ
-
-Compute the SVD decomposition of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation.
-
-## Keyword arguments
-
-  - `full::Bool=false`: select between a "thick" or a "thin" decomposition, where both `U` and `Vᴴ`
-    are unitary or isometric.
-  - `trunc`: Truncation keywords for `svd_trunc`. Not compatible with `full=true`.
-  - Other keywords are passed on directly to MatrixAlgebraKit.
-
-See also `MatrixAlgebraKit.svd_full!`, `MatrixAlgebraKit.svd_compact!`, and `MatrixAlgebraKit.svd_trunc!`.
-"""
-svd
-
-function svd!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
-    U, S, Vᴴ = MatrixAlgebra.svd!!(A_mat; kwargs...)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain, axes_domain = blocks(axes(A)[biperm])
-    axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
-    axes_S = tuplemortar(((axes(S, 1),), (axes(S, 2),)))
-    axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
-    return unmatricize(style, U, axes_U),
-        unmatricize(style, S, axes_S),
-        unmatricize(style, Vᴴ, axes_Vᴴ)
-end
-function svd!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return svd!!(FusionStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function svd(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return svd!!(style, copy(A), ndims_codomain; kwargs...)
-end
-function svd(A::AbstractArray, ndims_codomain::Val; kwargs...)
-    return svd!!(copy(A), ndims_codomain; kwargs...)
-end
-
-"""
-    svdvals(A::AbstractArray, labels_A, labels_codomain, labels_domain) -> S
-    svdvals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> S
-    svdvals(A::AbstractArray, ndims_codomain::Val) -> S
-    svdvals(A::AbstractArray, biperm::AbstractBlockPermutation{2}) -> S
-
-Compute the singular values of a generic N-dimensional array, by interpreting it as
-a linear map from the domain to the codomain dimensions. These can be specified either via
-their labels or directly through a bi-permutation. The output is a vector of singular values.
+Compute the singular values of a generic N-dimensional array, by interpreting it as a
+linear map from the domain to the codomain dimensions. The partition is specified either
+via labels or directly through a bi-permutation. The output is a vector of singular values.
 
 See also `MatrixAlgebraKit.svd_vals!`.
 """
-svdvals
+svd_vals
 
-function svdvals!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val)
-    A_mat = matricize(style, A, ndims_codomain)
-    return MatrixAlgebra.svdvals!!(A_mat)
-end
-function svdvals!!(A::AbstractArray, ndims_codomain::Val)
-    return svdvals!!(FusionStyle(A), A, ndims_codomain)
-end
+"""
+    eigh_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
+    eigh_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eigh_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> D, V
+    eigh_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
 
-function svdvals(style::FusionStyle, A::AbstractArray, ndims_codomain::Val)
-    return svdvals!!(style, copy(A), ndims_codomain)
-end
-function svdvals(A::AbstractArray, ndims_codomain::Val)
-    return svdvals!!(copy(A), ndims_codomain)
-end
+Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
+Hermitian linear map from the domain to the codomain dimensions. The partition is specified
+either via labels or directly through a bi-permutation.
+
+See also `MatrixAlgebraKit.eigh_full!`.
+"""
+eigh_full
+
+"""
+    eig_full(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
+    eig_full(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eig_full(A::AbstractArray, ndims_codomain::Val; kwargs...) -> D, V
+    eig_full(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D, V
+
+Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
+general (non-Hermitian) linear map from the domain to the codomain dimensions. The output
+`eltype` is always `<:Complex`. The partition is specified either via labels or directly
+through a bi-permutation.
+
+See also `MatrixAlgebraKit.eig_full!`.
+"""
+eig_full
+
+"""
+    eigh_trunc(A::AbstractArray, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> D, V
+    eigh_trunc(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> D, V
+    eigh_trunc(A::AbstractArray, ndims_codomain::Val; trunc, kwargs...) -> D, V
+    eigh_trunc(A::AbstractArray, biperm::AbstractBlockPermutation{2}; trunc, kwargs...) -> D, V
+
+Truncated Hermitian eigenvalue decomposition, like [`eigh_full`](@ref) but keeping only the
+eigenvalues selected by the `trunc` strategy.
+
+See also `MatrixAlgebraKit.eigh_trunc!`.
+"""
+eigh_trunc
+
+"""
+    eig_trunc(A::AbstractArray, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> D, V
+    eig_trunc(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> D, V
+    eig_trunc(A::AbstractArray, ndims_codomain::Val; trunc, kwargs...) -> D, V
+    eig_trunc(A::AbstractArray, biperm::AbstractBlockPermutation{2}; trunc, kwargs...) -> D, V
+
+Truncated general eigenvalue decomposition, like [`eig_full`](@ref) but keeping only the
+eigenvalues selected by the `trunc` strategy.
+
+See also `MatrixAlgebraKit.eig_trunc!`.
+"""
+eig_trunc
+
+"""
+    eigh_vals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
+    eigh_vals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eigh_vals(A::AbstractArray, ndims_codomain::Val; kwargs...) -> D
+    eigh_vals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
+
+Compute the eigenvalues of a generic N-dimensional array interpreted as a Hermitian linear
+map from the domain to the codomain dimensions. The output is a vector of eigenvalues.
+
+See also `MatrixAlgebraKit.eigh_vals!`.
+"""
+eigh_vals
+
+"""
+    eig_vals(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> D
+    eig_vals(A::AbstractArray, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eig_vals(A::AbstractArray, ndims_codomain::Val; kwargs...) -> D
+    eig_vals(A::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...) -> D
+
+Compute the eigenvalues of a generic N-dimensional array interpreted as a general
+(non-Hermitian) linear map from the domain to the codomain dimensions. The output is a
+vector of eigenvalues with `<:Complex` `eltype`.
+
+See also `MatrixAlgebraKit.eig_vals!`.
+"""
+eig_vals
 
 """
     left_null(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...) -> N
@@ -383,7 +443,7 @@ function left_null!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; 
     A_mat = matricize(style, A, ndims_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_codomain = first(blocks(blockpermute(axes(A), biperm)))
     axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
     return unmatricize(style, N, axes_N)
 end
@@ -423,7 +483,7 @@ function right_null!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val;
     A_mat = matricize(style, A, ndims_codomain)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_domain = last(blocks((axes(A)[biperm])))
+    axes_domain = last(blocks((blockpermute(axes(A), biperm))))
     axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
     return unmatricize(style, Nᴴ, axes_Nᴴ)
 end
@@ -482,7 +542,7 @@ function gram_eigh_full!!(
     A_mat = matricize(style, A, ndims_codomain)
     X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_codomain = first(blocks(blockpermute(axes(A), biperm)))
     axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
     return unmatricize(style, X, axes_X)
 end
@@ -546,7 +606,7 @@ function gram_eigh_full_with_pinv!!(
     A_mat = matricize(style, A, ndims_codomain)
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain = first(blocks(axes(A)[biperm]))
+    axes_codomain = first(blocks(blockpermute(axes(A), biperm)))
     axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
     axes_Y = tuplemortar(((axes(Y, 1),), conj.(axes_codomain)))
     return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
@@ -602,7 +662,7 @@ function one!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
     biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain, axes_domain = blocks(axes(A)[biperm])
+    axes_codomain, axes_domain = blocks(blockpermute(axes(A), biperm))
     return unmatricize(style, A_mat, axes_codomain, axes_domain)
 end
 function one!!(A::AbstractArray, ndims_codomain::Val; kwargs...)

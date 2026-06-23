@@ -1,5 +1,4 @@
 using Base.PermutedDimsArrays: genperm
-using FunctionImplementations: zero!
 
 function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
@@ -51,8 +50,8 @@ function output_axes(
     biperm1 = permmortar((perm1_codomain, perm1_domain))
     biperm2 = permmortar((perm2_codomain, perm2_domain))
     biperm_dest = permmortar((perm_dest_codomain, perm_dest_domain))
-    axes_codomain, axes_contracted = blocks(axes(a1)[biperm1])
-    axes_contracted2, axes_domain = blocks(axes(a2)[biperm2])
+    axes_codomain, axes_contracted = blocks(blockpermute(axes(a1), biperm1))
+    axes_contracted2, axes_domain = blocks(blockpermute(axes(a2), biperm2))
     @assert length.(axes_contracted) == length.(axes_contracted2)
     # default: flatten biperm_out
     return genperm((axes_codomain..., axes_domain...), Tuple(biperm_dest))

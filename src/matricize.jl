@@ -130,7 +130,7 @@ function matricize_axes(style::FusionStyle, a::AbstractArray, ndims_codomain::Va
     unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
     biperm = trivialbiperm(ndims_codomain, Val(ndims(a)))
-    return matricize_axes(style, a, blocks(axes(a)[biperm])...)
+    return matricize_axes(style, a, blocks(blockpermute(axes(a), biperm))...)
 end
 function matricize_axes(a::AbstractArray, ndims_codomain::Val)
     return matricize_axes(FusionStyle(a), a, ndims_codomain)
@@ -326,7 +326,7 @@ function unmatricize(
     invbiperm = permmortar((invperm_codomain, invperm_domain))
     length(axes_dest) == length(invbiperm) ||
         throw(ArgumentError("axes do not match permutation"))
-    blocked_axes = axes_dest[invbiperm]
+    blocked_axes = blockpermute(axes_dest, invbiperm)
     a12 = unmatricize(style, m, blocked_axes)
     biperm_dest = biperm(invperm(invbiperm), length_codomain(axes_dest))
     return bipermutedims(a12, biperm_dest)
@@ -355,7 +355,7 @@ function unmatricize!(
     invbiperm = permmortar((invperm_codomain, invperm_domain))
     ndims(a_dest) == length(invbiperm) ||
         throw(ArgumentError("destination does not match permutation"))
-    blocked_axes = axes(a_dest)[invbiperm]
+    blocked_axes = blockpermute(axes(a_dest), invbiperm)
     a_perm = unmatricize(style, m, blocked_axes)
     biperm_dest = biperm(invperm(invbiperm), length_codomain(axes(a_dest)))
     return bipermutedims!(a_dest, a_perm, biperm_dest)

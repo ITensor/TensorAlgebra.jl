@@ -1,77 +1,16 @@
 module MatrixAlgebra
 
-export eigen,
-    eigvals,
-    factorize,
-    gram_eigh_full,
+export gram_eigh_full,
     gram_eigh_full_with_pinv,
     invsqrt_diag_safe,
     invsqrth_safe,
-    lq,
-    orth,
-    polar,
     pow_diag_safe,
     powh_safe,
-    qr,
     sqrt_diag_safe,
-    sqrth_safe,
-    svd,
-    svdvals
+    sqrth_safe
 
 using LinearAlgebra: LinearAlgebra, Diagonal, isdiag, norm
 using MatrixAlgebraKit: MatrixAlgebraKit as MAK
-
-for (f, f_full, f_compact) in (
-        (:qr, :qr_full, :qr_compact),
-        (:qr!!, :qr_full!, :qr_compact!),
-        (:lq, :lq_full, :lq_compact),
-        (:lq!!, :lq_full!, :lq_compact!),
-    )
-    @eval begin
-        function $f(A::AbstractMatrix; full::Bool = false, kwargs...)
-            return full ? MAK.$f_full(A; kwargs...) : MAK.$f_compact(A; kwargs...)
-        end
-    end
-end
-
-for (eigen, eigh_full, eig_full, eigh_trunc, eig_trunc) in (
-        (:eigen, :eigh_full, :eig_full, :eigh_trunc, :eig_trunc),
-        (:eigen!!, :eigh_full!, :eig_full!, :eigh_trunc!, :eig_trunc!),
-    )
-    @eval begin
-        function $eigen(
-                A::AbstractMatrix;
-                trunc = nothing,
-                ishermitian = nothing,
-                kwargs...
-            )
-            ishermitian = @something ishermitian LinearAlgebra.ishermitian(A)
-            return if !isnothing(trunc)
-                if ishermitian
-                    MAK.$eigh_trunc(A; trunc, kwargs...)
-                else
-                    MAK.$eig_trunc(A; trunc, kwargs...)
-                end
-            else
-                if ishermitian
-                    MAK.$eigh_full(A; kwargs...)
-                else
-                    MAK.$eig_full(A; kwargs...)
-                end
-            end
-        end
-    end
-end
-
-for (eigvals, eigh_vals, eig_vals) in
-    ((:eigvals, :eigh_vals, :eig_vals), (:eigvals!!, :eigh_vals!, :eig_vals!))
-    @eval begin
-        function $eigvals(A::AbstractMatrix; ishermitian = nothing, kwargs...)
-            ishermitian = @something ishermitian LinearAlgebra.ishermitian(A)
-            return ishermitian ? MAK.$eigh_vals(A; kwargs...) : MAK.$eig_vals(A; kwargs...)
-        end
-    end
-end
 
 function _clamp_kwargs_doc(arg::AbstractString)
     return join(
@@ -273,90 +212,6 @@ true
 ```
 """
 gram_eigh_full_with_pinv
-
-for (svd, svd_trunc, svd_full, svd_compact) in (
-        (:svd, :svd_trunc, :svd_full, :svd_compact),
-        (:svd!!, :svd_trunc!, :svd_full!, :svd_compact!),
-    )
-    _svd = Symbol(:_, svd)
-    @eval begin
-        function $svd(
-                A::AbstractMatrix; full::Union{Bool, Val} = Val(false), trunc = nothing,
-                kwargs...
-            )
-            return $_svd(full, trunc, A; kwargs...)
-        end
-        function $_svd(full::Bool, trunc, A::AbstractMatrix; kwargs...)
-            return $_svd(Val(full), trunc, A; kwargs...)
-        end
-        function $_svd(full::Val{false}, trunc::Nothing, A::AbstractMatrix; kwargs...)
-            return MAK.$svd_compact(A; kwargs...)
-        end
-        function $_svd(full::Val{false}, trunc, A::AbstractMatrix; kwargs...)
-            return MAK.$svd_trunc(A; trunc, kwargs...)
-        end
-        function $_svd(full::Val{true}, trunc::Nothing, A::AbstractMatrix; kwargs...)
-            return MAK.$svd_full(A; kwargs...)
-        end
-        function $_svd(full::Val{true}, trunc, A::AbstractMatrix; kwargs...)
-            return throw(
-                ArgumentError(
-                    "Specified both full and truncation, currently not supported"
-                )
-            )
-        end
-    end
-end
-
-for (svdvals, svd_vals) in ((:svdvals, :svd_vals), (:svdvals!!, :svd_vals!))
-    @eval begin
-        function $svdvals(A::AbstractMatrix; ishermitian = nothing, kwargs...)
-            return MAK.$svd_vals(A; kwargs...)
-        end
-    end
-end
-
-for (polar, left_polar, right_polar) in
-    ((:polar, :left_polar, :right_polar), (:polar!!, :left_polar!, :right_polar!))
-    @eval begin
-        function $polar(A::AbstractMatrix; side = :left, kwargs...)
-            return if side == :left
-                MAK.$left_polar(A; kwargs...)
-            elseif side == :right
-                MAK.$right_polar(A; kwargs...)
-            else
-                throw(ArgumentError("`side = $side` not supported."))
-            end
-        end
-    end
-end
-
-for (orth, left_orth, right_orth) in
-    ((:orth, :left_orth, :right_orth), (:orth!!, :left_orth!, :right_orth!))
-    @eval begin
-        function $orth(A::AbstractMatrix; side = :left, kwargs...)
-            return if side == :left
-                MAK.$left_orth(A; kwargs...)
-            elseif side == :right
-                MAK.$right_orth(A; kwargs...)
-            else
-                throw(ArgumentError("`side = $side` not supported."))
-            end
-        end
-    end
-end
-
-for (factorize, orth_f) in ((:factorize, :(MatrixAlgebra.orth)), (:factorize!!, :orth!!))
-    @eval begin
-        function $factorize(A::AbstractMatrix; orth = :left, kwargs...)
-            return if orth in (:left, :right)
-                $orth_f(A; side = orth, kwargs...)
-            else
-                throw(ArgumentError("`orth = $orth` not supported."))
-            end
-        end
-    end
-end
 
 using MatrixAlgebraKit: MatrixAlgebraKit, TruncationStrategy
 

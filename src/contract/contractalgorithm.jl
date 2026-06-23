@@ -3,9 +3,12 @@ ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 
 struct DefaultContractAlgorithm <: ContractAlgorithm end
 
-struct Matricize{Style} <: ContractAlgorithm
-    fusion_style::Style
+struct Matricize{LeftStyle, RightStyle, OutputStyle} <: ContractAlgorithm
+    left_fusion_style::LeftStyle
+    right_fusion_style::RightStyle
+    output_fusion_style::OutputStyle
 end
+Matricize(fusion_style) = Matricize(fusion_style, fusion_style, fusion_style)
 Matricize() = Matricize(ReshapeFusion())
 
 function select_contract_algorithm(algorithm, a1::AbstractArray, a2::AbstractArray)

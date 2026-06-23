@@ -56,8 +56,6 @@ function blockpermute(v, blockedperm::AbstractBlockPermutation)
     return tuplemortar(map(blockperm -> map(i -> v[i], blockperm), blocks(blockedperm)))
 end
 
-Base.getindex(v, perm::AbstractBlockPermutation) = blockpermute(v, perm)
-
 #
 # Constructors
 #
