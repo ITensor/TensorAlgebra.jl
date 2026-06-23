@@ -5,9 +5,10 @@ export contract, contract!, eigen, eigvals, factorize, gram_eigh_full,
     right_null, right_orth, right_polar, orth, polar, svd, svdvals
 
 if VERSION >= v"1.11.0-DEV.469"
-    eval(Meta.parse("public contractopadd!, matricizeop"))
+    eval(Meta.parse("public contractopadd!, matricizeop, zero!, scale!, permuteddims"))
 end
 
+include("inplace.jl")
 include("MatrixAlgebra.jl")
 include("blockedtuple.jl")
 include("blockedpermutation.jl")

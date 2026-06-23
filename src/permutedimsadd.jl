@@ -1,6 +1,13 @@
-using FunctionImplementations: permuteddims
 using Strided: Strided
 using StridedViews: StridedViews as SV
+
+"""
+    permuteddims(a::AbstractArray, perm)
+
+Lazy `permutedims`, defaulting to a `Base.PermutedDimsArray` view. This is an extension
+hook: downstream array types can overload it to return a custom lazy permuted-dims type.
+"""
+permuteddims(a::AbstractArray, perm) = PermutedDimsArray(a, perm)
 
 # Specify if an array is on CPU. This is helpful for backends that don't support
 # operations on GPU, such as Strided.jl.

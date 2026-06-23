@@ -37,7 +37,7 @@ for f in MATRIX_FUNCTIONS
             a_mat = matricize(style, a, ndims_codomain)
             fa_mat = Base.$f(a_mat; kwargs...)
             biperm = trivialbiperm(ndims_codomain, Val(ndims(a)))
-            return unmatricize(style, fa_mat, axes(a)[biperm])
+            return unmatricize(style, fa_mat, blockpermute(axes(a), biperm))
         end
         function $f(a::AbstractArray, ndims_codomain::Val; kwargs...)
             return $f(FusionStyle(a), a, ndims_codomain; kwargs...)

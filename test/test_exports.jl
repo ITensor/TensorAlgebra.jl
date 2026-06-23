@@ -26,7 +26,7 @@ using Test: @test, @testset
     ]
     # `public` (Julia 1.11+) adds names to `names()`; include them on 1.11+.
     if VERSION >= v"1.11.0-DEV.469"
-        append!(exports, [:contractopadd!, :matricizeop])
+        append!(exports, [:contractopadd!, :matricizeop, :zero!, :scale!, :permuteddims])
     end
     @test issetequal(names(TensorAlgebra), exports)
 

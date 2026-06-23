@@ -137,9 +137,8 @@ using TestExtras: @constinferred
     @test (@constinferred blockpermute(t, p)) isa
         BlockedTuple{3, (2, 0, 2), NTuple{4, Int64}}
     @test blockpermute(t, p) == pblocks
-    @test t[p] == pblocks
-    @test pblocks[p] == tuplemortar(((2, 1), (), (4, 3)))
-    @test p[p] == tuplemortar(((2, 1), (), (4, 3)))
+    @test blockpermute(pblocks, p) == tuplemortar(((2, 1), (), (4, 3)))
+    @test blockpermute(p, p) == tuplemortar(((2, 1), (), (4, 3)))
 end
 
 @testset "BlockedTrivialPermutation" begin
