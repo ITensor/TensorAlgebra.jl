@@ -14,11 +14,14 @@ function contractopadd!(
         a1, biperm1_codomain, biperm1_domain,
         a2, biperm2_codomain, biperm2_domain
     )
-    a1_mat = matricizeop(algorithm.fusion_style, op1, a1, biperm1_codomain, biperm1_domain)
-    a2_mat = matricizeop(algorithm.fusion_style, op2, a2, biperm2_codomain, biperm2_domain)
+    a1_mat =
+        matricizeop(algorithm.left_fusion_style, op1, a1, biperm1_codomain, biperm1_domain)
+    a2_mat =
+        matricizeop(algorithm.right_fusion_style, op2, a2, biperm2_codomain, biperm2_domain)
     a_dest_mat = a1_mat * a2_mat
     unmatricizeadd!(
-        algorithm.fusion_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain, α, β
+        algorithm.output_fusion_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain,
+        α, β
     )
     return a_dest
 end
