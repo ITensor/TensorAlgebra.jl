@@ -7,7 +7,7 @@ function contractopadd!(
     )
     biperm_dest = (biperm_dest_codomain..., biperm_dest_domain...)
     invperm_codomain, invperm_domain =
-        blocks(biperm(invperm(biperm_dest), length(biperm1_codomain)))
+        bipartition(invperm(biperm_dest), Val(length(biperm1_codomain)))
     check_input(
         contract!,
         a_dest, invperm_codomain, invperm_domain,

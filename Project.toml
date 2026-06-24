@@ -1,6 +1,6 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 
 [workspace]
@@ -15,19 +15,16 @@ StridedViews = "4db3bf67-4bd7-4b4e-b153-31dc3fb37143"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 
 [weakdeps]
-BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 
 [extensions]
-TensorAlgebraBlockArraysExt = "BlockArrays"
 TensorAlgebraGPUArraysCoreExt = "GPUArraysCore"
 TensorAlgebraMooncakeExt = "Mooncake"
 TensorAlgebraTensorOperationsExt = "TensorOperations"
 
 [compat]
-BlockArrays = "1.7.2"
 EllipsisNotation = "1.8"
 GPUArraysCore = "0.2"
 LinearAlgebra = "1.10"

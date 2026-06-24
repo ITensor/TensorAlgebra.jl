@@ -1,9 +1,9 @@
 import TensorAlgebra
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
-using TensorAlgebra: BlockedTuple, ContractAlgorithm, bipermutedims, bipermutedims!,
-    blockedpermvcat, contract, contract!, contractadd!, length_codomain, length_domain,
-    matricize, tuplemortar, unmatricize, unmatricize!
+using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
+    contract!, contractadd!, length_codomain, length_domain, matricize, unmatricize,
+    unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -13,7 +13,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 @testset "TensorAlgebra" begin
     @testset "misc" begin
         t = (1, 2, 3)
-        bt = tuplemortar(((1, 2), (3,)))
+        bt = BiTuple((1, 2), (3,))
         @test length_codomain(t) == 3
         @test length_codomain(bt) == 2
         @test length_domain(t) == 0
@@ -27,7 +27,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
     @testset "bipermutedims (eltype=$elt)" for elt in elts
         a = randn(elt, 2, 3, 4, 5)
-        a_perm = bipermutedims(a, blockedpermvcat((3, 1), (2, 4)))
+        a_perm = bipermutedims(a, BiTuple((3, 1), (2, 4)))
         @test a_perm == permutedims(a, (3, 1, 2, 4))
 
         a = randn(elt, 2, 3, 4, 5)
@@ -36,7 +36,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
         a = randn(elt, 2, 3, 4, 5)
         a_perm = Array{elt}(undef, (4, 2, 3, 5))
-        bipermutedims!(a_perm, a, blockedpermvcat((3, 1), (2, 4)))
+        bipermutedims!(a_perm, a, BiTuple((3, 1), (2, 4)))
         @test a_perm == permutedims(a, (3, 1, 2, 4))
 
         a = randn(elt, 2, 3, 4, 5)
@@ -46,10 +46,6 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
     end
     @testset "matricize (eltype=$elt)" for elt in elts
         a = randn(elt, 2, 3, 4, 5)
-
-        a_fused = matricize(a, blockedpermvcat((1, 2), (3, 4)))
-        @test eltype(a_fused) === elt
-        @test a_fused ≈ reshape(a, 6, 20)
 
         a_fused = matricize(a, (1, 2), (3, 4))
         @test eltype(a_fused) === elt
@@ -76,7 +72,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
         @test_throws MethodError matricize(a, (1, 2), (3,), (4,))
         @test_throws MethodError matricize(a, (1, 2, 3, 4))
-        @test_throws ArgumentError matricize(a, blockedpermvcat((1, 2), (3,)))
+        @test_throws ArgumentError matricize(a, (1, 2), (3,))
 
         v = ones(elt, 2)
         a_fused = matricize(v, (1,), ())
@@ -128,35 +124,34 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         axes0 = axes(a0)
         m = reshape(a0, 6, 20)
 
-        a = unmatricize(m, tuplemortar((axes0[1:2], axes0[3:4])))
-        @test eltype(a) === elt
-        @test a ≈ a0
-
         a = unmatricize(m, axes0[1:2], axes0[3:4])
         @test eltype(a) === elt
         @test a ≈ a0
 
-        a = unmatricize(m, axes0, blockedpermvcat((1, 2), (3, 4)))
+        a = unmatricize(m, axes0, (1, 2), (3, 4))
         @test eltype(a) === elt
         @test a ≈ a0
 
-        bp = blockedpermvcat((4, 2), (1, 3))
-        bpinv = blockedpermvcat((3, 2), (4, 1))
-        a = unmatricize(m, map(i -> axes0[i], bp), bpinv)
+        perm_codomain = (4, 2)
+        perm_domain = (1, 3)
+        invperm_codomain = (3, 2)
+        invperm_domain = (4, 1)
+        perm = (4, 2, 1, 3)
+        a = unmatricize(m, map(i -> axes0[i], perm), invperm_codomain, invperm_domain)
         @test eltype(a) === elt
-        @test a ≈ permutedims(a0, Tuple(bp))
+        @test a ≈ permutedims(a0, perm)
 
         a = similar(a0)
-        unmatricize!(a, m, blockedpermvcat((1, 2), (3, 4)))
+        unmatricize!(a, m, (1, 2), (3, 4))
         @test a ≈ a0
 
-        m1 = matricize(a0, bp)
-        a = unmatricize(m1, axes0, bp)
+        m1 = matricize(a0, perm_codomain, perm_domain)
+        a = unmatricize(m1, axes0, perm_codomain, perm_domain)
         @test a ≈ a0
 
-        a1 = permutedims(a0, Tuple(bp))
+        a1 = permutedims(a0, perm)
         a = similar(a1)
-        unmatricize!(a, m, bpinv)
+        unmatricize!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
 
         a = unmatricize(m, (), axes0)
@@ -172,8 +167,8 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         @test a isa Array{elt, 0}
         @test a[] == m[1, 1]
 
-        @test_throws ArgumentError unmatricize(m, (), blockedpermvcat((1, 2), (3,)))
-        @test_throws ArgumentError unmatricize!(m, m, blockedpermvcat((1, 2), (3,)))
+        @test_throws ArgumentError unmatricize(m, (), (1, 2), (3,))
+        @test_throws ArgumentError unmatricize!(m, m, (1, 2), (3,))
     end
 
     alg_tensoroperations = ContractAlgorithm(TensorOperations.StridedBLAS())
@@ -230,11 +225,6 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             )
             @test a_dest ≈ a_dest_tensoroperations
 
-            # Specify with bituple
-            a_dest = contract(tuplemortar((labels_dest, ())), a1, labels1, a2, labels2)
-            @test a_dest ≈ a_dest_tensoroperations
-            a_dest = contract(tuplemortar(((), labels_dest)), a1, labels1, a2, labels2)
-            @test a_dest ≈ a_dest_tensoroperations
             a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
             a_dest_tensoroperations = contract(
                 labels_dest′, a1, labels1, a2, labels2; alg = alg_tensoroperations

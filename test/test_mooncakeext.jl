@@ -1,10 +1,8 @@
-using BlockArrays: blocks
 using Mooncake: Mooncake
 using Random: Random
-using TensorAlgebra: AbstractBlockPermutation, BlockedPermutation, ContractAlgorithm,
-    DefaultContractAlgorithm, Matricize, allocate_output, biperm, blockedperms, check_input,
-    contract, contract!, contract_labels, contractadd!, default_contract_algorithm,
-    permmortar, select_contract_algorithm
+using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm, Matricize,
+    allocate_output, biperm, biperms, check_input, contract, contract!, contract_labels,
+    contractadd!, default_contract_algorithm, select_contract_algorithm
 using Test: @test, @testset
 
 @testset "MooncakeExt" begin
@@ -15,8 +13,7 @@ using Test: @test, @testset
     atol = eps(real(elt))^(3 / 4)
     rtol = eps(real(elt))^(3 / 4)
     @testset "zero derivatives" begin
-        @test Mooncake.tangent_type(AbstractBlockPermutation) ≡ Mooncake.NoTangent
-        @test Mooncake.tangent_type(BlockedPermutation) ≡ Mooncake.NoTangent
+        @test Mooncake.tangent_type(BiTuple) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(ContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(DefaultContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(Matricize) ≡ Mooncake.NoTangent
@@ -24,29 +21,32 @@ using Test: @test, @testset
         dest = randn(elt, (2, 2))
         a1 = randn(elt, (2, 2))
         a2 = randn(elt, (2, 2))
-        biperm_dest = permmortar(((1,), (2,)))
-        biperm1 = permmortar(((1,), (2,)))
-        biperm2 = permmortar(((1,), (2,)))
+        biperm_dest = BiTuple((1,), (2,))
+        biperm1 = BiTuple((1,), (2,))
+        biperm2 = BiTuple((1,), (2,))
         labels_dest = (:i, :k)
         labels1 = (:i, :j)
         labels2 = (:j, :k)
 
         Mooncake.TestUtils.test_rule(
-            rng, allocate_output, contract, blocks(biperm_dest)..., a1, blocks(biperm1)...,
-            a2, blocks(biperm2)...; mode, is_primitive
-        )
-        Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), Val(2); mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), 2; mode, is_primitive)
-        Mooncake.TestUtils.test_rule(
-            rng, blockedperms, contract, labels_dest, labels1, labels2; mode, is_primitive
+            rng, allocate_output, contract, biperm_dest.t1, biperm_dest.t2, a1, biperm1.t1,
+            biperm1.t2,
+            a2, biperm2.t1, biperm2.t2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, check_input, contract, a1, blocks(biperm1)..., a2, blocks(biperm2)...;
+            rng, biperm, (1, 2, 3), (1, 2), (3,); mode, is_primitive
+        )
+        Mooncake.TestUtils.test_rule(
+            rng, biperms, contract, labels_dest, labels1, labels2; mode, is_primitive
+        )
+        Mooncake.TestUtils.test_rule(
+            rng, check_input, contract, a1, biperm1.t1, biperm1.t2, a2, biperm2.t1,
+            biperm2.t2;
             mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, check_input, contract!, dest, blocks(biperm_dest)...,
-            a1, blocks(biperm1)..., a2, blocks(biperm2)...; mode, is_primitive
+            rng, check_input, contract!, dest, biperm_dest.t1, biperm_dest.t2,
+            a1, biperm1.t1, biperm1.t2, a2, biperm2.t1, biperm2.t2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
             rng, contract_labels, labels1, labels2; mode, is_primitive
@@ -65,16 +65,16 @@ using Test: @test, @testset
     @testset "contract" begin
         α = true
         β = false
-        @testset "contractadd! (BlockedPermutation)" begin
+        @testset "contractadd! (BiTuple)" begin
             dest = randn(elt, (2, 2))
             a1 = randn(elt, (2, 2))
             a2 = randn(elt, (2, 2))
-            biperm_dest = permmortar(((1,), (2,)))
-            biperm1 = permmortar(((1,), (2,)))
-            biperm2 = permmortar(((1,), (2,)))
+            biperm_dest = BiTuple((1,), (2,))
+            biperm1 = BiTuple((1,), (2,))
+            biperm2 = BiTuple((1,), (2,))
             Mooncake.TestUtils.test_rule(
-                rng, contractadd!, dest, blocks(biperm_dest)...,
-                a1, blocks(biperm1)..., a2, blocks(biperm2)..., α, β;
+                rng, contractadd!, dest, biperm_dest.t1, biperm_dest.t2,
+                a1, biperm1.t1, biperm1.t2, a2, biperm2.t1, biperm2.t2, α, β;
                 atol, rtol, mode, is_primitive
             )
         end

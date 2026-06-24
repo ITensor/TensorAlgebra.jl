@@ -6,20 +6,22 @@ export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc
     right_polar, svd_compact, svd_full, svd_trunc, svd_vals
 
 if VERSION >= v"1.11.0-DEV.469"
-    eval(Meta.parse("public contractopadd!, matricizeop, zero!, scale!, permuteddims"))
+    eval(
+        Meta.parse(
+            "public biperm, bipartition, contractopadd!, matricizeop, zero!, scale!, permuteddims"
+        )
+    )
 end
 
 include("inplace.jl")
 include("MatrixAlgebra.jl")
-include("blockedtuple.jl")
-include("blockedpermutation.jl")
-include("BaseExtensions/BaseExtensions.jl")
+include("bituple.jl")
 include("permutedimsadd.jl")
 include("matricize.jl")
 include("contract/contractalgorithm.jl")
 include("contract/contract.jl")
 include("contract/contract_labels.jl")
-include("contract/blockedperms.jl")
+include("contract/biperms.jl")
 include("contract/allocate_output.jl")
 include("contract/contract_matricize.jl")
 include("factorizations.jl")
