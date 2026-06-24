@@ -47,14 +47,13 @@ function output_axes(
         a1::AbstractArray, perm1_codomain, perm1_domain,
         a2::AbstractArray, perm2_codomain, perm2_domain
     )
-    biperm1 = permmortar((perm1_codomain, perm1_domain))
-    biperm2 = permmortar((perm2_codomain, perm2_domain))
-    biperm_dest = permmortar((perm_dest_codomain, perm_dest_domain))
-    axes_codomain, axes_contracted = blocks(blockpermute(axes(a1), biperm1))
-    axes_contracted2, axes_domain = blocks(blockpermute(axes(a2), biperm2))
+    axes_codomain, axes_contracted = bipartition(axes(a1), perm1_codomain, perm1_domain)
+    axes_contracted2, axes_domain = bipartition(axes(a2), perm2_codomain, perm2_domain)
     @assert length.(axes_contracted) == length.(axes_contracted2)
-    # default: flatten biperm_out
-    return genperm((axes_codomain..., axes_domain...), Tuple(biperm_dest))
+    # default: flatten the destination permutation
+    return genperm(
+        (axes_codomain..., axes_domain...), (perm_dest_codomain..., perm_dest_domain...)
+    )
 end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,

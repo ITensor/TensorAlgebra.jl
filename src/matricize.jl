@@ -1,4 +1,3 @@
-using .BaseExtensions: _permutedims, _permutedims!
 using EllipsisNotation: Ellipsis
 using LinearAlgebra: Diagonal
 
@@ -130,8 +129,7 @@ end
 function matricize_axes(style::FusionStyle, a::AbstractArray, ndims_codomain::Val)
     unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(a)))
-    return matricize_axes(style, a, blocks(blockpermute(axes(a), biperm))...)
+    return matricize_axes(style, a, bipartition(axes(a), ndims_codomain)...)
 end
 function matricize_axes(a::AbstractArray, ndims_codomain::Val)
     return matricize_axes(FusionStyle(a), a, ndims_codomain)
@@ -158,14 +156,9 @@ function allocate_output(::typeof(permutedimsop), op, src::AbstractArray, perm_c
     T = Base.promote_op(op, eltype(src))
     axes_co = map(i -> axes(src, i), perm_co)
     axes_do = map(i -> axes(src, i), perm_do)
-    return similar(src, T, tuplemortar((axes_co, axes_do)))
+    return similar(src, T, BiTuple(axes_co, axes_do))
 end
 
-# Inner version takes a list of sub-permutations, overload this one if needed.
-# TODO: Remove _permutedims once support for Julia 1.10 is dropped
-# define permutedims with a BlockedPermuation. Default is to flatten it.
-# TODO: Deprecate `permuteblockeddims` in favor of `bipermutedims`.
-# Keeping it here for backwards compatibility.
 function bipermutedims(a::AbstractArray, perm1, perm2)
     return permutedimsop(identity, a, perm1, perm2)
 end
@@ -173,12 +166,12 @@ function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm
     return bipermutedimsopadd!(a_dest, identity, a_src, perm1, perm2, true, false)
 end
 function bipermutedims(a::AbstractArray, biperm::BiTuple)
-    return bipermutedims(a, blocks(biperm)...)
+    return bipermutedims(a, biperm.t1, biperm.t2)
 end
 function bipermutedims!(
         a_dest::AbstractArray, a_src::AbstractArray, biperm::BiTuple
     )
-    return bipermutedims!(a_dest, a_src, blocks(biperm)...)
+    return bipermutedims!(a_dest, a_src, biperm.t1, biperm.t2)
 end
 
 # =====================================  matricize  ========================================
@@ -252,7 +245,7 @@ end
 function matricize(
         style::FusionStyle, a::AbstractArray, biperm_dest::BiTuple
     )
-    return matricize(style, a, blocks(biperm_dest)...)
+    return matricize(style, a, biperm_dest.t1, biperm_dest.t2)
 end
 
 # ====================================  matricizeop  =======================================
@@ -311,7 +304,7 @@ end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix, blocked_axes::BiTuple
     )
-    return unmatricize(style, m, blocks(blocked_axes)...)
+    return unmatricize(style, m, blocked_axes.t1, blocked_axes.t2)
 end
 
 function unmatricize(
@@ -324,11 +317,10 @@ function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
-    invbiperm = permmortar((invperm_codomain, invperm_domain))
+    invbiperm = BiTuple(invperm_codomain, invperm_domain)
     length(axes_dest) == length(invbiperm) ||
         throw(ArgumentError("axes do not match permutation"))
-    blocked_axes = blockpermute(axes_dest, invbiperm)
-    a12 = unmatricize(style, m, blocked_axes)
+    a12 = unmatricize(style, m, bipartition(axes_dest, invbiperm)...)
     biperm_dest = biperm(invperm(invbiperm), length_codomain(axes_dest))
     return bipermutedims(a12, biperm_dest)
 end
@@ -340,7 +332,7 @@ function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
         invbiperm::BiTuple
     )
-    return unmatricize(style, m, axes_dest, blocks(invbiperm)...)
+    return unmatricize(style, m, axes_dest, invbiperm.t1, invbiperm.t2)
 end
 
 function unmatricize!(
@@ -353,11 +345,10 @@ function unmatricize!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
-    invbiperm = permmortar((invperm_codomain, invperm_domain))
+    invbiperm = BiTuple(invperm_codomain, invperm_domain)
     ndims(a_dest) == length(invbiperm) ||
         throw(ArgumentError("destination does not match permutation"))
-    blocked_axes = blockpermute(axes(a_dest), invbiperm)
-    a_perm = unmatricize(style, m, blocked_axes)
+    a_perm = unmatricize(style, m, bipartition(axes(a_dest), invbiperm)...)
     biperm_dest = biperm(invperm(invbiperm), length_codomain(axes(a_dest)))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
@@ -371,7 +362,7 @@ function unmatricize!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
         invbiperm::BiTuple
     )
-    return unmatricize!(style, a_dest, m, blocks(invbiperm)...)
+    return unmatricize!(style, a_dest, m, invbiperm.t1, invbiperm.t2)
 end
 
 function unmatricizeadd!(
@@ -405,7 +396,7 @@ function unmatricizeadd!(
         α::Number, β::Number
     )
     return unmatricizeadd!(
-        style, a_dest, m, blocks(invbiperm)..., α, β
+        style, a_dest, m, invbiperm.t1, invbiperm.t2, α, β
     )
 end
 

@@ -11,9 +11,9 @@ function contract(
     )
     biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
     return contract(
-        blocks(biperm_dest)...,
-        a1, blocks(biperm1)...,
-        a2, blocks(biperm2)...;
+        biperm_dest.t1, biperm_dest.t2,
+        a1, biperm1.t1, biperm1.t2,
+        a2, biperm2.t1, biperm2.t2;
         kwargs...
     )
 end
@@ -26,7 +26,8 @@ function contract(
     )
     Ndest_codomain = Val(length(perm1_codomain))
     Ndest = Val(length(perm1_codomain) + length(perm2_domain))
-    perm_dest_codomain, perm_dest_domain = blocks(trivialbiperm(Ndest_codomain, Ndest))
+    perm_dest_codomain, perm_dest_domain =
+        bipartition(ntuple(identity, Ndest), Ndest_codomain)
     return contract(
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
@@ -117,9 +118,9 @@ function contractopadd!(
     )
     biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
     return contractopadd!(
-        a_dest, blocks(biperm_dest)...,
-        op1, a1, blocks(biperm1)...,
-        op2, a2, blocks(biperm2)...,
+        a_dest, biperm_dest.t1, biperm_dest.t2,
+        op1, a1, biperm1.t1, biperm1.t2,
+        op2, a2, biperm2.t1, biperm2.t2,
         α, β; kwargs...
     )
 end
@@ -175,7 +176,7 @@ function contract(
         a2::AbstractArray, biperm2::BiTuple;
         kwargs...
     )
-    return contract(a1, blocks(biperm1)..., a2, blocks(biperm2)...; kwargs...)
+    return contract(a1, biperm1.t1, biperm1.t2, a2, biperm2.t1, biperm2.t2; kwargs...)
 end
 function contract(
         biperm_dest::BiTuple,
@@ -184,9 +185,9 @@ function contract(
         kwargs...
     )
     return contract(
-        blocks(biperm_dest)...,
-        a1, blocks(biperm1)...,
-        a2, blocks(biperm2)...;
+        biperm_dest.t1, biperm_dest.t2,
+        a1, biperm1.t1, biperm1.t2,
+        a2, biperm2.t1, biperm2.t2;
         kwargs...
     )
 end
@@ -197,9 +198,9 @@ function contract!(
         kwargs...
     )
     return contract!(
-        a_dest, blocks(biperm_dest)...,
-        a1, blocks(biperm1)...,
-        a2, blocks(biperm2)...;
+        a_dest, biperm_dest.t1, biperm_dest.t2,
+        a1, biperm1.t1, biperm1.t2,
+        a2, biperm2.t1, biperm2.t2;
         kwargs...
     )
 end
@@ -210,9 +211,9 @@ function contractadd!(
         α::Number, β::Number; kwargs...
     )
     return contractadd!(
-        a_dest, blocks(biperm_dest)...,
-        a1, blocks(biperm1)...,
-        a2, blocks(biperm2)...,
+        a_dest, biperm_dest.t1, biperm_dest.t2,
+        a1, biperm1.t1, biperm1.t2,
+        a2, biperm2.t1, biperm2.t2,
         α, β; kwargs...
     )
 end
@@ -223,9 +224,9 @@ function contractopadd!(
         α::Number, β::Number; kwargs...
     )
     return contractopadd!(
-        a_dest, blocks(biperm_dest)...,
-        op1, a1, blocks(biperm1)...,
-        op2, a2, blocks(biperm2)...,
+        a_dest, biperm_dest.t1, biperm_dest.t2,
+        op1, a1, biperm1.t1, biperm1.t2,
+        op2, a2, biperm2.t1, biperm2.t2,
         α, β; kwargs...
     )
 end

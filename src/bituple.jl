@@ -1,8 +1,9 @@
-# A two-block tuple: a flat tuple split into a codomain group `t1` and a domain group `t2`.
-# This is the only blocked-tuple shape matricization, contraction, and factorizations ever use.
-# When its entries are `Int`s forming a permutation it acts as a "biperm"; the permutation
-# property is validated at construction by the perm builders (like `permutedims(a, perm)`),
-# not encoded in a separate type.
+# A two-block tuple: a flat tuple carrying an extra codomain/domain split. It acts like the
+# flat tuple `(t1..., t2...)` for iteration, indexing, and `length`, with the split exposed only
+# through the `t1` and `t2` fields (the way `Pair` exposes its two halves through fields rather
+# than a collection interface). When its entries are `Int`s forming a permutation it acts as a
+# "biperm"; whether it is a valid permutation is the concern of the operation using it as one
+# (e.g. `matricize`), not of the type.
 
 unval(::Val{N}) where {N} = N
 
@@ -11,12 +12,10 @@ struct BiTuple{N1, N2, T1 <: NTuple{N1, Any}, T2 <: NTuple{N2, Any}}
     t2::T2
 end
 
-# Accessors (a small BlockArrays-inspired surface).
-blocks(bt::BiTuple) = (bt.t1, bt.t2)
-firstblock(bt::BiTuple) = bt.t1
-lastblock(bt::BiTuple) = bt.t2
-blocklengths(::BiTuple{N1, N2}) where {N1, N2} = (N1, N2)
-blocklength(::BiTuple) = 2
+# Split a flat tuple into a first block of length `N1` and the remaining second block.
+function BiTuple(t::NTuple{N, Any}, ::Val{N1}) where {N, N1}
+    return BiTuple(ntuple(i -> t[i], Val(N1)), ntuple(i -> t[N1 + i], Val(N - N1)))
+end
 
 Base.Tuple(bt::BiTuple) = (bt.t1..., bt.t2...)
 Base.length(::BiTuple{N1, N2}) where {N1, N2} = N1 + N2
@@ -27,56 +26,20 @@ function Base.eltype(::Type{<:BiTuple{<:Any, <:Any, T1, T2}}) where {T1, T2}
 end
 
 function Base.show(io::IO, bt::BiTuple)
-    return print(io, "tuplemortar(", blocks(bt), ")")
+    return print(io, "BiTuple(", bt.t1, ", ", bt.t2, ")")
 end
 
-function Base.invperm(bt::BiTuple{N1, N2}) where {N1, N2}
-    ip = invperm(Tuple(bt))
-    return BiTuple(ntuple(i -> ip[i], Val(N1)), ntuple(i -> ip[N1 + i], Val(N2)))
+Base.:(==)(a::BiTuple, b::BiTuple) = a.t1 == b.t1 && a.t2 == b.t2
+Base.hash(bt::BiTuple, h::UInt) = hash(bt.t2, hash(bt.t1, hash(:BiTuple, h)))
+
+Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
+
+# Partition `v` into two groups. The partition is specified either by a split length (take
+# the first `length1` entries in order, then the rest), by two index groups `t1`/`t2`, or by
+# a `BiTuple` of index groups.
+function bipartition(t::Tuple, length1::Val)
+    bt = BiTuple(t, length1)
+    return bt.t1, bt.t2
 end
-
-#
-# Constructors
-#
-
-# Axis bituple: split a tuple-of-tuples into the two groups verbatim.
-tuplemortar(tt::Tuple{Tuple, Tuple}) = BiTuple(tt[1], tt[2])
-
-# Permutation bituples: validate at runtime that the flat tuple is a permutation.
-function permmortar(permblocks::Tuple{Tuple{Vararg{Int}}, Tuple{Vararg{Int}}})
-    bt = BiTuple(permblocks[1], permblocks[2])
-    @assert isperm(Tuple(bt))
-    return bt
-end
-
-# Split a flat permutation into a codomain block of length `blocklengths[1]` and the rest.
-function blockedperm(perm::Tuple{Vararg{Int}}, blocklengths::Tuple{Int, Int})
-    l1 = blocklengths[1]
-    return permmortar((perm[1:l1], perm[(l1 + 1):end]))
-end
-
-# Two-block vcat builder (the contraction path's entry point).
-function blockedpermvcat(block1::Tuple{Vararg{Int}}, block2::Tuple{Vararg{Int}})
-    return permmortar((block1, block2))
-end
-
-# `indexin`-based builder: locate each group's labels within `collection`.
-function blockedperm_indexin(collection, sub1, sub2)
-    return permmortar(
-        (
-            BaseExtensions.indexin(sub1, collection),
-            BaseExtensions.indexin(sub2, collection),
-        )
-    )
-end
-
-# Trivial (identity) biperm with the codomain/domain split given by `Val`s. Known to be a
-# permutation by construction, so it skips the `isperm` check on this hot path.
-function trivialbiperm(::Val{N1}, ::Val{N}) where {N1, N}
-    return BiTuple(ntuple(identity, Val(N1)), ntuple(i -> N1 + i, Val(N - N1)))
-end
-
-# Bipartition a collection according to a biperm (out-of-place, blocked).
-function blockpermute(v, bt::BiTuple)
-    return BiTuple(map(i -> v[i], bt.t1), map(i -> v[i], bt.t2))
-end
+bipartition(v, t1::Tuple, t2::Tuple) = (map(i -> v[i], t1), map(i -> v[i], t2))
+bipartition(v, bt::BiTuple) = bipartition(v, bt.t1, bt.t2)

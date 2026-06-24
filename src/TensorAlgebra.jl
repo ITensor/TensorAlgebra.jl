@@ -12,7 +12,6 @@ end
 include("inplace.jl")
 include("MatrixAlgebra.jl")
 include("bituple.jl")
-include("BaseExtensions/BaseExtensions.jl")
 include("permutedimsadd.jl")
 include("matricize.jl")
 include("contract/contractalgorithm.jl")

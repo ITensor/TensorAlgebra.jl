@@ -11,10 +11,9 @@ for f in (
         function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             X, Y = MatrixAlgebraKit.$f(A_mat; kwargs...)
-            biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-            axes_codomain, axes_domain = blocks(blockpermute(axes(A), biperm))
-            axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
-            axes_Y = tuplemortar(((axes(Y, 1),), axes_domain))
+            axes_codomain, axes_domain = bipartition(axes(A), ndims_codomain)
+            axes_X = BiTuple(axes_codomain, (axes(X, 2),))
+            axes_Y = BiTuple((axes(Y, 1),), axes_domain)
             return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
         end
         function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -52,24 +51,24 @@ for f in (
                 style::FusionStyle, A::AbstractArray,
                 labels_A, labels_codomain, labels_domain; kwargs...
             )
-            biperm =
-                blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-            return $f(style, A, blocks(biperm)...; kwargs...)
+            perm_codomain, perm_domain =
+                biindexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            return $f(style, A, perm_codomain, perm_domain; kwargs...)
         end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
-            biperm =
-                blockedperm_indexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
-            return $f(A, blocks(biperm)...; kwargs...)
+            perm_codomain, perm_domain =
+                biindexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+            return $f(A, perm_codomain, perm_domain; kwargs...)
         end
 
         function $f(
                 style::FusionStyle, A::AbstractArray,
                 biperm::BiTuple; kwargs...
             )
-            return $f(style, A, blocks(biperm)...; kwargs...)
+            return $f(style, A, biperm.t1, biperm.t2; kwargs...)
         end
         function $f(A::AbstractArray, biperm::BiTuple; kwargs...)
-            return $f(A, blocks(biperm)...; kwargs...)
+            return $f(A, biperm.t1, biperm.t2; kwargs...)
         end
     end
 end
@@ -229,11 +228,10 @@ for f in (:svd_compact, :svd_full, :svd_trunc)
         function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             U, S, Vᴴ = MatrixAlgebraKit.$f(A_mat; kwargs...)
-            biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-            axes_codomain, axes_domain = blocks(blockpermute(axes(A), biperm))
-            axes_U = tuplemortar((axes_codomain, (axes(U, 2),)))
-            axes_S = tuplemortar(((axes(S, 1),), (axes(S, 2),)))
-            axes_Vᴴ = tuplemortar(((axes(Vᴴ, 1),), axes_domain))
+            axes_codomain, axes_domain = bipartition(axes(A), ndims_codomain)
+            axes_U = BiTuple(axes_codomain, (axes(U, 2),))
+            axes_S = BiTuple((axes(S, 1),), (axes(S, 2),))
+            axes_Vᴴ = BiTuple((axes(Vᴴ, 1),), axes_domain)
             return unmatricize(style, U, axes_U),
                 unmatricize(style, S, axes_S),
                 unmatricize(style, Vᴴ, axes_Vᴴ)
@@ -251,9 +249,8 @@ for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
         function $f(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             D, V = MatrixAlgebraKit.$f(A_mat; kwargs...)
-            biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-            axes_codomain, = blocks(blockpermute(axes(A), biperm))
-            axes_V = tuplemortar((axes_codomain, (axes(V, ndims(V)),)))
+            axes_codomain = first(bipartition(axes(A), ndims_codomain))
+            axes_V = BiTuple(axes_codomain, (axes(V, ndims(V)),))
             return D, unmatricize(style, V, axes_V)
         end
         function $f(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -442,9 +439,8 @@ left_null
 function left_null!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain = first(blocks(blockpermute(axes(A), biperm)))
-    axes_N = tuplemortar((axes_codomain, (axes(N, 2),)))
+    axes_codomain = first(bipartition(axes(A), ndims_codomain))
+    axes_N = BiTuple(axes_codomain, (axes(N, 2),))
     return unmatricize(style, N, axes_N)
 end
 function left_null!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -482,9 +478,8 @@ right_null
 function right_null!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_domain = last(blocks((blockpermute(axes(A), biperm))))
-    axes_Nᴴ = tuplemortar(((axes(Nᴴ, 1),), axes_domain))
+    axes_domain = last(bipartition(axes(A), ndims_codomain))
+    axes_Nᴴ = BiTuple((axes(Nᴴ, 1),), axes_domain)
     return unmatricize(style, Nᴴ, axes_Nᴴ)
 end
 function right_null!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -541,9 +536,8 @@ function gram_eigh_full!!(
     )
     A_mat = matricize(style, A, ndims_codomain)
     X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain = first(blocks(blockpermute(axes(A), biperm)))
-    axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
+    axes_codomain = first(bipartition(axes(A), ndims_codomain))
+    axes_X = BiTuple(axes_codomain, (axes(X, 2),))
     return unmatricize(style, X, axes_X)
 end
 function gram_eigh_full!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -605,10 +599,9 @@ function gram_eigh_full_with_pinv!!(
     )
     A_mat = matricize(style, A, ndims_codomain)
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain = first(blocks(blockpermute(axes(A), biperm)))
-    axes_X = tuplemortar((axes_codomain, (axes(X, 2),)))
-    axes_Y = tuplemortar(((axes(Y, 1),), conj.(axes_codomain)))
+    axes_codomain = first(bipartition(axes(A), ndims_codomain))
+    axes_X = BiTuple(axes_codomain, (axes(X, 2),))
+    axes_Y = BiTuple((axes(Y, 1),), conj.(axes_codomain))
     return unmatricize(style, X, axes_X), unmatricize(style, Y, axes_Y)
 end
 function gram_eigh_full_with_pinv!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
@@ -661,9 +654,7 @@ one
 function one!!(style::FusionStyle, A::AbstractArray, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
-    biperm = trivialbiperm(ndims_codomain, Val(ndims(A)))
-    axes_codomain, axes_domain = blocks(blockpermute(axes(A), biperm))
-    return unmatricize(style, A_mat, axes_codomain, axes_domain)
+    return unmatricize(style, A_mat, bipartition(axes(A), ndims_codomain)...)
 end
 function one!!(A::AbstractArray, ndims_codomain::Val; kwargs...)
     return one!!(FusionStyle(A), A, ndims_codomain; kwargs...)
