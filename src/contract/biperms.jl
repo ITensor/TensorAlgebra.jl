@@ -4,18 +4,22 @@ function tuple_indexin(x::Tuple, y::AbstractArray)
 end
 tuple_indexin(x::Tuple, y) = tuple_indexin(x, collect(y))
 
-# Locate two subgroups `sub1`, `sub2` within `collection`, returning their two index groups.
-function biindexin(collection, sub1, sub2)
-    return tuple_indexin(sub1, collection), tuple_indexin(sub2, collection)
-end
+"""
+    biperm(t, t1, t2) -> (p1, p2)
 
-# Split `perm` into a codomain group of length `length1` and a domain group.
-function biperm(perm, length1::Integer)
-    return biperm(perm, Val(length1))
-end
-function biperm(perm, ::Val{Length1}) where {Length1}
-    length(perm) < Length1 && throw(ArgumentError("Invalid codomain length"))
-    return BiTuple(Tuple(perm), Val(Length1))
+Locate the groups `t1` and `t2` within `t`, returning the positions of `t1` as
+`p1` and the positions of `t2` as `p2`. The groups `t1` and `t2` must partition
+`t`, so the concatenation `(p1..., p2...)` is a permutation of `eachindex(t)` and
+the pair `(p1, p2)` is a bipartitioned permutation (a "biperm") splitting `t`
+into a codomain `p1` and a domain `p2`.
+"""
+function biperm(t, t1, t2)
+    length(t1) + length(t2) == length(t) || throw(
+        ArgumentError(
+            "groups of lengths $(length(t1)) and $(length(t2)) do not partition a collection of length $(length(t))"
+        )
+    )
+    return tuple_indexin(t1, t), tuple_indexin(t2, t)
 end
 
 length_domain(t::BiTuple) = length(t.t2)
@@ -35,18 +39,11 @@ function biperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
     contracted = Tuple(intersect(dimnames1, dimnames2))
     domain = Tuple(setdiff(dimnames2, dimnames1))
 
-    perm_codomain_dest = tuple_indexin(codomain, dimnames_dest)
-    perm_domain_dest = tuple_indexin(domain, dimnames_dest)
-    invbiperm = (perm_codomain_dest..., perm_domain_dest...)
-    biperm_dest = biperm(invperm(invbiperm), length(codomain))
+    perm_codomain_dest, perm_domain_dest = biperm(dimnames_dest, codomain, domain)
+    invperm_dest = invperm((perm_codomain_dest..., perm_domain_dest...))
+    biperm_dest = bipartition(invperm_dest, Val(length(codomain)))
 
-    perm_codomain1 = tuple_indexin(codomain, dimnames1)
-    perm_domain1 = tuple_indexin(contracted, dimnames1)
-
-    perm_codomain2 = tuple_indexin(contracted, dimnames2)
-    perm_domain2 = tuple_indexin(domain, dimnames2)
-
-    biperm1 = BiTuple(perm_codomain1, perm_domain1)
-    biperm2 = BiTuple(perm_codomain2, perm_domain2)
+    biperm1 = biperm(dimnames1, codomain, contracted)
+    biperm2 = biperm(dimnames2, contracted, domain)
     return biperm_dest, biperm1, biperm2
 end

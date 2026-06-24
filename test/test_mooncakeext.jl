@@ -33,8 +33,9 @@ using Test: @test, @testset
             biperm1.t2,
             a2, biperm2.t1, biperm2.t2; mode, is_primitive
         )
-        Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), Val(2); mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), 2; mode, is_primitive)
+        Mooncake.TestUtils.test_rule(
+            rng, biperm, (1, 2, 3), (1, 2), (3,); mode, is_primitive
+        )
         Mooncake.TestUtils.test_rule(
             rng, biperms, contract, labels_dest, labels1, labels2; mode, is_primitive
         )

@@ -64,7 +64,7 @@ for f in MATRIX_FUNCTIONS
                 labels_a, labels_codomain, labels_domain; kwargs...
             )
             perm_codomain, perm_domain =
-                biindexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
+                biperm(Tuple.((labels_a, labels_codomain, labels_domain))...)
             return $f(style, a, perm_codomain, perm_domain; kwargs...)
         end
         function $f(
@@ -72,7 +72,7 @@ for f in MATRIX_FUNCTIONS
                 labels_a, labels_codomain, labels_domain; kwargs...
             )
             perm_codomain, perm_domain =
-                biindexin(Tuple.((labels_a, labels_codomain, labels_domain))...)
+                biperm(Tuple.((labels_a, labels_codomain, labels_domain))...)
             return $f(a, perm_codomain, perm_domain; kwargs...)
         end
 

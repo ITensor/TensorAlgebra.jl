@@ -6,8 +6,8 @@ function contractopadd!(
         α::Number, β::Number
     )
     biperm_dest = (biperm_dest_codomain..., biperm_dest_domain...)
-    invbiperm = biperm(invperm(biperm_dest), length(biperm1_codomain))
-    invperm_codomain, invperm_domain = invbiperm.t1, invbiperm.t2
+    invperm_codomain, invperm_domain =
+        bipartition(invperm(biperm_dest), Val(length(biperm1_codomain)))
     check_input(
         contract!,
         a_dest, invperm_codomain, invperm_domain,

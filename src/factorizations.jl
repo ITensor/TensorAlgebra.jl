@@ -52,12 +52,12 @@ for f in (
                 labels_A, labels_codomain, labels_domain; kwargs...
             )
             perm_codomain, perm_domain =
-                biindexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+                biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
             return $f(style, A, perm_codomain, perm_domain; kwargs...)
         end
         function $f(A::AbstractArray, labels_A, labels_codomain, labels_domain; kwargs...)
             perm_codomain, perm_domain =
-                biindexin(Tuple.((labels_A, labels_codomain, labels_domain))...)
+                biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
             return $f(A, perm_codomain, perm_domain; kwargs...)
         end
 

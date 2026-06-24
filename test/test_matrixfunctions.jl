@@ -1,5 +1,5 @@
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, biperm
+using TensorAlgebra: TensorAlgebra, BiTuple
 using Test: @test, @testset
 
 @testset "Matrix functions (eltype=$elt)" for elt in (Float32, ComplexF64)
@@ -12,7 +12,7 @@ using Test: @test, @testset
             for fa in (
                     TensorAlgebra.$f(a, (:a, :b, :c, :d), (:c, :b), (:d, :a)),
                     TensorAlgebra.$f(a, (3, 2), (4, 1)),
-                    TensorAlgebra.$f(a, biperm((3, 2, 4, 1), Val(2))),
+                    TensorAlgebra.$f(a, BiTuple((3, 2, 4, 1), Val(2))),
                 )
                 local fa′ =
                     reshape($f(reshape(permutedims(a, (3, 2, 4, 1)), (4, 4))), (2, 2, 2, 2))

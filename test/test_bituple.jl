@@ -1,5 +1,5 @@
-using TensorAlgebra: BiTuple, bipartition, tuple_indexin
-using Test: @test, @testset
+using TensorAlgebra: BiTuple, bipartition, biperm, tuple_indexin
+using Test: @test, @test_throws, @testset
 using TestExtras: @constinferred
 
 @testset "BiTuple" begin
@@ -43,6 +43,11 @@ end
 
     # `tuple_indexin` locates labels within a collection.
     @test tuple_indexin(("c", "a"), ("a", "b", "c", "d")) == (3, 1)
+
+    # `biperm` locates two partitioning groups within a collection.
+    @test biperm(("a", "b", "c", "d"), ("c", "b"), ("d", "a")) == ((3, 2), (4, 1))
+    # The groups must partition the collection.
+    @test_throws ArgumentError biperm(("a", "b", "c", "d"), ("c", "b"), ("a",))
 
     # `bipartition` splits a collection by a biperm or by two index groups.
     @test bipartition((10, 20, 30, 40), BiTuple((1,), (2, 3, 4))) == ((10,), (20, 30, 40))

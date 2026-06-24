@@ -9,11 +9,12 @@ end
 function contract(
         labels_dest, a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs...
     )
-    biperm_dest, biperm1, biperm2 = biperms(contract, labels_dest, labels1, labels2)
+    (perm_dest_codomain, perm_dest_domain), (perm1_codomain, perm1_domain),
+        (perm2_codomain, perm2_domain) = biperms(contract, labels_dest, labels1, labels2)
     return contract(
-        biperm_dest.t1, biperm_dest.t2,
-        a1, biperm1.t1, biperm1.t2,
-        a2, biperm2.t1, biperm2.t2;
+        perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain;
         kwargs...
     )
 end
@@ -116,11 +117,12 @@ function contractopadd!(
         α::Number, β::Number;
         kwargs...
     )
-    biperm_dest, biperm1, biperm2 = biperms(contract, labels_dest, labels1, labels2)
+    (perm_dest_codomain, perm_dest_domain), (perm1_codomain, perm1_domain),
+        (perm2_codomain, perm2_domain) = biperms(contract, labels_dest, labels1, labels2)
     return contractopadd!(
-        a_dest, biperm_dest.t1, biperm_dest.t2,
-        op1, a1, biperm1.t1, biperm1.t2,
-        op2, a2, biperm2.t1, biperm2.t2,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain,
         α, β; kwargs...
     )
 end

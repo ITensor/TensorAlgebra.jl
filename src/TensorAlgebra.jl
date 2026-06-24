@@ -6,7 +6,11 @@ export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc
     right_polar, svd_compact, svd_full, svd_trunc, svd_vals
 
 if VERSION >= v"1.11.0-DEV.469"
-    eval(Meta.parse("public contractopadd!, matricizeop, zero!, scale!, permuteddims"))
+    eval(
+        Meta.parse(
+            "public BiTuple, biperm, bipartition, contractopadd!, matricizeop, zero!, scale!, permuteddims"
+        )
+    )
 end
 
 include("inplace.jl")

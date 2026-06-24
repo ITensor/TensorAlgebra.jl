@@ -11,7 +11,7 @@ Mooncake.tangent_type(::Type{<:ContractAlgorithm}) = Mooncake.NoTangent
 @zero_derivative DefaultCtx Tuple{
     typeof(allocate_output), typeof(contract), Any, Any, Any, Any, Any, Any, Any, Any,
 }
-@zero_derivative DefaultCtx Tuple{typeof(biperm), Any, Any}
+@zero_derivative DefaultCtx Tuple{typeof(biperm), Any, Any, Any}
 @zero_derivative DefaultCtx Tuple{typeof(biperms), typeof(contract), Any, Any, Any}
 @zero_derivative DefaultCtx Tuple{
     typeof(check_input), typeof(contract), Any, Any, Any, Any, Any, Any,
