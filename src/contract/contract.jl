@@ -171,16 +171,16 @@ end
 
 # BlockPermutation versions of contract[opadd][!]
 function contract(
-        a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
-        a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
+        a1::AbstractArray, biperm1::BiTuple,
+        a2::AbstractArray, biperm2::BiTuple;
         kwargs...
     )
     return contract(a1, blocks(biperm1)..., a2, blocks(biperm2)...; kwargs...)
 end
 function contract(
-        biperm_dest::AbstractBlockPermutation{2},
-        a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
-        a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
+        biperm_dest::BiTuple,
+        a1::AbstractArray, biperm1::BiTuple,
+        a2::AbstractArray, biperm2::BiTuple;
         kwargs...
     )
     return contract(
@@ -191,9 +191,9 @@ function contract(
     )
 end
 function contract!(
-        a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
-        a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
-        a2::AbstractArray, biperm2::AbstractBlockPermutation{2};
+        a_dest::AbstractArray, biperm_dest::BiTuple,
+        a1::AbstractArray, biperm1::BiTuple,
+        a2::AbstractArray, biperm2::BiTuple;
         kwargs...
     )
     return contract!(
@@ -204,9 +204,9 @@ function contract!(
     )
 end
 function contractadd!(
-        a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
-        a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
-        a2::AbstractArray, biperm2::AbstractBlockPermutation{2},
+        a_dest::AbstractArray, biperm_dest::BiTuple,
+        a1::AbstractArray, biperm1::BiTuple,
+        a2::AbstractArray, biperm2::BiTuple,
         α::Number, β::Number; kwargs...
     )
     return contractadd!(
@@ -217,9 +217,9 @@ function contractadd!(
     )
 end
 function contractopadd!(
-        a_dest::AbstractArray, biperm_dest::AbstractBlockPermutation{2},
-        op1, a1::AbstractArray, biperm1::AbstractBlockPermutation{2},
-        op2, a2::AbstractArray, biperm2::AbstractBlockPermutation{2},
+        a_dest::AbstractArray, biperm_dest::BiTuple,
+        op1, a1::AbstractArray, biperm1::BiTuple,
+        op2, a2::AbstractArray, biperm2::BiTuple,
         α::Number, β::Number; kwargs...
     )
     return contractopadd!(

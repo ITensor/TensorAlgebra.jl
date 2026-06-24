@@ -9,7 +9,7 @@ function biperm(perm, ::Val{BlockLength1}) where {BlockLength1}
     return blockedperm(Tuple(perm), (BlockLength1, length(perm) - BlockLength1))
 end
 
-length_domain(t::AbstractBlockTuple{2}) = last(blocklengths(t))
+length_domain(t::BiTuple) = last(blocklengths(t))
 # Assume all dimensions are in the codomain by default
 length_domain(t) = 0
 

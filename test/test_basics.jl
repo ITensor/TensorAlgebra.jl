@@ -1,9 +1,9 @@
 import TensorAlgebra
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
-using TensorAlgebra: BlockedTuple, ContractAlgorithm, bipermutedims, bipermutedims!,
-    blockedpermvcat, contract, contract!, contractadd!, length_codomain, length_domain,
-    matricize, tuplemortar, unmatricize, unmatricize!
+using TensorAlgebra: ContractAlgorithm, bipermutedims, bipermutedims!, blockedpermvcat,
+    contract, contract!, contractadd!, length_codomain, length_domain, matricize,
+    tuplemortar, unmatricize, unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 

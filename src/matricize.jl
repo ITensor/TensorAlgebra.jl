@@ -1,4 +1,5 @@
 using .BaseExtensions: _permutedims, _permutedims!
+using EllipsisNotation: Ellipsis
 using LinearAlgebra: Diagonal
 
 # =====================================  FusionStyle  ======================================
@@ -138,7 +139,7 @@ end
 
 # Default similar with bipartitioned axes: flatten to a plain tuple of axes.
 # Downstream types (e.g., FusionTensor) can override to preserve bipartition.
-function Base.similar(a::AbstractArray, T::Type, axes::BlockedTuple{2})
+function Base.similar(a::AbstractArray, T::Type, axes::BiTuple)
     return similar(a, T, Tuple(axes))
 end
 
@@ -171,11 +172,11 @@ end
 function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
     return bipermutedimsopadd!(a_dest, identity, a_src, perm1, perm2, true, false)
 end
-function bipermutedims(a::AbstractArray, biperm::AbstractBlockPermutation{2})
+function bipermutedims(a::AbstractArray, biperm::BiTuple)
     return bipermutedims(a, blocks(biperm)...)
 end
 function bipermutedims!(
-        a_dest::AbstractArray, a_src::AbstractArray, biperm::AbstractBlockPermutation{2}
+        a_dest::AbstractArray, a_src::AbstractArray, biperm::BiTuple
     )
     return bipermutedims!(a_dest, a_src, blocks(biperm)...)
 end
@@ -245,11 +246,11 @@ function matricize(
     return matricize(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
 
-function matricize(a::AbstractArray, biperm_dest::AbstractBlockPermutation{2})
+function matricize(a::AbstractArray, biperm_dest::BiTuple)
     return matricize(FusionStyle(a), a, biperm_dest)
 end
 function matricize(
-        style::FusionStyle, a::AbstractArray, biperm_dest::AbstractBlockPermutation{2}
+        style::FusionStyle, a::AbstractArray, biperm_dest::BiTuple
     )
     return matricize(style, a, blocks(biperm_dest)...)
 end
@@ -304,11 +305,11 @@ function unmatricize(
     return unmatricize(FusionStyle(m), m, axes_codomain, axes_domain)
 end
 
-function unmatricize(m::AbstractMatrix, blocked_axes::AbstractBlockTuple{2})
+function unmatricize(m::AbstractMatrix, blocked_axes::BiTuple)
     return unmatricize(FusionStyle(m), m, blocked_axes)
 end
 function unmatricize(
-        style::FusionStyle, m::AbstractMatrix, blocked_axes::AbstractBlockTuple{2}
+        style::FusionStyle, m::AbstractMatrix, blocked_axes::BiTuple
     )
     return unmatricize(style, m, blocks(blocked_axes)...)
 end
@@ -332,12 +333,12 @@ function unmatricize(
     return bipermutedims(a12, biperm_dest)
 end
 
-function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::AbstractBlockPermutation{2})
+function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::BiTuple)
     return unmatricize(FusionStyle(m), m, axes_dest, invbiperm)
 end
 function unmatricize(
         style::FusionStyle, m::AbstractMatrix, axes_dest,
-        invbiperm::AbstractBlockPermutation{2}
+        invbiperm::BiTuple
     )
     return unmatricize(style, m, axes_dest, blocks(invbiperm)...)
 end
@@ -362,13 +363,13 @@ function unmatricize!(
 end
 
 function unmatricize!(
-        a_dest::AbstractArray, m::AbstractMatrix, invbiperm::AbstractBlockPermutation{2}
+        a_dest::AbstractArray, m::AbstractMatrix, invbiperm::BiTuple
     )
     return unmatricize!(FusionStyle(m), a_dest, m, invbiperm)
 end
 function unmatricize!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::AbstractBlockPermutation{2}
+        invbiperm::BiTuple
     )
     return unmatricize!(style, a_dest, m, blocks(invbiperm)...)
 end
@@ -393,14 +394,14 @@ end
 
 function unmatricizeadd!(
         a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::AbstractBlockPermutation{2},
+        invbiperm::BiTuple,
         α::Number, β::Number
     )
     return unmatricizeadd!(FusionStyle(a_dest), a_dest, m, invbiperm, α, β)
 end
 function unmatricizeadd!(
         style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::AbstractBlockPermutation{2},
+        invbiperm::BiTuple,
         α::Number, β::Number
     )
     return unmatricizeadd!(

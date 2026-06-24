@@ -1,10 +1,9 @@
-using BlockArrays: blocks
 using Mooncake: Mooncake
 using Random: Random
-using TensorAlgebra: AbstractBlockPermutation, BlockedPermutation, ContractAlgorithm,
-    DefaultContractAlgorithm, Matricize, allocate_output, biperm, blockedperms, check_input,
-    contract, contract!, contract_labels, contractadd!, default_contract_algorithm,
-    permmortar, select_contract_algorithm
+using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm, Matricize,
+    allocate_output, biperm, blockedperms, blocks, check_input, contract, contract!,
+    contract_labels, contractadd!, default_contract_algorithm, permmortar,
+    select_contract_algorithm
 using Test: @test, @testset
 
 @testset "MooncakeExt" begin
@@ -15,8 +14,7 @@ using Test: @test, @testset
     atol = eps(real(elt))^(3 / 4)
     rtol = eps(real(elt))^(3 / 4)
     @testset "zero derivatives" begin
-        @test Mooncake.tangent_type(AbstractBlockPermutation) ≡ Mooncake.NoTangent
-        @test Mooncake.tangent_type(BlockedPermutation) ≡ Mooncake.NoTangent
+        @test Mooncake.tangent_type(BiTuple) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(ContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(DefaultContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(Matricize) ≡ Mooncake.NoTangent
@@ -65,7 +63,7 @@ using Test: @test, @testset
     @testset "contract" begin
         α = true
         β = false
-        @testset "contractadd! (BlockedPermutation)" begin
+        @testset "contractadd! (BiTuple)" begin
             dest = randn(elt, (2, 2))
             a1 = randn(elt, (2, 2))
             a2 = randn(elt, (2, 2))

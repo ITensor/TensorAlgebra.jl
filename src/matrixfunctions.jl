@@ -79,11 +79,11 @@ for f in MATRIX_FUNCTIONS
 
         function $f(
                 style::FusionStyle, a::AbstractArray,
-                biperm::AbstractBlockPermutation{2}; kwargs...
+                biperm::BiTuple; kwargs...
             )
             return $f(style, a, blocks(biperm)...; kwargs...)
         end
-        function $f(a::AbstractArray, biperm::AbstractBlockPermutation{2}; kwargs...)
+        function $f(a::AbstractArray, biperm::BiTuple; kwargs...)
             return $f(a, blocks(biperm)...; kwargs...)
         end
     end
