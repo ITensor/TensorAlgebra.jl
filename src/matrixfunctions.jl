@@ -75,15 +75,5 @@ for f in MATRIX_FUNCTIONS
                 biperm(Tuple.((labels_a, labels_codomain, labels_domain))...)
             return $f(a, perm_codomain, perm_domain; kwargs...)
         end
-
-        function $f(
-                style::FusionStyle, a::AbstractArray,
-                biperm::BiTuple; kwargs...
-            )
-            return $f(style, a, biperm.t1, biperm.t2; kwargs...)
-        end
-        function $f(a::AbstractArray, biperm::BiTuple; kwargs...)
-            return $f(a, biperm.t1, biperm.t2; kwargs...)
-        end
     end
 end

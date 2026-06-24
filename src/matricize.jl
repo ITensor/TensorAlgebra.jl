@@ -239,15 +239,6 @@ function matricize(
     return matricize(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
 
-function matricize(a::AbstractArray, biperm_dest::BiTuple)
-    return matricize(FusionStyle(a), a, biperm_dest)
-end
-function matricize(
-        style::FusionStyle, a::AbstractArray, biperm_dest::BiTuple
-    )
-    return matricize(style, a, biperm_dest.t1, biperm_dest.t2)
-end
-
 # ====================================  matricizeop  =======================================
 
 """
@@ -298,15 +289,6 @@ function unmatricize(
     return unmatricize(FusionStyle(m), m, axes_codomain, axes_domain)
 end
 
-function unmatricize(m::AbstractMatrix, biaxes::BiTuple)
-    return unmatricize(FusionStyle(m), m, biaxes)
-end
-function unmatricize(
-        style::FusionStyle, m::AbstractMatrix, biaxes::BiTuple
-    )
-    return unmatricize(style, m, biaxes.t1, biaxes.t2)
-end
-
 function unmatricize(
         m::AbstractMatrix, axes_dest,
         invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}}
@@ -323,16 +305,6 @@ function unmatricize(
     a12 = unmatricize(style, m, bipartition(axes_dest, invbiperm)...)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes_dest)))
     return bipermutedims(a12, biperm_dest)
-end
-
-function unmatricize(m::AbstractMatrix, axes_dest, invbiperm::BiTuple)
-    return unmatricize(FusionStyle(m), m, axes_dest, invbiperm)
-end
-function unmatricize(
-        style::FusionStyle, m::AbstractMatrix, axes_dest,
-        invbiperm::BiTuple
-    )
-    return unmatricize(style, m, axes_dest, invbiperm.t1, invbiperm.t2)
 end
 
 function unmatricize!(
@@ -353,18 +325,6 @@ function unmatricize!(
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
-function unmatricize!(
-        a_dest::AbstractArray, m::AbstractMatrix, invbiperm::BiTuple
-    )
-    return unmatricize!(FusionStyle(m), a_dest, m, invbiperm)
-end
-function unmatricize!(
-        style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::BiTuple
-    )
-    return unmatricize!(style, a_dest, m, invbiperm.t1, invbiperm.t2)
-end
-
 function unmatricizeadd!(
         a_dest::AbstractArray, m::AbstractMatrix,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
@@ -381,23 +341,6 @@ function unmatricizeadd!(
     )
     a = unmatricize(style, m, axes(a_dest), invperm_codomain, invperm_domain)
     return add!(a_dest, a, α, β)
-end
-
-function unmatricizeadd!(
-        a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::BiTuple,
-        α::Number, β::Number
-    )
-    return unmatricizeadd!(FusionStyle(a_dest), a_dest, m, invbiperm, α, β)
-end
-function unmatricizeadd!(
-        style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invbiperm::BiTuple,
-        α::Number, β::Number
-    )
-    return unmatricizeadd!(
-        style, a_dest, m, invbiperm.t1, invbiperm.t2, α, β
-    )
 end
 
 # Defaults to ReshapeFusion, a simple reshape
