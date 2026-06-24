@@ -1,7 +1,7 @@
 module TensorAlgebraMooncakeExt
 
 using Mooncake: Mooncake, @zero_derivative, DefaultCtx
-using TensorAlgebra: BiTuple, ContractAlgorithm, allocate_output, biperm, blockedperms,
+using TensorAlgebra: BiTuple, ContractAlgorithm, allocate_output, biperm, biperms,
     check_input, contract, contract!, contract_labels, default_contract_algorithm,
     select_contract_algorithm
 
@@ -12,7 +12,7 @@ Mooncake.tangent_type(::Type{<:ContractAlgorithm}) = Mooncake.NoTangent
     typeof(allocate_output), typeof(contract), Any, Any, Any, Any, Any, Any, Any, Any,
 }
 @zero_derivative DefaultCtx Tuple{typeof(biperm), Any, Any}
-@zero_derivative DefaultCtx Tuple{typeof(blockedperms), typeof(contract), Any, Any, Any}
+@zero_derivative DefaultCtx Tuple{typeof(biperms), typeof(contract), Any, Any, Any}
 @zero_derivative DefaultCtx Tuple{
     typeof(check_input), typeof(contract), Any, Any, Any, Any, Any, Any,
 }

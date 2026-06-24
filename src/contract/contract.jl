@@ -9,7 +9,7 @@ end
 function contract(
         labels_dest, a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs...
     )
-    biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
+    biperm_dest, biperm1, biperm2 = biperms(contract, labels_dest, labels1, labels2)
     return contract(
         biperm_dest.t1, biperm_dest.t2,
         a1, biperm1.t1, biperm1.t2,
@@ -116,7 +116,7 @@ function contractopadd!(
         α::Number, β::Number;
         kwargs...
     )
-    biperm_dest, biperm1, biperm2 = blockedperms(contract, labels_dest, labels1, labels2)
+    biperm_dest, biperm1, biperm2 = biperms(contract, labels_dest, labels1, labels2)
     return contractopadd!(
         a_dest, biperm_dest.t1, biperm_dest.t2,
         op1, a1, biperm1.t1, biperm1.t2,

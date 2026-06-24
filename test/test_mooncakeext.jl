@@ -1,8 +1,8 @@
 using Mooncake: Mooncake
 using Random: Random
 using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm, Matricize,
-    allocate_output, biperm, blockedperms, check_input, contract, contract!,
-    contract_labels, contractadd!, default_contract_algorithm, select_contract_algorithm
+    allocate_output, biperm, biperms, check_input, contract, contract!, contract_labels,
+    contractadd!, default_contract_algorithm, select_contract_algorithm
 using Test: @test, @testset
 
 @testset "MooncakeExt" begin
@@ -36,7 +36,7 @@ using Test: @test, @testset
         Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), Val(2); mode, is_primitive)
         Mooncake.TestUtils.test_rule(rng, biperm, (1, 2, 3), 2; mode, is_primitive)
         Mooncake.TestUtils.test_rule(
-            rng, blockedperms, contract, labels_dest, labels1, labels2; mode, is_primitive
+            rng, biperms, contract, labels_dest, labels1, labels2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
             rng, check_input, contract, a1, biperm1.t1, biperm1.t2, a2, biperm2.t1,

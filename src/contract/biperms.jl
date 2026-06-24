@@ -25,7 +25,7 @@ length_domain(t) = 0
 length_codomain(t) = length(t) - length_domain(t)
 
 # codomain <-- domain
-function blockedperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
+function biperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
     dimnames = collect(Iterators.flatten((dimnames_dest, dimnames1, dimnames2)))
     for i in unique(dimnames)
         count(==(i), dimnames) == 2 || throw(ArgumentError("Invalid contraction labels"))
