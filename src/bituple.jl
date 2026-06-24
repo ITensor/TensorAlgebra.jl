@@ -34,12 +34,23 @@ Base.hash(bt::BiTuple, h::UInt) = hash(bt.t2, hash(bt.t1, hash(:BiTuple, h)))
 
 Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
 
-# Partition `v` into two groups. The partition is specified either by a split length (take
-# the first `length1` entries in order, then the rest), by two index groups `t1`/`t2`, or by
-# a `BiTuple` of index groups.
+"""
+    bipartition(t::Tuple, length1::Val) -> (t1, t2)
+    bipartition(t::Tuple, group1::Tuple, group2::Tuple) -> (p1, p2)
+
+Split a flat tuple into two groups, returned as a pair of tuples.
+
+The first form splits `t` in order, taking the first `length1` entries as `t1`
+and the remaining entries as `t2`. The second form gathers the entries of `t` at
+the two index groups `group1` and `group2`, returning `p1 = t[group1...]` and
+`p2 = t[group2...]`.
+"""
 function bipartition(t::Tuple, length1::Val)
     bt = BiTuple(t, length1)
     return bt.t1, bt.t2
 end
-bipartition(v, t1::Tuple, t2::Tuple) = (map(i -> v[i], t1), map(i -> v[i], t2))
-bipartition(v, bt::BiTuple) = bipartition(v, bt.t1, bt.t2)
+function bipartition(t::Tuple, group1::Tuple, group2::Tuple)
+    return map(i -> t[i], group1), map(i -> t[i], group2)
+end
+# Split `t` by the two groups of a `BiTuple`.
+bipartition(t::Tuple, bt::BiTuple) = bipartition(t, bt.t1, bt.t2)

@@ -34,7 +34,7 @@ using Test: @test, @testset
         append!(
             exports,
             [
-                :BiTuple, :biperm, :bipartition, :contractopadd!, :matricizeop, :zero!,
+                :biperm, :bipartition, :contractopadd!, :matricizeop, :zero!,
                 :scale!, :permuteddims,
             ]
         )
