@@ -9,13 +9,13 @@ function biindexin(collection, sub1, sub2)
     return tuple_indexin(sub1, collection), tuple_indexin(sub2, collection)
 end
 
-# Split `perm` into a codomain block of length `blocklength1` and a domain block.
-function biperm(perm, blocklength1::Integer)
-    return biperm(perm, Val(blocklength1))
+# Split `perm` into a codomain group of length `length1` and a domain group.
+function biperm(perm, length1::Integer)
+    return biperm(perm, Val(length1))
 end
-function biperm(perm, ::Val{BlockLength1}) where {BlockLength1}
-    length(perm) < BlockLength1 && throw(ArgumentError("Invalid codomain length"))
-    return BiTuple(Tuple(perm), Val(BlockLength1))
+function biperm(perm, ::Val{Length1}) where {Length1}
+    length(perm) < Length1 && throw(ArgumentError("Invalid codomain length"))
+    return BiTuple(Tuple(perm), Val(Length1))
 end
 
 length_domain(t::BiTuple) = length(t.t2)

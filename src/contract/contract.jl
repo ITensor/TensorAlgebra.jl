@@ -170,7 +170,7 @@ function contractopadd!(
     )
 end
 
-# BlockPermutation versions of contract[opadd][!]
+# BiTuple versions of contract[opadd][!]
 function contract(
         a1::AbstractArray, biperm1::BiTuple,
         a2::AbstractArray, biperm2::BiTuple;

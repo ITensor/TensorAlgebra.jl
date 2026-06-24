@@ -298,13 +298,13 @@ function unmatricize(
     return unmatricize(FusionStyle(m), m, axes_codomain, axes_domain)
 end
 
-function unmatricize(m::AbstractMatrix, blocked_axes::BiTuple)
-    return unmatricize(FusionStyle(m), m, blocked_axes)
+function unmatricize(m::AbstractMatrix, biaxes::BiTuple)
+    return unmatricize(FusionStyle(m), m, biaxes)
 end
 function unmatricize(
-        style::FusionStyle, m::AbstractMatrix, blocked_axes::BiTuple
+        style::FusionStyle, m::AbstractMatrix, biaxes::BiTuple
     )
-    return unmatricize(style, m, blocked_axes.t1, blocked_axes.t2)
+    return unmatricize(style, m, biaxes.t1, biaxes.t2)
 end
 
 function unmatricize(

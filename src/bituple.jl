@@ -1,4 +1,4 @@
-# A two-block tuple: a flat tuple carrying an extra codomain/domain split. It acts like the
+# A bipartitioned tuple: a flat tuple carrying an extra codomain/domain split. It acts like the
 # flat tuple `(t1..., t2...)` for iteration, indexing, and `length`, with the split exposed only
 # through the `t1` and `t2` fields (the way `Pair` exposes its two halves through fields rather
 # than a collection interface). When its entries are `Int`s forming a permutation it acts as a
@@ -12,7 +12,7 @@ struct BiTuple{N1, N2, T1 <: NTuple{N1, Any}, T2 <: NTuple{N2, Any}}
     t2::T2
 end
 
-# Split a flat tuple into a first block of length `N1` and the remaining second block.
+# Split a flat tuple into a first group of length `N1` and the remaining second group.
 function BiTuple(t::NTuple{N, Any}, ::Val{N1}) where {N, N1}
     return BiTuple(ntuple(i -> t[i], Val(N1)), ntuple(i -> t[N1 + i], Val(N - N1)))
 end
