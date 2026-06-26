@@ -339,8 +339,17 @@ function unmatricizeadd!(
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
         α::Number, β::Number
     )
-    a = unmatricize(style, m, axes(a_dest), invperm_codomain, invperm_domain)
-    return add!(a_dest, a, α, β)
+    invbiperm = BiTuple(invperm_codomain, invperm_domain)
+    ndims(a_dest) == length(invbiperm) ||
+        throw(ArgumentError("destination does not match permutation"))
+    # Reshape `m` to the destination's matricized axes (a view), then permute it
+    # straight into `a_dest` with accumulation in a single pass, rather than
+    # allocating a permuted copy and then adding it. Mirrors `unmatricize!`.
+    a_perm = unmatricize(style, m, bipartition(axes(a_dest), invbiperm)...)
+    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes(a_dest))))
+    return bipermutedimsopadd!(
+        a_dest, identity, a_perm, biperm_dest.t1, biperm_dest.t2, α, β
+    )
 end
 
 # Defaults to ReshapeFusion, a simple reshape
