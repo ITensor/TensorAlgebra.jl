@@ -259,15 +259,51 @@ function matricizeop(
     )
     return matricizeop(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
-# This is the primary function that should be overloaded for new fusion styles to fold
-# ops into matricization (e.g., fuse `conj` into the permutation copy, or use lazy
-# wrappers like StridedView with op metadata for zero-copy).
+# Classifies how `matricize` realizes the bipermutation `(perm_codomain, perm_domain)`
+# against storage, so `matricizeop` can skip the redundant permuted copy:
+#   ReshapeMatricizeKind   — the groups are already in storage order, so the permute is a
+#                            no-op and `matricize(style, a, ...)` can be called directly.
+#                            For a dense array that is a `reshape` view; for a graded array
+#                            it still gathers blocks, but skips the extra permute copy.
+#   TransposeMatricizeKind — the only reordering is a codomain/domain swap, which a dense
+#                            array realizes as a `transpose` of a `reshape` (a view gemm
+#                            reads via BLAS' transpose flag).
+#   PermuteMatricizeKind   — the groups interleave storage, so a permuted copy is required.
+# Pure: depends only on the index pattern, not on `a`'s data. Dispatched on `FusionStyle`.
+# The generic classifier only recognizes the always-safe `ReshapeMatricizeKind` (skipping a
+# no-op permute is valid for any style); `TransposeMatricizeKind` is opt-in for styles whose
+# `matricize` composes with a lazy `transpose`, currently only `ReshapeFusion`.
+@enum MatricizeKind ReshapeMatricizeKind TransposeMatricizeKind PermuteMatricizeKind
+
+# Whether `perm` is the identity permutation `(1, …, n)`.
+isidentityperm(perm::Tuple{Vararg{Int}}) = perm == ntuple(identity, length(perm))
+
+function matricizekind(
+        ::FusionStyle, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+    )
+    # Already in storage order: the permute is a no-op, so `matricize` can run directly.
+    isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
+    return PermuteMatricizeKind
+end
+
+# Skip the permuted copy when the classifier says it is unnecessary. `ReshapeMatricizeKind`
+# calls `matricize` directly on `a` (a view for dense, a gather without the extra permute
+# for graded); `TransposeMatricizeKind` returns a lazy `transpose` of the reshape. Both
+# fast paths require `op === identity`, since a plain view cannot carry a fused `op` like
+# `conj`. The result may alias `a` and must be treated as read-only, matching the docstring.
 function matricizeop(
         style::FusionStyle, op, a::AbstractArray,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipermutation"))
+    if op === identity
+        kind = matricizekind(style, perm_codomain, perm_domain)
+        kind == ReshapeMatricizeKind &&
+            return matricize(style, a, Val(length(perm_codomain)))
+        kind == TransposeMatricizeKind &&
+            return transpose(matricize(style, a, Val(length(perm_domain))))
+    end
     a_perm_op = permutedimsop(op, a, perm_codomain, perm_domain)
     return matricize(style, a_perm_op, Val(length(perm_codomain)))
 end
@@ -372,6 +408,16 @@ function tensor_product_axis(
 end
 function matricize(style::ReshapeFusion, a::AbstractArray, ndims_codomain::Val)
     return reshape(a, matricize_axes(style, a, ndims_codomain))
+end
+# A dense array additionally realizes a codomain/domain swap as a lazy `transpose` of a
+# reshape (a view), so it opts into `TransposeMatricizeKind` on top of the generic
+# reshape/permute classification.
+function matricizekind(
+        ::ReshapeFusion, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+    )
+    isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
+    isidentityperm((perm_domain..., perm_codomain...)) && return TransposeMatricizeKind
+    return PermuteMatricizeKind
 end
 function unmatricize(
         style::ReshapeFusion, m::AbstractMatrix,
