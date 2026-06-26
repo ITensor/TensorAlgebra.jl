@@ -221,6 +221,9 @@ linearbroadcasted(::typeof(*), a::AbstractArray, α::Number) = ScaledBroadcasted
 function linearbroadcasted(::typeof(*), α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
 end
+# Scaling of ConjBroadcasted (e.g. `conj.(a) ./ β`): the scaling factor materializes via
+# `ScaledBroadcasted`, which composes with the inner conjugation.
+linearbroadcasted(::typeof(*), α::Number, a::ConjBroadcasted) = ScaledBroadcasted(α, a)
 
 # Conjugation.
 linearbroadcasted(::typeof(conj), a::AbstractArray) = ConjBroadcasted(a)

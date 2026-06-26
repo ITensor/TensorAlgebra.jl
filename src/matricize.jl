@@ -152,10 +152,13 @@ function permutedimsop(op, src::AbstractArray, perm_codomain, perm_domain)
     return bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
 end
 
+# The output holds `op.(src)` permuted, so `op` applies to the axes too: `conj` dualizes a
+# graded axis (a no-op on a dense axis), `identity` leaves it unchanged, keeping axes and
+# data in sync.
 function allocate_output(::typeof(permutedimsop), op, src::AbstractArray, perm_co, perm_do)
     T = Base.promote_op(op, eltype(src))
-    axes_co = map(i -> axes(src, i), perm_co)
-    axes_do = map(i -> axes(src, i), perm_do)
+    axes_co = map(i -> op(axes(src, i)), perm_co)
+    axes_do = map(i -> op(axes(src, i)), perm_do)
     return similar(src, T, BiTuple(axes_co, axes_do))
 end
 
