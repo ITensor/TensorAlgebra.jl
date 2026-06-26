@@ -31,6 +31,8 @@ function check_input(
         ::typeof(bipermutedimsopadd!), dest::AbstractArray, op, src::AbstractArray,
         perm_codomain, perm_domain
     )
+    op === identity || op === conj ||
+        throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
     perm = (perm_codomain..., perm_domain...)
     ndims(dest) == length(perm) ||
         throw(DimensionMismatch("destination ndims does not match permutation length"))
