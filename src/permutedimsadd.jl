@@ -23,14 +23,20 @@ end
 
 function bipermutedimsopadd! end
 
+# The destination holds `op.(src)` permuted, so its axes are the permuted source axes with
+# `op` applied. `op` is restricted to `identity` and `conj` (see `bipermutedimsopadd!`), both
+# of which act on axes: `conj` dualizes a graded axis (and is a no-op on a dense axis),
+# `identity` leaves it unchanged.
 function check_input(
-        ::typeof(bipermutedimsopadd!), dest::AbstractArray, src::AbstractArray,
+        ::typeof(bipermutedimsopadd!), dest::AbstractArray, op, src::AbstractArray,
         perm_codomain, perm_domain
     )
+    op === identity || op === conj ||
+        throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
     perm = (perm_codomain..., perm_domain...)
     ndims(dest) == length(perm) ||
         throw(DimensionMismatch("destination ndims does not match permutation length"))
-    axes(dest) == ntuple(d -> axes(src, perm[d]), ndims(dest)) ||
+    axes(dest) == ntuple(d -> op(axes(src, perm[d])), ndims(dest)) ||
         throw(DimensionMismatch("destination axes do not match permuted source axes"))
     return nothing
 end
@@ -44,7 +50,9 @@ This is the primary overload point for downstream array types that want to
 implement op-aware bipartitioned permutation + accumulation (e.g., fuse `conj`
 into the copy, or use lazy wrappers like `StridedView` with op metadata).
 
-The `op` is an element-wise linear map (e.g., `identity`, `conj`).
+The `op` is the conjugation flag expressed as a function — `identity` or `conj`, analogous
+to TensorOperations' boolean `conjA`/`conjB`. On graded axes `conj` dualizes; on dense axes
+it is a no-op. Transposition/permutation is carried by the `perm` arguments, not by `op`.
 
 The default implementation flattens the bipartitioned permutation, applies `op`
 element-wise, permutes, then accumulates via broadcasting with Strided.jl
@@ -56,7 +64,7 @@ function bipermutedimsopadd!(
         α::Number, β::Number
     )
     perm = (perm_codomain..., perm_domain...)
-    check_input(bipermutedimsopadd!, dest, src, perm_codomain, perm_domain)
+    check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
 
     # 0-dim short-circuit: avoid the permute-broadcast path entirely so that
     # downstream array types (e.g. `BlockSparseArray{T, 0}`) don't have to define

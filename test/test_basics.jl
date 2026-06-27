@@ -112,11 +112,6 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
         m = TensorAlgebra.matricizeop(conj, a, (3, 1), (2,))
         m_ref = conj.(matricize(a, (3, 1), (2,)))
         @test m ≈ m_ref
-
-        # general op
-        m = TensorAlgebra.matricizeop(abs, a, (1,), (2, 3))
-        m_ref = abs.(matricize(a, (1,), (2, 3)))
-        @test m ≈ m_ref
     end
 
     @testset "unmatricize (eltype=$elt)" for elt in elts
