@@ -364,33 +364,6 @@ function unmatricize!(
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
-function unmatricizeadd!(
-        a_dest::AbstractArray, m::AbstractMatrix,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
-        α::Number, β::Number
-    )
-    return unmatricizeadd!(
-        FusionStyle(a_dest), a_dest, m, invperm_codomain, invperm_domain, α, β
-    )
-end
-function unmatricizeadd!(
-        style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}},
-        α::Number, β::Number
-    )
-    invbiperm = BiTuple(invperm_codomain, invperm_domain)
-    ndims(a_dest) == length(invbiperm) ||
-        throw(ArgumentError("destination does not match permutation"))
-    # Reshape `m` to the destination's matricized axes (a view), then permute it
-    # straight into `a_dest` with accumulation in a single pass, rather than
-    # allocating a permuted copy and then adding it. Mirrors `unmatricize!`.
-    a_perm = unmatricize(style, m, bipartition(axes(a_dest), invbiperm)...)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes(a_dest))))
-    return bipermutedimsopadd!(
-        a_dest, identity, a_perm, biperm_dest.t1, biperm_dest.t2, α, β
-    )
-end
-
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
