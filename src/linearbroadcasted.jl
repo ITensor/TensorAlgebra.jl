@@ -227,7 +227,6 @@ linearbroadcasted(::typeof(*), α::Number, a::ConjBroadcasted) = ScaledBroadcast
 
 # Conjugation.
 linearbroadcasted(::typeof(conj), a::AbstractArray) = ConjBroadcasted(a)
-linearbroadcasted(::typeof(conj), a::AbstractArray{<:Real}) = a
 linearbroadcasted(::typeof(conj), a::ConjBroadcasted) = unconj(a)
 function linearbroadcasted(::typeof(conj), a::ScaledBroadcasted)
     return ScaledBroadcasted(conj(coeff(a)), linearbroadcasted(conj, unscaled(a)))
