@@ -259,12 +259,8 @@ FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
 function matricize(::ReshapeFusion, a::AbstractArray, ndims_codomain::Val)
     unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
-    axes_codomain, axes_domain = bipartition(axes(a), ndims_codomain)
-    all(ax -> isone(first(ax)), (axes_codomain..., axes_domain...)) ||
-        throw(ArgumentError("Only one-based axes are supported"))
-    nrow = prod(length, axes_codomain; init = 1)
-    ncol = prod(length, axes_domain; init = 1)
-    return reshape(a, (nrow, ncol))
+    size_codomain, size_domain = bipartition(size(a), ndims_codomain)
+    return reshape(a, (prod(size_codomain), prod(size_domain)))
 end
 # A dense array additionally realizes a codomain/domain swap as a lazy `transpose` of a
 # reshape (a view), so it opts into `TransposeMatricizeKind` on top of the generic
