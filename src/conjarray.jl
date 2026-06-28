@@ -25,11 +25,9 @@ conjed(a::ConjArray) = parent(a)
 
 Base.parent(a::ConjArray) = a.parent
 
-# `conj` of an axis: dualizes graded axes, identity for plain ranges (Base `conj` on a
-# range broadcasts to a vector, so we cannot call it directly). Overridable downstream.
-conjaxis(r) = r
-
-Base.axes(a::ConjArray) = map(conjaxis, axes(parent(a)))
+# Conjugating an axis is identity for plain integer ranges and dualizes graded axes (where
+# `conj` is overloaded as `dual` downstream).
+Base.axes(a::ConjArray) = map(conj, axes(parent(a)))
 Base.size(a::ConjArray) = size(parent(a))
 
 Base.IndexStyle(::Type{<:ConjArray{<:Any, <:Any, P}}) where {P} = IndexStyle(P)
