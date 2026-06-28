@@ -13,7 +13,7 @@ using Test: @test, @test_throws, @testset
         @test copy(x) ≈ 2a
 
         x = linearbroadcasted(conj, a)
-        @test x ≡ TA.ConjBroadcasted(a)
+        @test x ≡ TA.ConjArray(a)
         @test copy(x) ≈ conj(a)
 
         x = linearbroadcasted(+, a, b)
@@ -64,7 +64,7 @@ using Test: @test, @test_throws, @testset
 
         # Conjugation of scaled
         x = linearbroadcasted(conj, linearbroadcasted(*, 2im, a))
-        @test x ≡ TA.ScaledBroadcasted(-2im, TA.ConjBroadcasted(a))
+        @test x ≡ TA.ScaledBroadcasted(-2im, TA.ConjArray(a))
 
         # Double conjugation cancels
         @test linearbroadcasted(conj, linearbroadcasted(conj, a)) ≡ a
@@ -160,7 +160,7 @@ using Test: @test, @test_throws, @testset
         TA.add!(dest, linearbroadcasted(+, a, b), true, false)
         @test dest ≈ a + b
 
-        # add! with ConjBroadcasted
+        # add! with a ConjArray
         dest = zeros(ComplexF64, 3, 3)
         TA.add!(dest, linearbroadcasted(conj, a), true, false)
         @test dest ≈ conj(a)

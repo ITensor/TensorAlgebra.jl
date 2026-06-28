@@ -65,20 +65,10 @@ Base.ndims(a::ScaledBroadcasted) = ndims(unscaled(a))
 operation(::ScaledBroadcasted) = *
 arguments(a::ScaledBroadcasted) = (coeff(a), unscaled(a))
 
-# --- ConjBroadcasted ----------------------------------------------------------
-
-struct ConjBroadcasted{A} <: LinearBroadcasted
-    parent::A
-end
-
-unconj(a::ConjBroadcasted) = a.parent
-
-Base.axes(a::ConjBroadcasted) = axes(unconj(a))
-Base.eltype(a::ConjBroadcasted) = eltype(unconj(a))
-Base.ndims(a::ConjBroadcasted) = ndims(unconj(a))
-
-operation(::ConjBroadcasted) = conj
-arguments(a::ConjBroadcasted) = (unconj(a),)
+# Conjugation is represented by the `ConjArray` lazy wrapper (a real `AbstractArray` with
+# conjugated axes), not a dedicated `LinearBroadcasted` node. The lowering below produces
+# `ConjArray` leaves, and the op primitives absorb them by folding `conj` into `op` (see
+# `conjarray.jl`).
 
 # --- AddBroadcasted -----------------------------------------------------------
 
@@ -170,12 +160,6 @@ function permutedimsopadd!(
 end
 
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::ConjBroadcasted, perm, α::Number, β::Number
-    )
-    return permutedimsopadd!(dest, _compose_op(op, conj), unconj(src), perm, α, β)
-end
-
-function permutedimsopadd!(
         dest::AbstractArray, op, src::AddBroadcasted, perm, α::Number, β::Number
     )
     args = addends(src)
@@ -208,7 +192,7 @@ Analogous to `Base.Broadcast.broadcasted(f, args...)`.
 
 ```julia
 linearbroadcasted(*, 2.0, a)   # ScaledBroadcasted(2.0, a)
-linearbroadcasted(conj, a)     # ConjBroadcasted(a)
+linearbroadcasted(conj, a)     # ConjArray(a)
 linearbroadcasted(+, a, b)     # AddBroadcasted(a, b)
 ```
 """
@@ -221,13 +205,10 @@ linearbroadcasted(::typeof(*), a::AbstractArray, α::Number) = ScaledBroadcasted
 function linearbroadcasted(::typeof(*), α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
 end
-# Scaling of ConjBroadcasted (e.g. `conj.(a) ./ β`): the scaling factor materializes via
-# `ScaledBroadcasted`, which composes with the inner conjugation.
-linearbroadcasted(::typeof(*), α::Number, a::ConjBroadcasted) = ScaledBroadcasted(α, a)
-
-# Conjugation.
-linearbroadcasted(::typeof(conj), a::AbstractArray) = ConjBroadcasted(a)
-linearbroadcasted(::typeof(conj), a::ConjBroadcasted) = unconj(a)
+# Conjugation lowers to the `ConjArray` lazy wrapper. A scaled `ConjArray` (e.g.
+# `conj.(a) ./ β`) is handled by the generic `AbstractArray` scaling method above, since
+# `ConjArray <: AbstractArray`.
+linearbroadcasted(::typeof(conj), a::AbstractArray) = conjed(a)
 function linearbroadcasted(::typeof(conj), a::ScaledBroadcasted)
     return ScaledBroadcasted(conj(coeff(a)), linearbroadcasted(conj, unscaled(a)))
 end
@@ -355,9 +336,6 @@ end
 
 # BroadcastStyle for LinearBroadcasted subtypes — delegate to the wrapped array type.
 function BC.BroadcastStyle(::Type{<:ScaledBroadcasted{<:Any, A}}) where {A}
-    return BC.BroadcastStyle(A)
-end
-function BC.BroadcastStyle(::Type{<:ConjBroadcasted{A}}) where {A}
     return BC.BroadcastStyle(A)
 end
 function BC.BroadcastStyle(::Type{<:AddBroadcasted{Args}}) where {Args}
