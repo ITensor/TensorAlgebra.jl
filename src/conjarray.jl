@@ -54,6 +54,7 @@ end
 # behavior such as a graded fermion sign) is applied by the same `op = conj` path the
 # primitives use everywhere else. `copy(conjed(a))` for a plain `Array` is `conj(a)`.
 Base.copy(a::ConjArray) = add!(similar(parent(a), eltype(a), axes(a)), a, true, false)
+Base.copyto!(dest::AbstractArray, src::ConjArray) = add!(dest, src, true, false)
 Base.Broadcast.materialize(a::ConjArray) = copy(a)
 
 # Broadcast like the parent (e.g. preserve a graded style), not the default array style.
