@@ -1,6 +1,7 @@
 using Adapt: adapt
 using JLArrays: JLArray
-using TensorAlgebra: add!, bipermutedimsopadd!, permutedimsadd!, permutedimsopadd!
+using TensorAlgebra:
+    ConjArray, add!, bipermutedimsopadd!, conjed, permutedimsadd!, permutedimsopadd!
 using Test: @test, @testset
 
 @testset "[permutedims]add!" begin
@@ -65,6 +66,50 @@ using Test: @test, @testset
                 bipermutedimsopadd!(dest′, identity, src, pc, pd, 2, β)
                 @test dest′ ≈ β * dest + 2 * ref
             end
+        end
+    end
+    @testset "bipermutedimsopadd! unwraps ConjArray src (arraytype=$arrayt)" for arrayt in
+        (
+            Array,
+            JLArray,
+        )
+        dev = adapt(arrayt)
+        parent = dev(randn(ComplexF64, 2, 3, 4, 5))
+        src = ConjArray(parent)
+        for (pc, pd) in (((1, 2, 3, 4), ()), ((2, 4), (1, 3)), ((3, 1), (2, 4)))
+            perm = (pc..., pd...)
+            # `op = identity` composes with the wrapper's `conj`: result is the conjugated,
+            # permuted parent.
+            ref_conj = permutedims(conj(parent), perm)
+            # `op = conj` cancels the wrapper's `conj`: result is the bare permuted parent.
+            ref_id = permutedims(parent, perm)
+            for β in (0, 3)
+                dest = dev(randn(ComplexF64, size(ref_conj)...))
+                dest′ = copy(dest)
+                bipermutedimsopadd!(dest′, identity, src, pc, pd, 2, β)
+                @test dest′ ≈ β * dest + 2 * ref_conj
+
+                dest′ = copy(dest)
+                bipermutedimsopadd!(dest′, conj, src, pc, pd, 2, β)
+                @test dest′ ≈ β * dest + 2 * ref_id
+            end
+        end
+    end
+    @testset "add!(b, conjed(a)) matches eager conj (arraytype=$arrayt)" for arrayt in
+        (
+            Array,
+            JLArray,
+        )
+        dev = adapt(arrayt)
+        a = dev(randn(ComplexF64, 2, 3, 4))
+        α = 2
+        for β in (0, 3)
+            b = dev(randn(ComplexF64, 2, 3, 4))
+            b_lazy = copy(b)
+            b_eager = copy(b)
+            add!(b_lazy, conjed(a), α, β)
+            add!(b_eager, conj(a), α, β)
+            @test b_lazy ≈ b_eager
         end
     end
     @testset "bipermutedimsopadd! 0-dim with β=0 must not read dest (eltype=$T)" for T in
