@@ -1,8 +1,12 @@
-# `Base.indexin` doesn't accept tuples; return the positions of `x` in `y` as a tuple.
-function tuple_indexin(x::Tuple, y::AbstractArray)
-    return Tuple{Vararg{Any, length(x)}}(Base.indexin(x, y))
-end
-tuple_indexin(x::Tuple, y) = tuple_indexin(x, collect(y))
+# `a ∖ b` and `a ∩ b` as a `Vector`, preserving the order of `a`, via a linear
+# scan. For the small collections here `Base.setdiff`/`intersect` are slower
+# because they build a `Set` and hash. Both assume set-like (unique) inputs.
+smallsetdiff(a, b) = [x for x in a if x ∉ b]
+smallintersect(a, b) = [x for x in a if x ∈ b]
+
+# Position of each element of `x` in `y`, as a tuple. Linear scan, no hashing
+# (`Base.indexin` builds a `Dict`), for the small collections here.
+tuple_indexin(x::Tuple, y) = map(v -> findfirst(==(v), y), x)
 
 """
     biperm(t, t1, t2) -> (p1, p2)
@@ -30,14 +34,16 @@ length_codomain(t) = length(t) - length_domain(t)
 
 # codomain <-- domain
 function biperms(::typeof(contract), dimnames_dest, dimnames1, dimnames2)
-    dimnames = collect(Iterators.flatten((dimnames_dest, dimnames1, dimnames2)))
-    for i in unique(dimnames)
-        count(==(i), dimnames) == 2 || throw(ArgumentError("Invalid contraction labels"))
-    end
+    codomain = Tuple(smallsetdiff(dimnames1, dimnames2))
+    contracted = Tuple(smallintersect(dimnames1, dimnames2))
+    domain = Tuple(smallsetdiff(dimnames2, dimnames1))
 
-    codomain = Tuple(setdiff(dimnames1, dimnames2))
-    contracted = Tuple(intersect(dimnames1, dimnames2))
-    domain = Tuple(setdiff(dimnames2, dimnames1))
+    # `codomain`/`contracted` and `contracted`/`domain` partition the operands by
+    # construction, so the only label consistency left to check is that the
+    # destination carries exactly the uncontracted labels. `biperm` below then
+    # checks each group lands in the destination.
+    length(codomain) + length(domain) == length(dimnames_dest) ||
+        throw(ArgumentError("Invalid contraction labels"))
 
     perm_codomain_dest, perm_domain_dest = biperm(dimnames_dest, codomain, domain)
     invperm_dest = invperm((perm_codomain_dest..., perm_domain_dest...))
