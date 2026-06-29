@@ -1,6 +1,7 @@
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 ITensorPkgSkeleton = "3d388ab1-018a-49f4-ae50-18094d5f71ea"
@@ -23,6 +24,7 @@ path = ".."
 [compat]
 Adapt = "4"
 Aqua = "0.8.9"
+BenchmarkTools = "1"
 BlockArrays = "1.6.1"
 EllipsisNotation = "1.8"
 ITensorPkgSkeleton = "0.3.42"
