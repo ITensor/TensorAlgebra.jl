@@ -26,13 +26,8 @@ jobs:
       localregistry: "https://github.com/ITensor/ITensorRegistry.git"
       pkgs: |
         [
-              "BlockSparseArrays",
-              "DiagonalArrays",
-              "FusionTensors",
               "GradedArrays",
               "ITensorBase",
               "ITensorNetworksNext",
-              "KroneckerArrays",
-              "NamedDimsArrays",
               "SparseArraysBase"
             ]
