@@ -1,15 +1,13 @@
-using TensorAlgebra: biperms, contract, smallintersect, smallsetdiff, tuple_indexin
+using TensorAlgebra: biperms, contract, smallsetdiff, tuple_indexin
 using Test: @test, @test_throws, @testset
 
-@testset "smallsetdiff/smallintersect" begin
+@testset "smallsetdiff" begin
     # Order-preserving, returning a `Vector`.
     @test smallsetdiff((:i, :j, :k), (:k, :i)) == [:j]
-    @test smallintersect((:i, :j, :k), (:k, :i)) == [:i, :k]
     @test smallsetdiff([:i, :j, :k], [:k, :i]) == [:j]
-    @test smallintersect([:i, :j, :k], [:k, :i]) == [:i, :k]
     # Disjoint and empty cases.
     @test smallsetdiff((:i, :j), ()) == [:i, :j]
-    @test smallintersect((:i, :j), (:k,)) == []
+    @test smallsetdiff((:i, :j), (:i, :j)) == []
 end
 
 @testset "tuple_indexin" begin
