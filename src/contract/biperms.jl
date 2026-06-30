@@ -34,9 +34,9 @@ length_domain(t) = 0
 
 length_codomain(t) = length(t) - length_domain(t)
 
-# Position of `x` in `labels`, assuming it is present (the caller guarantees this), so the
-# result is an `Int` rather than `Union{Int, Nothing}`.
-findpos(x, labels) = something(findfirst(==(x), labels))
+# `findfirst` for a match the caller guarantees exists, so the result is an `Int` rather
+# than `Union{Int, Nothing}` (the `Nothing` would otherwise break inference downstream).
+checked_findfirst(pred, collection) = something(findfirst(pred, collection))
 
 # codomain <-- domain
 function biperms(::typeof(contract), labels_dest, labels1, labels2)
@@ -59,15 +59,15 @@ function biperms(
     perm2_domain, _ =
         bipartition(TupleTools.sortperm(map(in(labels1), labels2)), Val(n2 - K))
     # Align the contracted groups: list operand 2's contracted labels in operand 1's order.
-    perm2_codomain = map(p -> findpos(labels1[p], labels2), perm1_domain)
+    perm2_codomain = map(p -> checked_findfirst(==(labels1[p]), labels2), perm1_domain)
     # The operands partition into (un)contracted groups by construction; the only label
     # consistency left to check is that the destination carries exactly the uncontracted
     # labels. Locating each below then checks they all land in the destination.
     length(labels_dest) == (n1 - K) + (n2 - K) ||
         throw(ArgumentError("Invalid contraction labels"))
     pos_dest = (
-        map(p -> findpos(labels1[p], labels_dest), perm1_codomain)...,
-        map(p -> findpos(labels2[p], labels_dest), perm2_domain)...,
+        map(p -> checked_findfirst(==(labels1[p]), labels_dest), perm1_codomain)...,
+        map(p -> checked_findfirst(==(labels2[p]), labels_dest), perm2_domain)...,
     )
     biperm_dest = bipartition(invperm(pos_dest), Val(n1 - K))
     return biperm_dest, (perm1_codomain, perm1_domain), (perm2_codomain, perm2_domain)
