@@ -1,26 +1,50 @@
-using BenchmarkTools
-using TensorAlgebra
+using BenchmarkTools: @benchmarkable, BenchmarkGroup
+using TensorAlgebra: contract, contract!
 
-SUITE = BenchmarkGroup()
+# Benchmarks of the core contraction entry points across a range of dimensions.
+# Small dimensions are dominated by the fixed per-call label bookkeeping, large
+# ones by the BLAS call, so a regression in either regime is visible. The `SUITE`
+# global is the entry point `AirspeedVelocity.jl`'s `benchpkg` expects.
 
-const CONTRACTIONS_PATH = joinpath(@__DIR__, "benchmark_specs", "randomTCs.dat")
+const SUITE = BenchmarkGroup()
 
-include("contractions.jl")
+const DIMS = (4, 16, 64)
 
-# Contraction benchmarks
-# ----------------------
-contraction_suite = SUITE["contractions"] = BenchmarkGroup()
+contract_suite = SUITE["contract"] = BenchmarkGroup()
 
-Ts = (Float64, ComplexF64)
-algs = (TensorAlgebra.Matricize(),)
+# Matrix multiply, one shared index: C[i,k] = A[i,j] B[j,k].
+matmul = contract_suite["matmul"] = BenchmarkGroup()
+for d in DIMS
+    matmul[d] = @benchmarkable(
+        contract(A, (:i, :j), B, (:j, :k)),
+        setup = (A = randn($d, $d); B = randn($d, $d)),
+    )
+end
 
-for alg in algs
-    alg_suite = contraction_suite[alg] = BenchmarkGroup()
-    for T in Ts
-        alg_suite[T] = BenchmarkGroup()
+# Rank-3 contraction over two shared indices: C[i,l] = A[i,j,k] B[k,j,l].
+rank3 = contract_suite["rank3"] = BenchmarkGroup()
+for d in (4, 16)
+    rank3[d] = @benchmarkable(
+        contract(A, (:i, :j, :k), B, (:k, :j, :l)),
+        setup = (A = randn($d, $d, $d); B = randn($d, $d, $d)),
+    )
+end
 
-        for (i, line) in enumerate(eachline(CONTRACTIONS_PATH))
-            alg_suite[T][i] = generate_contract_benchmark(line; T, alg)
-        end
-    end
+# Full contraction to a scalar: c = A[i,j] B[i,j].
+scalar = contract_suite["scalar"] = BenchmarkGroup()
+for d in DIMS
+    scalar[d] = @benchmarkable(
+        contract(A, (:i, :j), B, (:i, :j)),
+        setup = (A = randn($d, $d); B = randn($d, $d)),
+    )
+end
+
+# In-place matrix multiply into a preallocated destination.
+contract!_suite = SUITE["contract!"] = BenchmarkGroup()
+matmul! = contract!_suite["matmul"] = BenchmarkGroup()
+for d in DIMS
+    matmul![d] = @benchmarkable(
+        contract!(C, (:i, :k), A, (:i, :j), B, (:j, :k)),
+        setup = (A = randn($d, $d); B = randn($d, $d); C = zeros($d, $d)),
+    )
 end
