@@ -9,14 +9,6 @@ hook: downstream array types can overload it to return a custom lazy permuted-di
 """
 permuteddims(a::AbstractArray, perm) = PermutedDimsArray(a, perm)
 
-# Specify if an array is on CPU. This is helpful for backends that don't support
-# operations on GPU, such as Strided.jl.
-iscpu(::AbstractArray) = true
-# Convert to StridedView only if all arrays are strided and on CPU.
-function maybestrided(as::AbstractArray...)
-    return all(a -> SV.isstrided(a) && iscpu(a), as) ? SV.StridedView.(as) : as
-end
-
 # ---------------------------------------------------------------------------- #
 # bipermutedimsopadd! — the primary materialization primitive
 # ---------------------------------------------------------------------------- #
@@ -66,34 +58,24 @@ function bipermutedimsopadd!(
     perm = (perm_codomain..., perm_domain...)
     check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
 
-    # 0-dim short-circuit: avoid the permute-broadcast path entirely so that
-    # downstream array types (e.g. `BlockSparseArray{T, 0}`) don't have to define
-    # `getindex` on a 0-dim `PermutedDimsArray` wrapper around them.
-    # The `iszero(β)` guard follows the BLAS convention that `β = 0` means `dest`
-    # is write-only — its slot need not be defined. This matters for element types
-    # whose `undef` storage is unreadable, e.g. `Array{BigFloat, 0}(undef)[]` throws
-    # `UndefRefError`.
-    if iszero(ndims(dest))
-        if iszero(β)
-            dest[] = α * op(src[])
-        else
-            dest[] = β * dest[] + α * op(src[])
-        end
-        return dest
-    end
+    dest′ = SV.StridedView(dest)
+    src′ = permutedims(SV.StridedView(src), perm)
+    _opadd!(dest′, op, src′, α, β)
+    return dest
+end
 
-    dest′, src′ = maybestrided(dest, permuteddims(src, perm))
+function _opadd!(dest::AbstractArray, op, src::AbstractArray, α, β)
     if op === identity
         if iszero(β)
-            dest′ .= α .* src′
+            dest .= α .* src
         else
-            dest′ .= β .* dest′ .+ α .* src′
+            dest .= β .* dest .+ α .* src
         end
     else
         if iszero(β)
-            dest′ .= α .* op.(src′)
+            dest .= α .* op.(src)
         else
-            dest′ .= β .* dest′ .+ α .* op.(src′)
+            dest .= β .* dest .+ α .* op.(src)
         end
     end
     return dest
