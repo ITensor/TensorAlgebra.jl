@@ -252,9 +252,9 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         end
     end
     @testset "integer relabeling (label_type)" begin
-        @test TensorAlgebra.label_type((1, 2)) === Int
-        @test TensorAlgebra.label_type((:a, :b)) === Symbol
-        @test TensorAlgebra.label_type((OptInLabel(1), OptInLabel(2))) === Int
+        @test TensorAlgebra.label_type(Int) === Int
+        @test TensorAlgebra.label_type(Symbol) === Symbol
+        @test TensorAlgebra.label_type(OptInLabel) === Int
 
         L = OptInLabel
         a1 = randn(2, 3, 4)
@@ -268,6 +268,12 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         # Specifying the destination labels still works for opted-in types.
         a_dest = contract([L(1), L(4)], a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
         @test a_dest ≈ a_ref
+
+        # Empty labels (e.g. a scalar operand) are handled.
+        sc = fill(2.0)
+        a_scaled, scaled_dest = contract(a1, (L(1), L(2), L(3)), sc, ())
+        @test a_scaled ≈ 2 .* a1
+        @test scaled_dest == [L(1), L(2), L(3)]
     end
     @testset "outer product contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
             elt2 in elts
