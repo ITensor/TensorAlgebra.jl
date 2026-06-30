@@ -4,9 +4,11 @@ using LinearAlgebra: Diagonal
 # the same row/column reshape order), but its structure is preserved wherever the result of
 # an operation is still diagonal. These methods hook the lowest-level primitives, so the
 # convenience wrappers built on them (`bipermutedims`, `permutedimsadd!`, `add!`, and the
-# matrix functions, which all route through `bipermutedimsopadd!` and `similar`) preserve
-# `Diagonal` for free. Structure is given up (via the generic reshape path) only where the
-# result genuinely is not diagonal: vectorizing matricizations and `Diagonal`/dense mixing.
+# matrix functions, which all route through `bipermutedimsopadd!` and `allocate_output`)
+# preserve `Diagonal`. Structure is given up (via the generic reshape path) only where the
+# result genuinely is not diagonal: vectorizing matricizations and `Diagonal`/dense mixing
+# (the latter falls back to Base's dense `similar`, since `contract` allocates from a flat
+# axis tuple, not a `BiTuple`).
 
 # Permuting the two axes of a square `Diagonal` (identity or transpose) leaves the stored
 # diagonal unchanged, so accumulate straight onto it.
@@ -20,11 +22,20 @@ function bipermutedimsopadd!(
     return dest
 end
 
-# Bipartitioned allocation of a `Diagonal` stays a `Diagonal` (the permuted output is still
-# 2-dimensional and square), so `permutedimsop`/`bipermutedims` of a `Diagonal` allocate a
-# `Diagonal`. `BiTuple` is owned by TensorAlgebra, so this is not piracy.
-function Base.similar(a::Diagonal, T::Type, axes::BiTuple)
-    return Diagonal(similar(a.diag, T, length(first(Tuple(axes)))))
+# The bipermutation of a square `Diagonal` is again a square `Diagonal` of the same size (it
+# only swaps or keeps the two axes), so allocate the `permutedimsop`/`bipermutedims` output as
+# a `Diagonal`. The squareness comes from `src`, not from the axes: an axis-based
+# `similar(::BiTuple)` could not preserve it, since row/column axes alone do not encode that
+# the result is square.
+function allocate_output(
+        ::typeof(permutedimsop),
+        op,
+        src::Diagonal,
+        perm_codomain,
+        perm_domain
+    )
+    T = Base.promote_op(op, eltype(src))
+    return Diagonal(similar(src.diag, T))
 end
 
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
