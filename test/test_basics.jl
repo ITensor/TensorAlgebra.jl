@@ -10,6 +10,13 @@ using Test: @test, @test_broken, @test_throws, @testset
 default_rtol(elt::Type) = 10^(0.75 * log10(eps(real(elt))))
 const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 
+# A label type that opts into integer relabeling, to exercise the contraction path that matches
+# labels to integers before deriving the contraction.
+struct OptInLabel
+    id::Int
+end
+TensorAlgebra.use_int_labels(::Type{OptInLabel}) = true
+
 @testset "TensorAlgebra" begin
     @testset "misc" begin
         t = (1, 2, 3)
@@ -243,6 +250,24 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
             ## with Float32 numbers
             @test a_dest ≈ a_dest_tensoroperations rtol = 50 * default_rtol(elt_dest)
         end
+    end
+    @testset "integer relabeling (use_int_labels)" begin
+        @test !TensorAlgebra.use_int_labels((1, 2))
+        @test !TensorAlgebra.use_int_labels((:a, :b))
+        @test TensorAlgebra.use_int_labels((OptInLabel(1), OptInLabel(2)))
+
+        L = OptInLabel
+        a1 = randn(2, 3, 4)
+        a2 = randn(3, 4, 5)
+        # Shared labels 2 and 3 are contracted; 1 and 4 are the uncontracted, destination labels.
+        a_dest, labels_dest = contract(a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
+        a_ref, = contract(a1, (1, 2, 3), a2, (2, 3, 4))
+        @test a_dest ≈ a_ref
+        @test labels_dest == [L(1), L(4)]
+
+        # Specifying the destination labels still works for opted-in types.
+        a_dest = contract([L(1), L(4)], a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
+        @test a_dest ≈ a_ref
     end
     @testset "outer product contraction (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts,
             elt2 in elts

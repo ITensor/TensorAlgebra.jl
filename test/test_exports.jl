@@ -35,7 +35,7 @@ using Test: @test, @testset
             exports,
             [
                 :biperm, :bipartition, :contractopadd!, :matricizeop, :to_range,
-                :zero!, :scale!, :permuteddims, :conjed, :ConjArray,
+                :use_int_labels, :zero!, :scale!, :permuteddims, :conjed, :ConjArray,
             ]
         )
     end
