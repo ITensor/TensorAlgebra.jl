@@ -3,15 +3,12 @@
 
 # contract (labels)
 function contract(a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs...)
-    if use_int_labels(labels1) || use_int_labels(labels2)
-        # Run the contraction-label bookkeeping on integers, then map the derived labels back.
-        int1, int2 = to_int_labels(labels1, labels2)
-        int_dest = contract_labels(int1, int2)
-        a_dest = contract(int_dest, a1, int1, a2, int2; kwargs...)
-        return a_dest, from_int_labels(int_dest, labels1, labels2)
-    end
-    labels_dest = contract_labels(a1, labels1, a2, labels2)
-    return contract(labels_dest, a1, labels1, a2, labels2; kwargs...), labels_dest
+    # Optionally convert the labels to a representation cheaper to run the bookkeeping on (see
+    # `label_type`). `encode_contraction_labels`/`decode_contraction_labels` are no-ops unless the label type opts in.
+    l1, l2 = encode_contraction_labels(labels1, labels2)
+    l_dest = contract_labels(l1, l2)
+    a_dest = contract(l_dest, a1, l1, a2, l2; kwargs...)
+    return a_dest, decode_contraction_labels(l_dest, labels1, labels2)
 end
 function contract(
         labels_dest, a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs...

@@ -15,7 +15,7 @@ const elts = (Float32, Float64, Complex{Float32}, Complex{Float64})
 struct OptInLabel
     id::Int
 end
-TensorAlgebra.use_int_labels(::Type{OptInLabel}) = true
+TensorAlgebra.label_type(::Type{OptInLabel}) = Int
 
 @testset "TensorAlgebra" begin
     @testset "misc" begin
@@ -251,10 +251,10 @@ TensorAlgebra.use_int_labels(::Type{OptInLabel}) = true
             @test a_dest ≈ a_dest_tensoroperations rtol = 50 * default_rtol(elt_dest)
         end
     end
-    @testset "integer relabeling (use_int_labels)" begin
-        @test !TensorAlgebra.use_int_labels((1, 2))
-        @test !TensorAlgebra.use_int_labels((:a, :b))
-        @test TensorAlgebra.use_int_labels((OptInLabel(1), OptInLabel(2)))
+    @testset "integer relabeling (label_type)" begin
+        @test TensorAlgebra.label_type((1, 2)) === Int
+        @test TensorAlgebra.label_type((:a, :b)) === Symbol
+        @test TensorAlgebra.label_type((OptInLabel(1), OptInLabel(2))) === Int
 
         L = OptInLabel
         a1 = randn(2, 3, 4)
