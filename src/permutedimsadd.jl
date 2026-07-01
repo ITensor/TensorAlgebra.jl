@@ -16,12 +16,8 @@ permuteddims(a, perm) = PermutedDims(a, perm)
 
 Lazy permuted-dims wrapper storing `parent` and the permutation `perm` in fields (unlike
 `Base.PermutedDimsArray`, which encodes `perm` in a type parameter), so it constructs cheaply
-from a runtime permutation. It is deliberately not an `AbstractArray`, so it can wrap operands
-that are not arrays (e.g. a backend tensor) as well as arrays. It is a valid `Base.Broadcasted`
-leaf: a linear-combination broadcast that carries it (adding a permuted operand, say) flattens
-through `tryflattenlinear` and is materialized by `bipermutedimsopadd!`, whose absorption method
-composes `perm` into the outer bipermutation and forwards a single leaf call on `parent`.
-TensorAlgebra never indexes into it.
+from a runtime permutation. Primarily for internal use to track permutations in linear
+broadcasting.
 """
 struct PermutedDims{P, Perm}
     parent::P
