@@ -211,6 +211,15 @@ function unmatricize(m, codomain_axes, domain_axes)
     return unmatricize(FusionStyle(m), m, codomain_axes, domain_axes)
 end
 
+# Split `axes` into its codomain and domain groups like `bipartition`, but present the domain
+# group codomain-facing (un-dualized) with `conj`, the convention `unmatricize` and `similar_map`
+# take. The domain axes `bipartition` reads off `axes(a)` are in the stored (dualized) form, so
+# this bridges from `axes(a)` to the `unmatricize` axis convention (a no-op on dense axes).
+function bipartition_axes(t::Tuple, split...)
+    codomain_axes, domain_axes = bipartition(t, split...)
+    return codomain_axes, conj.(domain_axes)
+end
+
 # Inverse-bipermutation form: split `axes_dest` into codomain/domain groups reordered by the
 # inverse bipermutation, unmatricize in that order, then permute back.
 function unmatricizeperm(
@@ -226,8 +235,8 @@ function unmatricizeperm(
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
     length(axes_dest) == length(invbiperm) ||
         throw(ArgumentError("axes do not match permutation"))
-    codomain_axes, domain_axes = bipartition(axes_dest, invbiperm)
-    a12 = unmatricize(style, m, codomain_axes, conj.(domain_axes))
+    codomain_axes, domain_axes = bipartition_axes(axes_dest, invbiperm)
+    a12 = unmatricize(style, m, codomain_axes, domain_axes)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes_dest)))
     return bipermutedims(a12, biperm_dest)
 end
@@ -245,8 +254,8 @@ function unmatricizeperm!(
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
     ndims(a_dest) == length(invbiperm) ||
         throw(ArgumentError("destination does not match permutation"))
-    codomain_axes, domain_axes = bipartition(axes(a_dest), invbiperm)
-    a_perm = unmatricize(style, m, codomain_axes, conj.(domain_axes))
+    codomain_axes, domain_axes = bipartition_axes(axes(a_dest), invbiperm)
+    a_perm = unmatricize(style, m, codomain_axes, domain_axes)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes(a_dest))))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
