@@ -24,19 +24,13 @@ for a graded range).
 trivialrange(r::AbstractUnitRange) = trivialrange(typeof(r))
 trivialrange(::Type{<:AbstractUnitRange}) = Base.OneTo(1)
 
-# Default similar with bipartitioned axes: flatten to a plain tuple of axes.
-# Downstream types (e.g., FusionTensor) can override to preserve bipartition.
-function Base.similar(a::AbstractArray, T::Type, axes::BiTuple)
-    return similar(a, T, Tuple(axes))
-end
-
 """
     permutedimsop(op, src, perm_codomain, perm_domain)
 
 Non-mutating version of `bipermutedimsopadd!`: returns
 `op.(permutedims(src, (perm_codomain..., perm_domain...)))`.
 """
-function permutedimsop(op, src::AbstractArray, perm_codomain, perm_domain)
+function permutedimsop(op, src, perm_codomain, perm_domain)
     dest = allocate_output(permutedimsop, op, src, perm_codomain, perm_domain)
     return bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
 end
@@ -44,24 +38,26 @@ end
 # The output holds `op.(src)` permuted, so `op` applies to the axes too: `conj` dualizes a
 # graded axis (a no-op on a dense axis), `identity` leaves it unchanged, keeping axes and
 # data in sync.
-function allocate_output(::typeof(permutedimsop), op, src::AbstractArray, perm_co, perm_do)
+function allocate_output(::typeof(permutedimsop), op, src, perm_co, perm_do)
     T = Base.promote_op(op, eltype(src))
     axes_co = map(i -> op(axes(src, i)), perm_co)
     axes_do = map(i -> op(axes(src, i)), perm_do)
-    return similar(src, T, BiTuple(axes_co, axes_do))
+    # `axes_do` are in the stored/dualized convention (from `axes(src)`), so un-dualize them
+    # into `similar_map`'s codomain-facing convention.
+    return similar_map(src, T, axes_co, conj.(axes_do))
 end
 
-function bipermutedims(a::AbstractArray, perm1, perm2)
+function bipermutedims(a, perm1, perm2)
     return permutedimsop(identity, a, perm1, perm2)
 end
-function bipermutedims!(a_dest::AbstractArray, a_src::AbstractArray, perm1, perm2)
+function bipermutedims!(a_dest, a_src, perm1, perm2)
     return bipermutedimsopadd!(a_dest, identity, a_src, perm1, perm2, true, false)
 end
-function bipermutedims(a::AbstractArray, biperm::BiTuple)
+function bipermutedims(a, biperm::BiTuple)
     return bipermutedims(a, biperm.t1, biperm.t2)
 end
 function bipermutedims!(
-        a_dest::AbstractArray, a_src::AbstractArray, biperm::BiTuple
+        a_dest, a_src, biperm::BiTuple
     )
     return bipermutedims!(a_dest, a_src, biperm.t1, biperm.t2)
 end
@@ -74,32 +70,32 @@ end
 # This is the primary function that should be overloaded for new fusion styles.
 # This assumes the permutation was already performed.
 function matricize(
-        style::FusionStyle, a::AbstractArray, ndims_codomain::Val
+        style::FusionStyle, a, ndims_codomain::Val
     )
     return throw(MethodError(matricize, (style, a, ndims_codomain)))
 end
-function matricize(a::AbstractArray, ndims_codomain::Val)
+function matricize(a, ndims_codomain::Val)
     return matricize(FusionStyle(a), a, ndims_codomain)
 end
 
-function matricize(
-        a::AbstractArray,
+function matricizeperm(
+        a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return matricize(FusionStyle(a), a, perm_codomain, perm_domain)
+    return matricizeperm(FusionStyle(a), a, perm_codomain, perm_domain)
 end
-# Thin wrapper around `matricizeop` with identity op — the actual matricization logic
+# Thin wrapper around `matricizeopperm` with identity op — the actual matricization logic
 # (and the fusion-style overload point for folding ops into matricization) lives in
-# `matricizeop`.
-function matricize(
-        style::FusionStyle, a::AbstractArray,
+# `matricizeopperm`.
+function matricizeperm(
+        style::FusionStyle, a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return matricizeop(style, identity, a, perm_codomain, perm_domain)
+    return matricizeopperm(style, identity, a, perm_codomain, perm_domain)
 end
 
 # Process inputs such as `EllipsisNotation.Ellipsis`.
-function to_permblocks(a::AbstractArray, permblocks::NTuple{2, Tuple{Vararg{Int}}})
+function to_permblocks(a, permblocks::NTuple{2, Tuple{Vararg{Int}}})
     isperm((permblocks[1]..., permblocks[2]...)) ||
         throw(ArgumentError("Invalid bipermutation"))
     return permblocks
@@ -110,49 +106,49 @@ function tuplesetcomplement(t1::NTuple{N1}, t2::NTuple{N2}) where {N1, N2}
     return NTuple{N1 - N2}(setdiff(t1, t2))
 end
 function to_permblocks(
-        a::AbstractArray, permblocks::Tuple{Tuple{Ellipsis}, Tuple{Vararg{Int}}}
+        a, permblocks::Tuple{Tuple{Ellipsis}, Tuple{Vararg{Int}}}
     )
     permblocks1 = tuplesetcomplement(ntuple(identity, ndims(a)), permblocks[2])
     return (permblocks1, permblocks[2])
 end
 function to_permblocks(
-        a::AbstractArray, permblocks::Tuple{Tuple{Vararg{Int}}, Tuple{Ellipsis}}
+        a, permblocks::Tuple{Tuple{Vararg{Int}}, Tuple{Ellipsis}}
     )
     permblocks2 = tuplesetcomplement(ntuple(identity, ndims(a)), permblocks[1])
     return (permblocks[1], permblocks2)
 end
 
-function matricize(a::AbstractArray, perm_codomain, perm_domain)
-    return matricize(FusionStyle(a), a, perm_codomain, perm_domain)
+function matricizeperm(a, perm_codomain, perm_domain)
+    return matricizeperm(FusionStyle(a), a, perm_codomain, perm_domain)
 end
-function matricize(
-        style::FusionStyle, a::AbstractArray, perm_codomain, perm_domain
+function matricizeperm(
+        style::FusionStyle, a, perm_codomain, perm_domain
     )
-    return matricize(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
+    return matricizeperm(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
 
-# ====================================  matricizeop  =======================================
+# ==================================  matricizeopperm  =====================================
 
 """
-    matricizeop(op, a, perm_codomain, perm_domain)
+    matricizeopperm(op, a, perm_codomain, perm_domain)
 
 Matricize `a` with element-wise operation `op` folded in. Returns a matrix representing
-`op.(matricize(a, perm_codomain, perm_domain))`.
+`op.(matricizeperm(a, perm_codomain, perm_domain))`.
 
 Has "maybe alias" semantics: the result may be a view/wrapper aliasing `a` or a fresh
 copy, depending on the fusion style and array type. The caller should treat the result
 as read-only.
 """
-function matricizeop(op, a::AbstractArray, perm_codomain, perm_domain)
-    return matricizeop(FusionStyle(a), op, a, perm_codomain, perm_domain)
+function matricizeopperm(op, a, perm_codomain, perm_domain)
+    return matricizeopperm(FusionStyle(a), op, a, perm_codomain, perm_domain)
 end
-function matricizeop(
-        style::FusionStyle, op, a::AbstractArray, perm_codomain, perm_domain
+function matricizeopperm(
+        style::FusionStyle, op, a, perm_codomain, perm_domain
     )
-    return matricizeop(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
+    return matricizeopperm(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
 # Classifies how `matricize` realizes the bipermutation `(perm_codomain, perm_domain)`
-# against storage, so `matricizeop` can skip the redundant permuted copy:
+# against storage, so `matricizeopperm` can skip the redundant permuted copy:
 #   ReshapeMatricizeKind   — the groups are already in storage order, so the permute is a
 #                            no-op and `matricize(style, a, ...)` can be called directly.
 #                            For a dense array that is a `reshape` view; for a graded array
@@ -183,8 +179,8 @@ end
 # for graded); `TransposeMatricizeKind` returns a lazy `transpose` of the reshape. Both
 # fast paths require `op === identity`, since a plain view cannot carry a fused `op` like
 # `conj`. The result may alias `a` and must be treated as read-only, matching the docstring.
-function matricizeop(
-        style::FusionStyle, op, a::AbstractArray,
+function matricizeopperm(
+        style::FusionStyle, op, a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
@@ -201,54 +197,53 @@ function matricizeop(
 end
 
 # ====================================  unmatricize  =======================================
-# This is the primary function that should be overloaded for new fusion styles.
-function unmatricize(
-        style::FusionStyle, m::AbstractMatrix,
-        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}}
-    )
-    return throw(MethodError(unmatricize, (style, m, axes_codomain, axes_domain)))
+# Split form: `codomain_axes` and `domain_axes` are the destination axes for the codomain and
+# domain groups. This is the primary overload point for new fusion styles. Permutation is
+# handled separately by `unmatricizeperm`, so `unmatricize` never has to disambiguate axis
+# tuples from permutation tuples regardless of how unconstrained `m` and the axes are.
+function unmatricize(style::FusionStyle, m, codomain_axes, domain_axes)
+    return throw(MethodError(unmatricize, (style, m, codomain_axes, domain_axes)))
 end
-function unmatricize(
-        m::AbstractMatrix,
-        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}}
-    )
-    return unmatricize(FusionStyle(m), m, axes_codomain, axes_domain)
+function unmatricize(m, codomain_axes, domain_axes)
+    return unmatricize(FusionStyle(m), m, codomain_axes, domain_axes)
 end
 
-function unmatricize(
-        m::AbstractMatrix, axes_dest,
-        invperm1::Tuple{Vararg{Int}}, invperm2::Tuple{Vararg{Int}}
+# Inverse-bipermutation form: split `axes_dest` into codomain/domain groups reordered by the
+# inverse bipermutation, unmatricize in that order, then permute back.
+function unmatricizeperm(
+        m, axes_dest,
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
-    return unmatricize(FusionStyle(m), m, axes_dest, invperm1, invperm2)
+    return unmatricizeperm(FusionStyle(m), m, axes_dest, invperm_codomain, invperm_domain)
 end
-function unmatricize(
-        style::FusionStyle, m::AbstractMatrix, axes_dest,
+function unmatricizeperm(
+        style::FusionStyle, m, axes_dest,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
     length(axes_dest) == length(invbiperm) ||
         throw(ArgumentError("axes do not match permutation"))
-    a12 = unmatricize(style, m, bipartition(axes_dest, invbiperm)...)
+    codomain_axes, domain_axes = bipartition(axes_dest, invbiperm)
+    a12 = unmatricize(style, m, codomain_axes, domain_axes)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes_dest)))
     return bipermutedims(a12, biperm_dest)
 end
 
-function unmatricize!(
-        a_dest::AbstractArray, m::AbstractMatrix,
+function unmatricizeperm!(
+        a_dest, m,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
-    return unmatricize!(FusionStyle(m), a_dest, m, invperm_codomain, invperm_domain)
+    return unmatricizeperm!(FusionStyle(m), a_dest, m, invperm_codomain, invperm_domain)
 end
-function unmatricize!(
-        style::FusionStyle, a_dest::AbstractArray, m::AbstractMatrix,
+function unmatricizeperm!(
+        style::FusionStyle, a_dest, m,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
     ndims(a_dest) == length(invbiperm) ||
         throw(ArgumentError("destination does not match permutation"))
-    a_perm = unmatricize(style, m, bipartition(axes(a_dest), invbiperm)...)
+    codomain_axes, domain_axes = bipartition(axes(a_dest), invbiperm)
+    a_perm = unmatricize(style, m, codomain_axes, domain_axes)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes(a_dest))))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
@@ -256,7 +251,7 @@ end
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
-function matricize(::ReshapeFusion, a::AbstractArray, ndims_codomain::Val)
+function matricize(::ReshapeFusion, a, ndims_codomain::Val)
     unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
     size_codomain, size_domain = bipartition(size(a), ndims_codomain)
@@ -272,10 +267,7 @@ function matricizekind(
     isidentityperm((perm_domain..., perm_codomain...)) && return TransposeMatricizeKind
     return PermuteMatricizeKind
 end
-function unmatricize(
-        style::ReshapeFusion, m::AbstractMatrix,
-        axes_codomain::Tuple{Vararg{AbstractUnitRange}},
-        axes_domain::Tuple{Vararg{AbstractUnitRange}}
-    )
-    return reshape(m, (axes_codomain..., axes_domain...))
+# A dense reshape ignores the codomain/domain split: it just reshapes to the concatenated axes.
+function unmatricize(style::ReshapeFusion, m, codomain_axes, domain_axes)
+    return reshape(m, (codomain_axes..., domain_axes...))
 end

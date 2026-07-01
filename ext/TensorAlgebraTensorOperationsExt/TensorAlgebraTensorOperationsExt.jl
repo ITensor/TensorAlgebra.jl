@@ -54,9 +54,9 @@ end
 # in-place
 function TA.contractopadd!(
         algorithm::TensorOperationsAlgorithm,
-        a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        op1, a1::AbstractArray, perm1_codomain, perm1_domain,
-        op2, a2::AbstractArray, perm2_codomain, perm2_domain,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
     permblocks1 = Tuple.((perm1_codomain, perm1_domain))

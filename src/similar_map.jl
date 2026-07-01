@@ -1,10 +1,13 @@
 """
     similar_map(prototype, [T,] codomain_axes, domain_axes) -> M
 
-Allocate an array shaped as a linear map from `domain_axes` to
-`codomain_axes` with element type `T` (defaulting to `eltype(prototype)`),
-using `prototype` to determine the array backend. Defaults to
-`similar(prototype, T, (codomain_axes..., conj.(domain_axes)...))`.
+Allocate an array shaped as a linear map from `domain_axes` to `codomain_axes`
+with element type `T` (defaulting to `eltype(prototype)`), using `prototype` to
+determine the array backend. The domain axes are given un-dualized (codomain
+facing) and stored dual, so the default is
+`similar(prototype, T, (codomain_axes..., conj.(domain_axes)...))`. `conj`
+dualizes a graded axis and is a no-op on a dense axis. Backends with map-shaped
+storage (e.g. a `TensorMap`) overload this to build the codomain/domain directly.
 
 # Examples
 

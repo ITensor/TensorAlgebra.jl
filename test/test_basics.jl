@@ -2,8 +2,8 @@ import TensorAlgebra
 using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
-    contract!, contractadd!, length_codomain, length_domain, matricize, unmatricize,
-    unmatricize!
+    contract!, contractadd!, length_codomain, length_domain, matricizeperm, unmatricize,
+    unmatricizeperm, unmatricizeperm!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -54,70 +54,70 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
     @testset "matricize (eltype=$elt)" for elt in elts
         a = randn(elt, 2, 3, 4, 5)
 
-        a_fused = matricize(a, (1, 2), (3, 4))
+        a_fused = matricizeperm(a, (1, 2), (3, 4))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, 6, 20)
-        a_fused = matricize(a, (3, 1), (2, 4))
+        a_fused = matricizeperm(a, (3, 1), (2, 4))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
-        a_fused = matricize(a, (3, 1, 2), (4,))
+        a_fused = matricizeperm(a, (3, 1, 2), (4,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (24, 5))
-        a_fused = matricize(a, (..,), (3, 1))
+        a_fused = matricizeperm(a, (..,), (3, 1))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (15, 8))
-        a_fused = matricize(a, (3, 1), (..,))
+        a_fused = matricizeperm(a, (3, 1), (..,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
 
-        a_fused = matricize(a, (), (..,))
+        a_fused = matricizeperm(a, (), (..,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, (1, 120))
-        a_fused = matricize(a, (..,), ())
+        a_fused = matricizeperm(a, (..,), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, (120, 1))
 
-        @test_throws MethodError matricize(a, (1, 2), (3,), (4,))
-        @test_throws MethodError matricize(a, (1, 2, 3, 4))
-        @test_throws ArgumentError matricize(a, (1, 2), (3,))
+        @test_throws MethodError matricizeperm(a, (1, 2), (3,), (4,))
+        @test_throws MethodError matricizeperm(a, (1, 2, 3, 4))
+        @test_throws ArgumentError matricizeperm(a, (1, 2), (3,))
 
         v = ones(elt, 2)
-        a_fused = matricize(v, (1,), ())
+        a_fused = matricizeperm(v, (1,), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 2, 1)
-        a_fused = matricize(v, (), (1,))
+        a_fused = matricizeperm(v, (), (1,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 1, 2)
 
-        a_fused = matricize(ones(elt), (), ())
+        a_fused = matricizeperm(ones(elt), (), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 1, 1)
     end
 
-    @testset "matricizeop (eltype=$elt)" for elt in elts
+    @testset "matricizeopperm (eltype=$elt)" for elt in elts
         rng = StableRNG(123)
         a = randn(rng, elt, 2, 3, 4)
 
         # identity op: should match matricize exactly
-        m = TensorAlgebra.matricizeop(identity, a, (1,), (2, 3))
-        m_ref = matricize(a, (1,), (2, 3))
+        m = TensorAlgebra.matricizeopperm(identity, a, (1,), (2, 3))
+        m_ref = matricizeperm(a, (1,), (2, 3))
         @test m ≈ m_ref
 
-        m = TensorAlgebra.matricizeop(identity, a, (3, 1), (2,))
-        m_ref = matricize(a, (3, 1), (2,))
+        m = TensorAlgebra.matricizeopperm(identity, a, (3, 1), (2,))
+        m_ref = matricizeperm(a, (3, 1), (2,))
         @test m ≈ m_ref
 
-        m = TensorAlgebra.matricizeop(identity, a, (2, 3), (1,))
-        m_ref = matricize(a, (2, 3), (1,))
+        m = TensorAlgebra.matricizeopperm(identity, a, (2, 3), (1,))
+        m_ref = matricizeperm(a, (2, 3), (1,))
         @test m ≈ m_ref
 
         # conj op
-        m = TensorAlgebra.matricizeop(conj, a, (1,), (2, 3))
-        m_ref = conj.(matricize(a, (1,), (2, 3)))
+        m = TensorAlgebra.matricizeopperm(conj, a, (1,), (2, 3))
+        m_ref = conj.(matricizeperm(a, (1,), (2, 3)))
         @test m ≈ m_ref
 
-        m = TensorAlgebra.matricizeop(conj, a, (3, 1), (2,))
-        m_ref = conj.(matricize(a, (3, 1), (2,)))
+        m = TensorAlgebra.matricizeopperm(conj, a, (3, 1), (2,))
+        m_ref = conj.(matricizeperm(a, (3, 1), (2,)))
         @test m ≈ m_ref
     end
 
@@ -130,7 +130,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test eltype(a) === elt
         @test a ≈ a0
 
-        a = unmatricize(m, axes0, (1, 2), (3, 4))
+        a = unmatricizeperm(m, axes0, (1, 2), (3, 4))
         @test eltype(a) === elt
         @test a ≈ a0
 
@@ -139,21 +139,21 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         invperm_codomain = (3, 2)
         invperm_domain = (4, 1)
         perm = (4, 2, 1, 3)
-        a = unmatricize(m, map(i -> axes0[i], perm), invperm_codomain, invperm_domain)
+        a = unmatricizeperm(m, map(i -> axes0[i], perm), invperm_codomain, invperm_domain)
         @test eltype(a) === elt
         @test a ≈ permutedims(a0, perm)
 
         a = similar(a0)
-        unmatricize!(a, m, (1, 2), (3, 4))
+        unmatricizeperm!(a, m, (1, 2), (3, 4))
         @test a ≈ a0
 
-        m1 = matricize(a0, perm_codomain, perm_domain)
-        a = unmatricize(m1, axes0, perm_codomain, perm_domain)
+        m1 = matricizeperm(a0, perm_codomain, perm_domain)
+        a = unmatricizeperm(m1, axes0, perm_codomain, perm_domain)
         @test a ≈ a0
 
         a1 = permutedims(a0, perm)
         a = similar(a1)
-        unmatricize!(a, m, invperm_codomain, invperm_domain)
+        unmatricizeperm!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
 
         a = unmatricize(m, (), axes0)
@@ -169,8 +169,8 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test a isa Array{elt, 0}
         @test a[] == m[1, 1]
 
-        @test_throws ArgumentError unmatricize(m, (), (1, 2), (3,))
-        @test_throws ArgumentError unmatricize!(m, m, (1, 2), (3,))
+        @test_throws ArgumentError unmatricizeperm(m, (), (1, 2), (3,))
+        @test_throws ArgumentError unmatricizeperm!(m, m, (1, 2), (3,))
     end
 
     alg_tensoroperations = ContractAlgorithm(TensorOperations.StridedBLAS())

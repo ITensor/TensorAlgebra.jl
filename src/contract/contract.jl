@@ -2,7 +2,7 @@
 # TODO: Add `scaledcontract(a1, labels1, a2, labels2, α) = α * contract(a1, labels1, a2, labels2)`.
 
 # contract (labels)
-function contract(a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs...)
+function contract(a1, labels1, a2, labels2; kwargs...)
     # Optionally convert the labels to a representation cheaper to run the bookkeeping on (see
     # `label_type`). `encode_contraction_labels`/`decode_contraction_labels` are no-ops unless the label type opts in.
     l1, l2 = encode_contraction_labels(labels1, labels2)
@@ -11,7 +11,7 @@ function contract(a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs
     return a_dest, decode_contraction_labels(l_dest, labels1, labels2)
 end
 function contract(
-        labels_dest, a1::AbstractArray, labels1, a2::AbstractArray, labels2; kwargs...
+        labels_dest, a1, labels1, a2, labels2; kwargs...
     )
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
@@ -30,7 +30,7 @@ function contract(
     )
 end
 function _contract(
-        ::Val{K}, labels_dest, a1::AbstractArray, labels1, a2::AbstractArray, labels2,
+        ::Val{K}, labels_dest, a1, labels1, a2, labels2,
         contracted1; kwargs...
     ) where {K}
     biperm_dest, biperm1, biperm2 =
@@ -40,8 +40,8 @@ end
 
 # contract (bipartitioned permutations)
 function contract(
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain;
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain;
         kwargs...
     )
     Ndest_codomain = Val(length(perm1_codomain))
@@ -57,8 +57,8 @@ function contract(
 end
 function contract(
         perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain;
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain;
         kwargs...
     )
     a_dest = allocate_output(
@@ -77,9 +77,9 @@ end
 
 # contract! (labels)
 function contract!(
-        a_dest::AbstractArray, labels_dest,
-        a1::AbstractArray, labels1,
-        a2::AbstractArray, labels2;
+        a_dest, labels_dest,
+        a1, labels1,
+        a2, labels2;
         kwargs...
     )
     return contractadd!(
@@ -87,9 +87,9 @@ function contract!(
     )
 end
 function contract!(
-        a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain;
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain;
         kwargs...
     )
     return contractadd!(
@@ -102,9 +102,9 @@ end
 
 # contractadd! (labels)
 function contractadd!(
-        a_dest::AbstractArray, labels_dest,
-        a1::AbstractArray, labels1,
-        a2::AbstractArray, labels2,
+        a_dest, labels_dest,
+        a1, labels1,
+        a2, labels2,
         α::Number, β::Number;
         kwargs...
     )
@@ -114,9 +114,9 @@ function contractadd!(
 end
 # contractadd! (bipartitioned permutations)
 function contractadd!(
-        a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain,
         α::Number, β::Number;
         kwargs...
     )
@@ -130,9 +130,9 @@ end
 
 # contractopadd! (labels)
 function contractopadd!(
-        a_dest::AbstractArray, labels_dest,
-        op1, a1::AbstractArray, labels1,
-        op2, a2::AbstractArray, labels2,
+        a_dest, labels_dest,
+        op1, a1, labels1,
+        op2, a2, labels2,
         α::Number, β::Number;
         kwargs...
     )
@@ -147,8 +147,8 @@ function contractopadd!(
     )
 end
 function _contractopadd!(
-        ::Val{K}, a_dest::AbstractArray, labels_dest,
-        op1, a1::AbstractArray, labels1, op2, a2::AbstractArray, labels2,
+        ::Val{K}, a_dest, labels_dest,
+        op1, a1, labels1, op2, a2, labels2,
         α::Number, β::Number, contracted1; kwargs...
     ) where {K}
     biperm_dest, biperm1, biperm2 =
@@ -159,9 +159,9 @@ function _contractopadd!(
 end
 # contractopadd! (bipartitioned permutations, algorithm selection)
 function contractopadd!(
-        a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        op1, a1::AbstractArray, perm1_codomain, perm1_domain,
-        op2, a2::AbstractArray, perm2_codomain, perm2_domain,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number;
         alg = DefaultContractAlgorithm(), kwargs...
     )
@@ -184,9 +184,9 @@ end
 # Required interface if not using matricized contraction
 function contractopadd!(
         algorithm::ContractAlgorithm,
-        a_dest::AbstractArray, perm_dest_codomain, perm_dest_domain,
-        op1, a1::AbstractArray, perm1_codomain, perm1_domain,
-        op2, a2::AbstractArray, perm2_codomain, perm2_domain,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
     return throw(

@@ -1,7 +1,7 @@
 using LinearAlgebra: Transpose
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, PermuteMatricizeKind, ReshapeFusion,
-    ReshapeMatricizeKind, TransposeMatricizeKind, matricize, matricizeop
+    ReshapeMatricizeKind, TransposeMatricizeKind, matricizeopperm, matricizeperm
 using Test: @test, @testset
 
 # A non-`ReshapeFusion` style, to check the always-safe generic fallback.
@@ -37,30 +37,30 @@ end
     @test TensorAlgebra.matricizekind(DummyFusion(), (3, 1), (2,)) == PermuteMatricizeKind
 end
 
-@testset "maybe-view matricizeop (eltype=$elt)" for elt in (Float64, ComplexF64)
+@testset "maybe-view matricizeopperm (eltype=$elt)" for elt in (Float64, ComplexF64)
     a = randn(StableRNG(123), elt, 2, 3, 4)
 
     # Reshape branch: correct values and a view aliasing `a`.
-    m = matricize(a, (1,), (2, 3))
+    m = matricizeperm(a, (1,), (2, 3))
     @test m ≈ matricize_ref(a, (1,), (2, 3))
     @test Base.mightalias(m, a)
 
     # Transpose branch: correct values and a transpose view aliasing `a`.
-    m = matricize(a, (2, 3), (1,))
+    m = matricizeperm(a, (2, 3), (1,))
     @test m ≈ matricize_ref(a, (2, 3), (1,))
     @test m isa Transpose
     @test Base.mightalias(m, a)
 
     # Permute branch: correct values, but a fresh copy (no aliasing).
-    m = matricize(a, (3, 1), (2,))
+    m = matricizeperm(a, (3, 1), (2,))
     @test m ≈ matricize_ref(a, (3, 1), (2,))
     @test !Base.mightalias(m, a)
 
     # `conj` cannot ride a view, so it copies even on the reshape/transpose patterns.
-    m = matricizeop(conj, a, (1,), (2, 3))
+    m = matricizeopperm(conj, a, (1,), (2, 3))
     @test m ≈ conj.(matricize_ref(a, (1,), (2, 3)))
     @test !Base.mightalias(m, a)
-    m = matricizeop(conj, a, (2, 3), (1,))
+    m = matricizeopperm(conj, a, (2, 3), (1,))
     @test m ≈ conj.(matricize_ref(a, (2, 3), (1,)))
     @test !Base.mightalias(m, a)
 end
@@ -70,19 +70,19 @@ end
 
     # Reshape view tracks an in-place update of `a`.
     a = randn(rng, 2, 3, 4)
-    m = matricize(a, (1,), (2, 3))
+    m = matricizeperm(a, (1,), (2, 3))
     a .= randn(rng, 2, 3, 4)
     @test m ≈ matricize_ref(a, (1,), (2, 3))
 
     # Transpose view tracks an in-place update of `a`.
     a = randn(rng, 2, 3, 4)
-    m = matricize(a, (2, 3), (1,))
+    m = matricizeperm(a, (2, 3), (1,))
     a .= randn(rng, 2, 3, 4)
     @test m ≈ matricize_ref(a, (2, 3), (1,))
 
     # Permute copy is independent of later updates to `a`.
     a = randn(rng, 2, 3, 4)
-    m = matricize(a, (3, 1), (2,))
+    m = matricizeperm(a, (3, 1), (2,))
     snapshot = copy(m)
     a .= a .+ 1
     @test m == snapshot
