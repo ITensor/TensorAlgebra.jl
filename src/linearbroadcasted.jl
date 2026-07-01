@@ -281,41 +281,46 @@ linearbroadcasted(::typeof(*), a::Number, b::Number) = a * b
 Per-node trait: can `(f, args...)` be expressed as a `LinearBroadcasted`?
 Extensible by downstream packages for additional linear operations.
 """
+# A leaf operand is treated as an array/tensor by default (`::Any`), and `::Number` marks the
+# scalars. That distinction is what makes the predicate correct: scaling by a scalar is linear
+# while a scalar shift (`a .+ 1`) is affine, and an elementwise array product is nonlinear while
+# scaling is not. Because the array-like slot is `::Any`, any leaf type participates with no
+# change here — it need not be an `AbstractArray` (e.g. a `PermutedDims` wrapper, or a backend
+# tensor); the fold absorbs it via `bipermutedimsopadd!`. An operand that is neither a genuine
+# array-like leaf nor a `Number` (say a scalar buried in an n-ary `+`) is assumed linear here and
+# errors later at the fold rather than silently producing a wrong result.
 islinearbroadcast(f, args...) = false
-islinearbroadcast(::typeof(identity), ::Base.AbstractArrayOrBroadcasted) = true
-islinearbroadcast(::typeof(+), ::Base.AbstractArrayOrBroadcasted...) = true
-islinearbroadcast(::typeof(-), ::Base.AbstractArrayOrBroadcasted) = true
-function islinearbroadcast(
-        ::typeof(-), ::Base.AbstractArrayOrBroadcasted, ::Base.AbstractArrayOrBroadcasted
-    )
-    return true
-end
-islinearbroadcast(::typeof(*), ::Number, ::Base.AbstractArrayOrBroadcasted) = true
-islinearbroadcast(::typeof(\), ::Number, ::Base.AbstractArrayOrBroadcasted) = true
-islinearbroadcast(::typeof(*), ::Base.AbstractArrayOrBroadcasted, ::Number) = true
-islinearbroadcast(::typeof(/), ::Base.AbstractArrayOrBroadcasted, ::Number) = true
-function islinearbroadcast(
-        ::typeof(*), ::Base.AbstractArrayOrBroadcasted, ::Base.AbstractArrayOrBroadcasted
-    )
-    return false
-end
+
+islinearbroadcast(::typeof(identity), ::Any) = true
+islinearbroadcast(::typeof(identity), ::Number) = false
+
+islinearbroadcast(::typeof(+), ::Any...) = true
+islinearbroadcast(::typeof(+), ::Number) = false
+islinearbroadcast(::typeof(+), ::Number, ::Any) = false
+islinearbroadcast(::typeof(+), ::Any, ::Number) = false
+islinearbroadcast(::typeof(+), ::Number, ::Number) = false
+
+islinearbroadcast(::typeof(-), ::Any) = true
+islinearbroadcast(::typeof(-), ::Number) = false
+islinearbroadcast(::typeof(-), ::Any, ::Any) = true
+islinearbroadcast(::typeof(-), ::Number, ::Any) = false
+islinearbroadcast(::typeof(-), ::Any, ::Number) = false
+islinearbroadcast(::typeof(-), ::Number, ::Number) = false
+
+islinearbroadcast(::typeof(*), ::Number, ::Any) = true
+islinearbroadcast(::typeof(*), ::Any, ::Number) = true
+islinearbroadcast(::typeof(*), ::Any, ::Any) = false
 islinearbroadcast(::typeof(*), ::Number, ::Number) = true
-islinearbroadcast(::typeof(conj), ::Base.AbstractArrayOrBroadcasted) = true
-function islinearbroadcast(
-        ::Base.Fix1{typeof(*), <:Number}, ::Base.AbstractArrayOrBroadcasted
-    )
-    return true
-end
-function islinearbroadcast(
-        ::Base.Fix2{typeof(*), <:Number}, ::Base.AbstractArrayOrBroadcasted
-    )
-    return true
-end
-function islinearbroadcast(
-        ::Base.Fix2{typeof(/), <:Number}, ::Base.AbstractArrayOrBroadcasted
-    )
-    return true
-end
+
+islinearbroadcast(::typeof(\), ::Number, ::Any) = true
+islinearbroadcast(::typeof(/), ::Any, ::Number) = true
+
+islinearbroadcast(::typeof(conj), ::Any) = true
+islinearbroadcast(::typeof(conj), ::Number) = false
+
+islinearbroadcast(::Base.Fix1{typeof(*), <:Number}, ::Any) = true
+islinearbroadcast(::Base.Fix2{typeof(*), <:Number}, ::Any) = true
+islinearbroadcast(::Base.Fix2{typeof(/), <:Number}, ::Any) = true
 
 """
     tryflattenlinear(bc::Broadcasted) -> LinearBroadcasted or nothing
