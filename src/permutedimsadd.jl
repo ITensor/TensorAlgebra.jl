@@ -14,18 +14,31 @@ permuteddims(a, perm) = PermutedDims(a, perm)
 """
     PermutedDims(parent, perm)
 
-Generic lazy permuted-dims wrapper for operands that are not `AbstractArray`s (so
-`Base.PermutedDimsArray` does not apply), modeled on `PermutedDimsArray`: it records `parent`
-and the permutation `perm` without materializing anything. TensorAlgebra never indexes into
-it. It exists so that a downstream extension's `permuteddims` can hand a lazily permuted
-non-array operand to `bipermutedimsopadd!`, whose absorption method composes `perm` into the
-outer bipermutation and forwards to a single leaf call on `parent`.
+Lazy permuted-dims wrapper storing `parent` and the permutation `perm` in fields (unlike
+`Base.PermutedDimsArray`, which encodes `perm` in a type parameter), so it constructs cheaply
+from a runtime permutation. Primarily for internal use to track permutations in linear
+broadcasting.
 """
 struct PermutedDims{P, Perm}
     parent::P
     perm::Perm
 end
 Base.parent(a::PermutedDims) = a.parent
+
+# `PermutedDims` is not an `AbstractArray`, so `Base.Broadcast.broadcastable` would otherwise try
+# to `collect` it. These make it a valid `Broadcasted` leaf (shape = the parent's axes reordered
+# by `perm`); it is never indexed, since the linear-broadcast fold absorbs it into a single
+# `bipermutedimsopadd!` on `parent`. `axes`/`BroadcastStyle` are only reached when the parent is
+# array-like (the only case that broadcasts); the direct `bipermutedimsopadd!` path never uses them.
+Base.ndims(a::PermutedDims) = length(a.perm)
+Base.axes(a::PermutedDims) = map(d -> axes(parent(a), d), a.perm)
+Base.axes(a::PermutedDims, d::Int) = axes(a)[d]
+Base.size(a::PermutedDims) = map(length, axes(a))
+Base.eltype(a::PermutedDims) = eltype(parent(a))
+Base.Broadcast.broadcastable(a::PermutedDims) = a
+function Base.Broadcast.BroadcastStyle(::Type{<:PermutedDims{P}}) where {P}
+    return Base.Broadcast.BroadcastStyle(P)
+end
 
 # ---------------------------------------------------------------------------- #
 # bipermutedimsopadd! — the primary materialization primitive

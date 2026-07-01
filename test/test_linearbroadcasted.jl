@@ -180,4 +180,31 @@ using Test: @test, @test_throws, @testset
         TA.permutedimsopadd!(dest, conj, a, (), 1, 0)
         @test dest[] ≈ conj(a[])
     end
+    @testset "PermutedDims as a linear-broadcast leaf" begin
+        a = randn(3, 4)
+        b = randn(4, 3)
+        pd = TA.PermutedDims(b, (2, 1))   # presents b permuted to shape (3, 4)
+        @test BC.broadcastable(pd) === pd
+        @test axes(pd) == (Base.OneTo(3), Base.OneTo(4))
+        @test eltype(pd) == Float64
+        @test ndims(pd) == 2
+
+        # `a + permuted(b)` flattens (the `PermutedDims` leaf needs no dedicated
+        # `islinearbroadcast` method — it is admitted by the `::Any` leaf slot) and materializes
+        # correctly, the leaf absorbed via `bipermutedimsopadd!` rather than indexed.
+        lb = TA.tryflattenlinear(BC.broadcasted(+, a, pd))
+        @test lb !== nothing
+        dest = similar(a)
+        copyto!(dest, lb)
+        @test dest ≈ a + permutedims(b, (2, 1))
+
+        # `2a - permuted(b)`.
+        lb2 = TA.tryflattenlinear(BC.broadcasted(-, BC.broadcasted(*, 2.0, a), pd))
+        dest2 = similar(a)
+        copyto!(dest2, lb2)
+        @test dest2 ≈ 2a - permutedims(b, (2, 1))
+
+        # A scalar addend is affine, not linear, so it is not flattened.
+        @test TA.tryflattenlinear(BC.broadcasted(+, a, 1)) === nothing
+    end
 end
