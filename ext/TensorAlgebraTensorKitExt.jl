@@ -2,7 +2,7 @@ module TensorAlgebraTensorKitExt
 
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, ProductSpace, TensorMap, codomain, domain,
-    dual, numind, permute, scalartype, space, zerovector!, ←, ≅
+    dual, numind, permute, scalartype, space, spacetype, zerovector!, ←, ≅
 using TensorOperations: TensorOperations as TO
 
 # ============================  AbstractArray-vocabulary bridge  ============================
@@ -22,7 +22,8 @@ TensorAlgebra.axes(t::AbstractTensorMap) = ntuple(i -> space(t, i), numind(t))
 function TensorAlgebra.similar_map(
         a::AbstractTensorMap, ::Type{T}, codomain_axes, domain_axes
     ) where {T}
-    return similar(a, T, ProductSpace(codomain_axes...), ProductSpace(domain_axes...))
+    S = spacetype(a)
+    return similar(a, T, ProductSpace{S}(codomain_axes...), ProductSpace{S}(domain_axes...))
 end
 
 # ================================  bipermutedimsopadd!  =====================================

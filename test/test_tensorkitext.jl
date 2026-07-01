@@ -1,6 +1,6 @@
 using StableRNGs: StableRNG
 using TensorAlgebra: contract, matricize, similar_map, unmatricize
-using TensorKit: @tensor, Rep, SU₂, U₁, fuse, isomorphism, randn, space, ⊗
+using TensorKit: @tensor, Rep, SU₂, U₁, fuse, isomorphism, randn, space, ←, ⊗
 using Test: @test, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
@@ -87,5 +87,15 @@ using Test: @test, @testset
         t = randn(rng, elt, A1 ⊗ A2, B ⊗ C1)
         sm = similar_map(t, elt, (A1, A2), (B, C1))
         @test space(sm) == space(t)
+
+        # An all-codomain `TensorMap` (empty domain) is how ITensorBase direct-wraps a
+        # `TensorMap`, so `similar_map` must handle empty axis tuples on either side.
+        t_codomain = randn(rng, elt, (A1 ⊗ A2) ← one(A1))
+        sm_codomain = similar_map(t_codomain, elt, (A1, A2), ())
+        @test space(sm_codomain) == space(t_codomain)
+
+        t_domain = randn(rng, elt, one(A1) ← (A1 ⊗ A2))
+        sm_domain = similar_map(t_domain, elt, (), (A1, A2))
+        @test space(sm_domain) == space(t_domain)
     end
 end
