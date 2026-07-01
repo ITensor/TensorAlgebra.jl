@@ -28,7 +28,7 @@ function check_input(
     perm = (perm_codomain..., perm_domain...)
     ndims(dest) == length(perm) ||
         throw(DimensionMismatch("destination ndims does not match permutation length"))
-    axes(dest) == ntuple(d -> op(axes(src, perm[d])), ndims(dest)) ||
+    axes(dest) == map(p -> op(axes(src, p)), perm) ||
         throw(DimensionMismatch("destination axes do not match permuted source axes"))
     return nothing
 end
