@@ -13,6 +13,7 @@ if VERSION >= v"1.11.0-DEV.469"
     )
 end
 
+include("interface.jl")
 include("inplace.jl")
 include("MatrixAlgebra.jl")
 include("bituple.jl")
