@@ -135,6 +135,9 @@ function Base.copy(a::Mul)
 end
 
 # copyto! for LinearBroadcasted dispatches to add!.
+# Stays `AbstractArray`-bound: these overload `Base.copyto!`, so widening `dest` to `Any`
+# collides with Base's own methods. A non-array destination (e.g. a wrapped `TensorMap`)
+# gets an `AbstractTensorMap`-specific `copyto!` from the backend extension instead.
 function Base.copyto!(dest::AbstractArray, src::LinearBroadcasted)
     return add!(dest, src, true, false)
 end
@@ -154,13 +157,13 @@ _compose_op(f, g) = f ∘ g
 
 # permutedimsopadd! for LinearBroadcasted subtypes.
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::ScaledBroadcasted, perm, α::Number, β::Number
+        dest, op, src::ScaledBroadcasted, perm, α::Number, β::Number
     )
     return permutedimsopadd!(dest, op, unscaled(src), perm, op(coeff(src)) * α, β)
 end
 
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::AddBroadcasted, perm, α::Number, β::Number
+        dest, op, src::AddBroadcasted, perm, α::Number, β::Number
     )
     args = addends(src)
     permutedimsopadd!(dest, op, first(args), perm, α, β)
@@ -173,7 +176,7 @@ end
 # TODO: Replace with contractopadd! once that interface exists,
 # to avoid materializing the Mul intermediate.
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::Mul, perm, α::Number, β::Number
+        dest, op, src::Mul, perm, α::Number, β::Number
     )
     return permutedimsopadd!(dest, op, copy(src), perm, α, β)
 end
@@ -199,8 +202,8 @@ linearbroadcasted(+, a, b)     # AddBroadcasted(a, b)
 function linearbroadcasted end
 
 # Scaling: Number * AbstractArray
-linearbroadcasted(::typeof(*), α::Number, a::AbstractArray) = ScaledBroadcasted(α, a)
-linearbroadcasted(::typeof(*), a::AbstractArray, α::Number) = ScaledBroadcasted(α, a)
+linearbroadcasted(::typeof(*), α::Number, a) = ScaledBroadcasted(α, a)
+linearbroadcasted(::typeof(*), a, α::Number) = ScaledBroadcasted(α, a)
 # Scaling of ScaledBroadcasted: absorb coefficient.
 function linearbroadcasted(::typeof(*), α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
@@ -208,7 +211,7 @@ end
 # Conjugation lowers to the `ConjArray` lazy wrapper. A scaled `ConjArray` (e.g.
 # `conj.(a) ./ β`) is handled by the generic `AbstractArray` scaling method above, since
 # `ConjArray <: AbstractArray`.
-linearbroadcasted(::typeof(conj), a::AbstractArray) = conjed(a)
+linearbroadcasted(::typeof(conj), a) = conjed(a)
 function linearbroadcasted(::typeof(conj), a::ScaledBroadcasted)
     return ScaledBroadcasted(conj(coeff(a)), linearbroadcasted(conj, unscaled(a)))
 end

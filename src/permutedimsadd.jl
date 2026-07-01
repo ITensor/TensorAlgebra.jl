@@ -2,12 +2,30 @@ using Strided: Strided
 using StridedViews: StridedViews as SV
 
 """
-    permuteddims(a::AbstractArray, perm)
+    permuteddims(a, perm)
 
-Lazy `permutedims`, defaulting to a `Base.PermutedDimsArray` view. This is an extension
-hook: downstream array types can overload it to return a custom lazy permuted-dims type.
+Lazy `permutedims`. For an `AbstractArray` this is a `Base.PermutedDimsArray` view; for any
+other operand it is a generic [`PermutedDims`](@ref) node. This is an extension hook:
+downstream types can overload it to return their own lazy permuted-dims type.
 """
 permuteddims(a::AbstractArray, perm) = PermutedDimsArray(a, perm)
+permuteddims(a, perm) = PermutedDims(a, perm)
+
+"""
+    PermutedDims(parent, perm)
+
+Generic lazy permuted-dims wrapper for operands that are not `AbstractArray`s (so
+`Base.PermutedDimsArray` does not apply), modeled on `PermutedDimsArray`: it records `parent`
+and the permutation `perm` without materializing anything. TensorAlgebra never indexes into
+it. It exists so that a downstream extension's `permuteddims` can hand a lazily permuted
+non-array operand to `bipermutedimsopadd!`, whose absorption method composes `perm` into the
+outer bipermutation and forwards to a single leaf call on `parent`.
+"""
+struct PermutedDims{P, Perm}
+    parent::P
+    perm::Perm
+end
+Base.parent(a::PermutedDims) = a.parent
 
 # ---------------------------------------------------------------------------- #
 # bipermutedimsopadd! — the primary materialization primitive
@@ -20,7 +38,7 @@ function bipermutedimsopadd! end
 # of which act on axes: `conj` dualizes a graded axis (and is a no-op on a dense axis),
 # `identity` leaves it unchanged.
 function check_input(
-        ::typeof(bipermutedimsopadd!), dest::AbstractArray, op, src::AbstractArray,
+        ::typeof(bipermutedimsopadd!), dest, op, src,
         perm_codomain, perm_domain
     )
     op === identity || op === conj ||
@@ -51,7 +69,7 @@ element-wise, permutes, then accumulates via broadcasting with Strided.jl
 optimization when possible.
 """
 function bipermutedimsopadd!(
-        dest::AbstractArray, op, src::AbstractArray,
+        dest, op, src,
         perm_codomain, perm_domain,
         α::Number, β::Number
     )
@@ -82,9 +100,13 @@ function _opadd!(dest::AbstractArray, op, src::AbstractArray, α, β)
 end
 
 _permuteddims_perm(::PermutedDimsArray{<:Any, <:Any, perm}) where {perm} = perm
+_permuteddims_perm(a::PermutedDims) = a.perm
 
+# Both the dense `PermutedDimsArray` view and the generic `PermutedDims` node absorb the same
+# way: compose the wrapper's permutation `w` into the outer bipermutation and forward to a
+# single leaf `bipermutedimsopadd!` on the parent.
 function bipermutedimsopadd!(
-        dest::AbstractArray, op, src::PermutedDimsArray,
+        dest, op, src::Union{PermutedDimsArray, PermutedDims},
         perm_codomain, perm_domain,
         α::Number, β::Number
     )
@@ -111,7 +133,7 @@ bipartitioned permutation version; this flat-permutation overload forwards to it
 with `perm_domain = ()`.
 """
 function permutedimsopadd!(
-        dest::AbstractArray, op, src::AbstractArray, perm, α::Number, β::Number
+        dest, op, src, perm, α::Number, β::Number
     )
     return bipermutedimsopadd!(dest, op, src, perm, (), α, β)
 end
@@ -126,7 +148,7 @@ end
 `dest = β * dest + α * permutedims(src, perm)`.
 """
 function permutedimsadd!(
-        dest::AbstractArray, src::AbstractArray, perm, α::Number, β::Number
+        dest, src, perm, α::Number, β::Number
     )
     return permutedimsopadd!(dest, identity, src, perm, α, β)
 end
@@ -136,7 +158,7 @@ end
 
 `dest = β * dest + α * src`.
 """
-function add!(dest::AbstractArray, src, α::Number, β::Number)
+function add!(dest, src, α::Number, β::Number)
     return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), α, β)
 end
 
@@ -145,4 +167,4 @@ end
 
 `dest .+= src`.
 """
-add!(dest::AbstractArray, src) = add!(dest, src, true, true)
+add!(dest, src) = add!(dest, src, true, true)

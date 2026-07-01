@@ -1,5 +1,3 @@
-using Base.PermutedDimsArrays: genperm
-
 function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipartitioned permutation"))
@@ -44,16 +42,13 @@ end
 function output_axes(
         ::typeof(contract),
         perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain
     )
-    axes_codomain, axes_contracted = bipartition(axes(a1), perm1_codomain, perm1_domain)
-    axes_contracted2, axes_domain = bipartition(axes(a2), perm2_codomain, perm2_domain)
-    @assert length.(axes_contracted) == length.(axes_contracted2)
-    # default: flatten the destination permutation
-    return genperm(
-        (axes_codomain..., axes_domain...), (perm_dest_codomain..., perm_dest_domain...)
-    )
+    axes_codomain, _ = bipartition(axes(a1), perm1_codomain, perm1_domain)
+    _, axes_domain = bipartition(axes(a2), perm2_codomain, perm2_domain)
+    axes_uncontracted = (axes_codomain..., axes_domain...)
+    return bipartition(axes_uncontracted, perm_dest_codomain, perm_dest_domain)
 end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
@@ -61,8 +56,8 @@ end
 function allocate_output(
         ::typeof(contract),
         perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain
     )
     check_input(
         contract,
@@ -73,12 +68,14 @@ function allocate_output(
         perm2_codomain,
         perm2_domain
     )
-    axes_dest = output_axes(
+    codomain_axes_dest, domain_axes_dest = output_axes(
         contract,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
     T = promote_type(eltype(a1), eltype(a2))
-    return zero!(similar(a1, T, axes_dest))
+    # `domain_axes_dest` come straight from `axes(a2)` (stored/dualized convention), so
+    # un-dualize them into `similar_map`'s codomain-facing convention.
+    return zero!(similar_map(a1, T, codomain_axes_dest, conj.(domain_axes_dest)))
 end

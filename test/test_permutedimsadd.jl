@@ -1,8 +1,13 @@
 using Adapt: adapt
 using JLArrays: JLArray
-using TensorAlgebra:
-    ConjArray, add!, bipermutedimsopadd!, conjed, permutedimsadd!, permutedimsopadd!
+using TensorAlgebra: ConjArray, PermutedDims, add!, bipermutedimsopadd!, conjed,
+    permuteddims, permutedimsadd!, permutedimsopadd!
 using Test: @test, @testset
+
+# A non-`AbstractArray` operand, to check that `permuteddims` falls back to `PermutedDims`.
+struct NotAnArray{P}
+    parent::P
+end
 
 @testset "[permutedims]add!" begin
     @testset "add!(b, a, α, β) (arraytype=$arrayt)" for arrayt in (Array, JLArray)
@@ -57,6 +62,37 @@ using Test: @test, @testset
         parent = dev(randn(2, 3, 4, 5))
         w = (3, 1, 4, 2)
         src = PermutedDimsArray(parent, w)
+        for (pc, pd) in (((1, 2, 3, 4), ()), ((2, 4), (1, 3)), ((3, 1), (2, 4)))
+            perm = (pc..., pd...)
+            ref = permutedims(permutedims(parent, w), perm)
+            for β in (0, 3)
+                dest = dev(randn(size(ref)...))
+                dest′ = copy(dest)
+                bipermutedimsopadd!(dest′, identity, src, pc, pd, 2, β)
+                @test dest′ ≈ β * dest + 2 * ref
+            end
+        end
+    end
+    @testset "permuteddims dispatch" begin
+        a = randn(2, 3, 4)
+        # An `AbstractArray` gets a `Base.PermutedDimsArray` view.
+        @test permuteddims(a, (3, 1, 2)) isa PermutedDimsArray
+        @test permuteddims(a, (3, 1, 2)) == permutedims(a, (3, 1, 2))
+        # Any other operand gets a generic `PermutedDims` node wrapping it unchanged.
+        x = NotAnArray(a)
+        p = permuteddims(x, (3, 1, 2))
+        @test p isa PermutedDims
+        @test parent(p) === x
+    end
+    @testset "bipermutedimsopadd! unwraps PermutedDims src (arraytype=$arrayt)" for arrayt in
+        (
+            Array,
+            JLArray,
+        )
+        dev = adapt(arrayt)
+        parent = dev(randn(2, 3, 4, 5))
+        w = (3, 1, 4, 2)
+        src = PermutedDims(parent, w)
         for (pc, pd) in (((1, 2, 3, 4), ()), ((2, 4), (1, 3)), ((3, 1), (2, 4)))
             perm = (pc..., pd...)
             ref = permutedims(permutedims(parent, w), perm)

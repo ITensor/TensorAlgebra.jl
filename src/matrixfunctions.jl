@@ -33,17 +33,18 @@ const MATRIX_FUNCTIONS = [
 
 for f in MATRIX_FUNCTIONS
     @eval begin
-        function $f(style::FusionStyle, a::AbstractArray, ndims_codomain::Val; kwargs...)
+        function $f(style::FusionStyle, a, ndims_codomain::Val; kwargs...)
             a_mat = matricize(style, a, ndims_codomain)
             fa_mat = Base.$f(a_mat; kwargs...)
-            return unmatricize(style, fa_mat, bipartition(axes(a), ndims_codomain)...)
+            codomain_axes, domain_axes = bipartition(axes(a), ndims_codomain)
+            return unmatricize(style, fa_mat, codomain_axes, domain_axes)
         end
-        function $f(a::AbstractArray, ndims_codomain::Val; kwargs...)
+        function $f(a, ndims_codomain::Val; kwargs...)
             return $f(FusionStyle(a), a, ndims_codomain; kwargs...)
         end
 
         function $f(
-                style::FusionStyle, a::AbstractArray,
+                style::FusionStyle, a,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
                 kwargs...
             )
@@ -51,7 +52,7 @@ for f in MATRIX_FUNCTIONS
             return $f(style, a_perm, Val(length(perm_codomain)); kwargs...)
         end
         function $f(
-                a::AbstractArray,
+                a,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
                 kwargs...
             )
@@ -60,7 +61,7 @@ for f in MATRIX_FUNCTIONS
         end
 
         function $f(
-                style::FusionStyle, a::AbstractArray,
+                style::FusionStyle, a,
                 labels_a, labels_codomain, labels_domain; kwargs...
             )
             perm_codomain, perm_domain =
@@ -68,7 +69,7 @@ for f in MATRIX_FUNCTIONS
             return $f(style, a, perm_codomain, perm_domain; kwargs...)
         end
         function $f(
-                a::AbstractArray,
+                a,
                 labels_a, labels_codomain, labels_domain; kwargs...
             )
             perm_codomain, perm_domain =
