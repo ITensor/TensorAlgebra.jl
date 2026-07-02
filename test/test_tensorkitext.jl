@@ -199,6 +199,13 @@ using Test: @test, @test_throws, @testset
         dest = similar_map(t, elt, (dual(B), A1, A2), ())
         @test TensorAlgebra.permutedims!(dest, t, (3, 1, 2)) === dest
         @test convert(Array, dest) == ref
+
+        # Empty codomain: every index lands in the domain, the mirror of the flat all-codomain
+        # form. The domain space type is read from the operand, so the empty codomain tuple does
+        # not need to carry it.
+        te = TensorAlgebra.permutedims(t, (), (3, 1, 2))
+        @test space(te) == (one(A1) ← (B ⊗ dual(A1) ⊗ dual(A2)))
+        @test convert(Array, te) == ref
     end
 
     # A linear combination of `TensorMap`s flattens to a `LinearBroadcasted` that materializes

@@ -187,6 +187,9 @@ end
         dest = dev(zeros(4, 2, 3))
         TensorAlgebra.permutedims!(dest, a, (3, 1), (2,))
         @test dest == ref
+        dest = dev(zeros(4, 2, 3))
+        TensorAlgebra.permutedims!(dest, a, (), (3, 1, 2))
+        @test dest == ref
     end
     @testset "permutedimsopadd! (arraytype=$arrayt)" for arrayt in (Array,)
         dev = adapt(arrayt)
