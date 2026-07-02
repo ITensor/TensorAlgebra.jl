@@ -1,8 +1,9 @@
 module TensorAlgebraTensorKitExt
 
+using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
-using TensorKit: TensorKit, AbstractTensorMap, ProductSpace, numind, permute, space,
-    spacetype, zerovector!, ←
+using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace, numind,
+    permute, space, spacetype, zerovector!, ←
 using TensorOperations: TensorOperations as TO
 
 # ============================  AbstractArray-vocabulary bridge  ============================
@@ -24,6 +25,44 @@ function TensorAlgebra.similar_map(
     ) where {T}
     S = spacetype(a)
     return similar(a, T, ProductSpace{S}(codomain_axes...), ProductSpace{S}(domain_axes...))
+end
+
+# ===============================  zeros_map / randn_map / rand_map  ========================
+# A `TensorMap` keeps its codomain and domain as separate `ProductSpace`s rather than a single
+# flattened axis, so build the `codomain ← domain` space directly instead of the dense
+# flatten-and-dualize fallback. As with `similar_map`, the axes arrive codomain-facing
+# (un-dualized), which is TensorKit's own codomain/domain convention. The elementary space type
+# `S` is passed to `_map_homspace` explicitly so the two dispatch entries per constructor can
+# read it from whichever of the codomain/domain is non-empty and share one builder; an empty
+# axis tuple gives the unit space `ProductSpace{S}()`.
+function _map_homspace(::Type{S}, codomain_axes, domain_axes) where {S <: ElementarySpace}
+    return ProductSpace{S}(codomain_axes...) ← ProductSpace{S}(domain_axes...)
+end
+function TensorAlgebra.zeros_map(
+        ::Type{T}, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+    ) where {T, S <: ElementarySpace}
+    return TensorKit.zeros(T, _map_homspace(S, codomain_axes, domain_axes))
+end
+function TensorAlgebra.zeros_map(
+        ::Type{T}, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+    ) where {T, S <: ElementarySpace}
+    return TensorKit.zeros(T, _map_homspace(S, codomain_axes, domain_axes))
+end
+for (f, g) in ((:randn_map, :randn), (:rand_map, :rand))
+    @eval begin
+        function TensorAlgebra.$f(
+                rng::AbstractRNG, ::Type{T},
+                codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+            ) where {T, S <: ElementarySpace}
+            return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
+        end
+        function TensorAlgebra.$f(
+                rng::AbstractRNG, ::Type{T},
+                codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+            ) where {T, S <: ElementarySpace}
+            return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
+        end
+    end
 end
 
 # ================================  bipermutedimsopadd!  =====================================
@@ -82,6 +121,30 @@ function TensorAlgebra.default_contract_algorithm(
         ::Type{<:AbstractTensorMap}, ::Type{<:AbstractTensorMap}
     )
     return TensorAlgebra.ContractAlgorithm(TO.DefaultBackend())
+end
+
+# ==================================  linear-combination broadcast  =========================
+# A `TensorMap` is not an `AbstractArray`, so it needs a `BroadcastStyle` to broadcast lazily
+# (otherwise Base tries to `collect` it). A linear combination flattens (via `tryflattenlinear`)
+# to a `LinearBroadcasted` that materializes through `add!`/`bipermutedimsopadd!` above; the
+# `copyto!` here is not piracy because `LinearBroadcasted` is TensorAlgebra-owned. Element-wise
+# (nonlinear) broadcast is not a meaningful operation on a symmetric tensor, so it errors rather
+# than dense-converting.
+struct TensorMapStyle <: Base.Broadcast.BroadcastStyle end
+Base.Broadcast.BroadcastStyle(::Type{<:AbstractTensorMap}) = TensorMapStyle()
+Base.Broadcast.BroadcastStyle(s::TensorMapStyle, ::TensorMapStyle) = s
+Base.Broadcast.BroadcastStyle(s::TensorMapStyle, ::Base.Broadcast.BroadcastStyle) = s
+Base.Broadcast.broadcastable(a::AbstractTensorMap) = a
+
+function Base.copyto!(dest::AbstractTensorMap, src::TensorAlgebra.LinearBroadcasted)
+    return TensorAlgebra.add!(dest, src, true, false)
+end
+
+function Base.copy(::Base.Broadcast.Broadcasted{TensorMapStyle})
+    return error(
+        "element-wise broadcast is not supported for a `TensorMap`; only linear combinations \
+        such as `a .+ b` and `2 .* a` are supported"
+    )
 end
 
 end
