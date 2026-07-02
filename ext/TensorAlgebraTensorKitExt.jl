@@ -1,6 +1,5 @@
 module TensorAlgebraTensorKitExt
 
-using LinearAlgebra: norm
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace,
@@ -104,17 +103,18 @@ function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
     return project_symmetric!(dest, src)
 end
 
-# The generic `checked_projectto!` verifies the projection with `isapprox(src, dest)`, but `src` (a
-# dense array) and `dest` (a `TensorMap`) are not comparable elementwise. Projection onto the
-# symmetric blocks is orthogonal, so it preserves the norm exactly when nothing is discarded; verify
-# that instead.
+# The generic `checked_projectto!` verifies the projection with `isapprox(src, dest)`, but a
+# `TensorMap` `dest` is not elementwise-comparable to the dense `src`. Densify `dest` with
+# `convert(Array, ...)` so the check is the same elementwise `isapprox(src, dest)` as the dense path,
+# keeping one `InexactError`/`kwargs` contract across backends rather than TensorKit's own
+# residual-norm `tol`/`ArgumentError` check.
 function TensorAlgebra.checked_projectto!(
         dest::AbstractTensorMap,
         src::AbstractArray;
         kwargs...
     )
     TensorAlgebra.projectto!(dest, src)
-    isapprox(norm(dest), norm(src); kwargs...) ||
+    isapprox(src, convert(Array, dest); kwargs...) ||
         throw(InexactError(:checked_projectto!, typeof(dest), src))
     return dest
 end

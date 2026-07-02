@@ -155,6 +155,8 @@ using Test: @test, @test_throws, @testset
         # `projectto!` into a same-space buffer agrees with `project`
         @test projectto!(similar_map(Sz, elt, (W,), (W,)), Sz) ≈ pz
 
+        # `checked_project` accepts the charge-preserving matrix (nothing discarded)
+        @test checked_project(Sz, (W,), (W,)) ≈ pz
         # a charge-breaking matrix is projected to zero; `checked_project` rejects the discard
         @test norm(project(Sx, (W,), (W,))) == 0
         @test_throws InexactError checked_project(Sx, (W,), (W,); atol = 0, rtol = 0)
