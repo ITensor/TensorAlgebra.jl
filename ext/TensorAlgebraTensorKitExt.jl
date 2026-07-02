@@ -33,22 +33,27 @@ end
 # is a dense matrix and the codomain/domain axes are `TensorMap` spaces. Build an uninitialized
 # `TensorMap` whose block storage type `A` follows `raw`'s array type, so the storage stays on the
 # same device (a GPU array's blocks stay on the GPU) while the map structure comes from the spaces.
-# `A` is the return type of `similar(raw, T, ::Int)` — a 1-d vector of `raw`'s family, which is the
-# block storage type. The two dispatch entries read the elementary space type `S` from whichever of
-# codomain/domain is non-empty, mirroring the map constructors below.
-function TensorAlgebra.similar_map(
-        raw::AbstractArray, ::Type{T},
-        codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+# `A` is the return type of `similar(raw, T, ::Int)`, a 1-d vector of `raw`'s family, which is the
+# block storage type. The elementary space type `S` is passed explicitly so the two dispatch
+# entries below can read it from whichever of codomain/domain is non-empty and share one builder,
+# mirroring `_map_homspace` and the map constructors.
+function similar_tensormap(
+        raw::AbstractArray, ::Type{T}, ::Type{S}, codomain_axes, domain_axes
     ) where {T, S <: ElementarySpace}
     A = Base.promote_op(similar, typeof(raw), Type{T}, Int)
     return TensorMapWithStorage{T, A}(undef, _map_homspace(S, codomain_axes, domain_axes))
 end
 function TensorAlgebra.similar_map(
         raw::AbstractArray, ::Type{T},
+        codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+    ) where {T, S <: ElementarySpace}
+    return similar_tensormap(raw, T, S, codomain_axes, domain_axes)
+end
+function TensorAlgebra.similar_map(
+        raw::AbstractArray, ::Type{T},
         codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    A = Base.promote_op(similar, typeof(raw), Type{T}, Int)
-    return TensorMapWithStorage{T, A}(undef, _map_homspace(S, codomain_axes, domain_axes))
+    return similar_tensormap(raw, T, S, codomain_axes, domain_axes)
 end
 
 # ===============================  zeros_map / randn_map / rand_map  ========================
