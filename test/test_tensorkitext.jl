@@ -52,7 +52,9 @@ using Test: @test, @testset
         C1 = Rep[U₁](0 => 2)
         t = randn(rng, elt, A1 ⊗ A2, B ⊗ C1)
         codomain_axes = (space(t, 1), space(t, 2))
-        domain_axes = (space(t, 3), space(t, 4))
+        # `unmatricize` takes the domain axes codomain-facing (un-dualized), so pass `B`, `C1`
+        # directly rather than the dualized `space(t, 3)`, `space(t, 4)`.
+        domain_axes = (B, C1)
         m = matricize(t, Val(2))
         @test space(m) == space(t)
         back = unmatricize(m, codomain_axes, domain_axes)
@@ -73,7 +75,7 @@ using Test: @test, @testset
             # rather than matching it; `unmatricize` must split it back by rewrapping the data.
             m = isomorphism(elt, fuse(V1, V2), V1 ⊗ V2) * a
             @test space(m) != space(a)
-            back = unmatricize(m, (space(a, 1), space(a, 2)), (space(a, 3),))
+            back = unmatricize(m, (space(a, 1), space(a, 2)), (U,))
             @test space(back) == space(a)
             @test back ≈ a
         end

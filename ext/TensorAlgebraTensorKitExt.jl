@@ -2,7 +2,7 @@ module TensorAlgebraTensorKitExt
 
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, ProductSpace, TensorMap, codomain, domain,
-    dual, numind, permute, scalartype, space, spacetype, zerovector!, ←, ≅
+    numind, permute, scalartype, space, spacetype, zerovector!, ←, ≅
 using TensorOperations: TensorOperations as TO
 
 # ============================  AbstractArray-vocabulary bridge  ============================
@@ -60,12 +60,13 @@ end
 # generally the axes may *fuse* to `m`'s codomain/domain (an ITensor-style combiner split): a fused
 # split is a reshape, not a basis change, so when each group is isomorphic to `m`'s the block data
 # carries over unchanged and is rewrapped on the new spaces with no copy. The domain axes arrive
-# dualized (index-space convention), so `dual` recovers the stored domain.
+# codomain-facing (un-dualized), which is exactly TensorKit's domain convention.
 function TensorAlgebra.unmatricize(
         ::TensorKitFusion, m::AbstractTensorMap, codomain_axes, domain_axes
     )
-    dest_codomain = ProductSpace(codomain_axes...)
-    dest_domain = ProductSpace(map(dual, domain_axes)...)
+    S = spacetype(m)
+    dest_codomain = ProductSpace{S}(codomain_axes...)
+    dest_domain = ProductSpace{S}(domain_axes...)
     space(m) == (dest_codomain ← dest_domain) && return m
     (codomain(m) ≅ dest_codomain && domain(m) ≅ dest_domain) || throw(
         ArgumentError(
