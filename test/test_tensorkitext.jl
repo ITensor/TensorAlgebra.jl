@@ -1,7 +1,7 @@
 using StableRNGs: StableRNG
 using TensorAlgebra: contract, matricize, similar_map, unmatricize
 using TensorKit: @tensor, Rep, SU₂, U₁, fuse, isomorphism, randn, space, ←, ⊗
-using Test: @test, @testset
+using Test: @test, @test_throws, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
 # `space(a, ka) == dual(space(b, kb))`, exactly as it would in a TensorKit tensor network.
@@ -61,7 +61,7 @@ using Test: @test, @testset
         @test back ≈ t
     end
 
-    @testset "unmatricize splits combiner-style" begin
+    @testset "unmatricize rejects a mismatched split" begin
         for (V1, V2, U) in (
                 (Rep[U₁](0 => 1, 1 => 2), Rep[U₁](0 => 2, -1 => 1), Rep[U₁](0 => 1, 1 => 1)),
                 (
@@ -71,13 +71,12 @@ using Test: @test, @testset
                 ),
             )
             a = randn(rng, elt, V1 ⊗ V2, U)
-            # Fuse the codomain into a single space, so the matrix codomain fuses to `(V1, V2)`
-            # rather than matching it; `unmatricize` must split it back by rewrapping the data.
+            # Fuse the codomain into a single space so the matrix codomain no longer splits into
+            # `(V1, V2)`; `unmatricize` is a strict no-op, so it rejects the fused split rather
+            # than rewrapping the data.
             m = isomorphism(elt, fuse(V1, V2), V1 ⊗ V2) * a
             @test space(m) != space(a)
-            back = unmatricize(m, (space(a, 1), space(a, 2)), (U,))
-            @test space(back) == space(a)
-            @test back ≈ a
+            @test_throws ArgumentError unmatricize(m, (V1, V2), (U,))
         end
     end
 
