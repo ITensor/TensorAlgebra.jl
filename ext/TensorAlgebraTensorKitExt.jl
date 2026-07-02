@@ -32,21 +32,24 @@ end
 # flattened axis, so build them directly instead of the dense flatten-and-dualize fallback. As
 # with `similar_map`, the axes arrive codomain-facing (un-dualized), which is TensorKit's own
 # codomain/domain convention. An empty `domain_axes` gives the unit space `ProductSpace{S}()`.
-function _codomain_domain(codomain_axes, domain_axes)
-    codomain = ProductSpace(codomain_axes...)
-    return codomain, ProductSpace{spacetype(codomain)}(domain_axes...)
-end
 function TensorAlgebra.zeros_map(
         ::Type{T}, codomain_axes::Tuple{ElementarySpace, Vararg{ElementarySpace}}, domain_axes
     ) where {T}
-    return TensorKit.zeros(T, _codomain_domain(codomain_axes, domain_axes)...)
+    codomain = ProductSpace(codomain_axes...)
+    return TensorKit.zeros(T, codomain, ProductSpace{spacetype(codomain)}(domain_axes...))
 end
 for (f, g) in ((:randn_map, :randn), (:rand_map, :rand))
     @eval function TensorAlgebra.$f(
             rng::AbstractRNG, ::Type{T},
             codomain_axes::Tuple{ElementarySpace, Vararg{ElementarySpace}}, domain_axes
         ) where {T}
-        return TensorKit.$g(rng, T, _codomain_domain(codomain_axes, domain_axes)...)
+        codomain = ProductSpace(codomain_axes...)
+        return TensorKit.$g(
+            rng,
+            T,
+            codomain,
+            ProductSpace{spacetype(codomain)}(domain_axes...)
+        )
     end
 end
 
