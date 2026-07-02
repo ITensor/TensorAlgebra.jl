@@ -1,9 +1,11 @@
 using Base.Broadcast: broadcasted
+using LinearAlgebra: norm
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, contract, matricize, rand_map, randn_map, similar_map,
-    tryflattenlinear, unmatricize, zeros_map
-using TensorKit:
-    @tensor, AbstractTensorMap, Rep, SU₂, U₁, fuse, isomorphism, randn, space, ←, ⊗
+using TensorAlgebra: TensorAlgebra, checked_project, contract, matricize, project,
+    project_map, projectto!, rand_map, randn_map, similar_map, tryflattenlinear,
+    unmatricize, zeros_map
+using TensorKit: @tensor, AbstractTensorMap, Rep, SU₂, TensorMap, U₁, fuse, isomorphism,
+    randn, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
@@ -129,6 +131,41 @@ using Test: @test, @test_throws, @testset
         @test space(td) == (one(A1) ← (A1 ⊗ A2))
         zd = zeros_map(elt, (), (A1, B))
         @test space(zd) == (one(A1) ← (A1 ⊗ B))
+    end
+
+    # `project` builds a `TensorMap` from a dense matrix: `similar_map` allocates a same-device
+    # buffer (its block storage type follows the dense prototype) and `projectto!` fills the
+    # symmetry-allowed blocks via `project_symmetric!`, discarding the rest. A charge-preserving
+    # matrix survives; a charge-breaking one is projected away, and `checked_project` rejects that
+    # loss.
+    @testset "project a dense matrix into a TensorMap" begin
+        W = Rep[U₁](0 => 1, 1 => 1)
+        Sz = elt[0.5 0; 0 -0.5]
+        Sx = elt[0 0.5; 0.5 0]
+
+        pz = project(Sz, (W,), (W,))
+        @test pz isa AbstractTensorMap
+        @test space(pz) == (W ← W)
+        @test pz ≈ TensorMap(Sz, W ← W)
+        # `project` forwards to the `project_map` hook
+        @test project_map(Sz, (W,), (W,)) ≈ pz
+        # the block storage type follows the dense prototype's array type (device-preserving)
+        @test storagetype(pz) == Vector{elt}
+
+        # `projectto!` into a same-space buffer agrees with `project`
+        @test projectto!(similar_map(Sz, elt, (W,), (W,)), Sz) ≈ pz
+
+        # a charge-breaking matrix is projected to zero; `checked_project` rejects the discard
+        @test norm(project(Sx, (W,), (W,))) == 0
+        @test_throws InexactError checked_project(Sx, (W,), (W,); atol = 0, rtol = 0)
+
+        # the flat two-argument form builds an all-codomain `TensorMap` (empty domain): only
+        # the trivial-charge component of a dense vector survives the projection
+        pv = project(elt[1, 0], (W,))
+        @test pv isa AbstractTensorMap
+        @test space(pv) == (W ← one(W))
+        @test norm(pv) ≈ 1
+        @test norm(project(elt[0, 1], (W,))) == 0
     end
 
     # A linear combination of `TensorMap`s flattens to a `LinearBroadcasted` that materializes

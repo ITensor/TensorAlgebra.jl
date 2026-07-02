@@ -1,5 +1,5 @@
-using TensorAlgebra:
-    TensorAlgebra, checked_project_map, checked_projectto!, project_map, projectto!
+using TensorAlgebra: TensorAlgebra, checked_project, checked_project_map,
+    checked_projectto!, project, project_map, projectto!
 using Test: @test, @test_throws, @testset
 
 const elts = (Float32, Float64, ComplexF32, ComplexF64)
@@ -19,7 +19,7 @@ function TensorAlgebra.projectto!(dest::Rounded, src::AbstractArray)
     return dest
 end
 
-@testset "projectto!/project_map ($T)" for T in elts
+@testset "projectto!/project ($T)" for T in elts
     src = randn(T, 2, 3)
 
     # `projectto!` defaults to `copyto!`.
@@ -50,12 +50,21 @@ end
     raw = randn(T, 2, 3, 2, 3)
     cod = (Base.OneTo(2), Base.OneTo(3))
     dom = (Base.OneTo(2), Base.OneTo(3))
-    M = project_map(raw, cod, dom)
-    @test eltype(M) === T
-    @test size(M) == (2, 3, 2, 3)
-    @test M == raw
+    Mmap = project_map(raw, cod, dom)
+    @test eltype(Mmap) === T
+    @test size(Mmap) == (2, 3, 2, 3)
+    @test Mmap == raw
+    @test checked_project_map(raw, cod, dom) == raw
 
-    # `checked_project_map` agrees and accepts the same buffer.
-    M2 = checked_project_map(raw, cod, dom)
-    @test M2 == raw
+    # `project` forwards to `project_map`: the three-argument form takes the
+    # explicit split, the two-argument form takes a flat list (empty domain).
+    @test project(raw, cod, dom) == raw
+    @test checked_project(raw, cod, dom) == raw
+
+    flat = randn(T, 2, 3)
+    M = project(flat, (Base.OneTo(2), Base.OneTo(3)))
+    @test eltype(M) === T
+    @test size(M) == (2, 3)
+    @test M == flat
+    @test checked_project(flat, (Base.OneTo(2), Base.OneTo(3))) == flat
 end
