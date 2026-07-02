@@ -4,8 +4,8 @@ using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, checked_project, contract, matricize, project,
     project_map, projectto!, rand_map, randn_map, similar_map, tryflattenlinear,
     unmatricize, zeros_map
-using TensorKit: @tensor, AbstractTensorMap, Rep, SU₂, TensorMap, U₁, fuse, isomorphism,
-    randn, space, storagetype, ←, ⊗
+using TensorKit: @tensor, AbstractTensorMap, Rep, SU₂, TensorMap, U₁, dual, fuse,
+    isomorphism, randn, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
@@ -168,6 +168,44 @@ using Test: @test, @test_throws, @testset
         @test space(pv) == (W ← one(W))
         @test norm(pv) ≈ 1
         @test norm(project(elt[0, 1], (W,))) == 0
+    end
+
+    # `permutedims` reorders a `TensorMap`'s indices; the flat form gives an all-codomain
+    # result, and the bipartition form re-expresses the requested codomain/domain split. Both
+    # ride TensorKit's `permute` through the `bipermutedimsopadd!` interface, no dedicated method.
+    @testset "permutedims on a TensorMap" begin
+        A1 = Rep[U₁](0 => 2, 1 => 1)
+        A2 = Rep[U₁](0 => 1, 1 => 1)
+        B = Rep[U₁](0 => 1, -1 => 2)
+        t = randn(rng, elt, A1 ⊗ A2, B)
+        ref = permutedims(convert(Array, t), (3, 1, 2))
+
+        # Flat: all-codomain result whose dense form matches the plain permutation.
+        tf = TensorAlgebra.permutedims(t, (3, 1, 2))
+        @test space(tf) == ((dual(B) ⊗ A1 ⊗ A2) ← one(A1))
+        @test convert(Array, tf) == ref
+
+        # Bipartition selecting the original split reproduces the space and data exactly.
+        tb = TensorAlgebra.permutedims(t, (1, 2), (3,))
+        @test space(tb) == space(t)
+        @test convert(Array, tb) == convert(Array, t)
+
+        # Repartitioning form: move the domain index into the codomain while reordering.
+        tr = TensorAlgebra.permutedims(t, (3, 1), (2,))
+        @test space(tr) == ((dual(B) ⊗ A1) ← dual(A2))
+        @test convert(Array, tr) == ref
+
+        # In-place form writes into a matching destination.
+        dest = similar_map(t, elt, (dual(B), A1, A2), ())
+        @test TensorAlgebra.permutedims!(dest, t, (3, 1, 2)) === dest
+        @test convert(Array, dest) == ref
+
+        # Empty codomain: every index lands in the domain, the mirror of the flat all-codomain
+        # form. The domain space type is read from the operand, so the empty codomain tuple does
+        # not need to carry it.
+        te = TensorAlgebra.permutedims(t, (), (3, 1, 2))
+        @test space(te) == (one(A1) ← (B ⊗ dual(A1) ⊗ dual(A2)))
+        @test convert(Array, te) == ref
     end
 
     # A linear combination of `TensorMap`s flattens to a `LinearBroadcasted` that materializes

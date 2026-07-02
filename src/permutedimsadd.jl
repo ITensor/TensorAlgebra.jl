@@ -90,7 +90,7 @@ function bipermutedimsopadd!(
     check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
 
     dest′ = SV.StridedView(dest)
-    src′ = permutedims(SV.StridedView(src), perm)
+    src′ = Base.permutedims(SV.StridedView(src), perm)
     _opadd!(dest′, op, src′, α, β)
     return dest
 end
@@ -181,3 +181,51 @@ end
 `dest .+= src`.
 """
 add!(dest, src) = add!(dest, src, true, true)
+
+# ---------------------------------------------------------------------------- #
+# permutedims — out-of-place, optional bipartition
+# ---------------------------------------------------------------------------- #
+
+"""
+    permutedims!(dest, a, perm)
+    permutedims!(dest, a, perm_codomain, perm_domain)
+
+In-place counterpart of [`permutedims`](@ref): write the permuted `a` into `dest`.
+Both forms forward to `bipermutedimsopadd!` with `α, β = true, false`; the flat form
+passes an empty domain permutation.
+"""
+function permutedims!(dest, a, perm)
+    return bipermutedimsopadd!(dest, identity, a, perm, (), true, false)
+end
+function permutedims!(dest, a, perm_codomain, perm_domain)
+    return bipermutedimsopadd!(dest, identity, a, perm_codomain, perm_domain, true, false)
+end
+
+"""
+    permutedims(a, perm)
+    permutedims(a, perm_codomain, perm_domain)
+
+Out-of-place permutation of `a`, mirroring `TensorKit.permute`. The single-permutation
+form reorders every dimension into `perm`, giving an all-codomain result. The
+two-permutation form additionally splits the dimensions into a codomain/domain
+bipartition, with `perm_codomain` selecting the codomain dimensions and `perm_domain`
+the domain ones.
+
+Allocates the destination with [`similar_map`](@ref) and materializes it through
+[`permutedims!`](@ref), so any operand implementing the `permutedimsopadd!` /
+`bipermutedimsopadd!` interface (a dense array, a graded array, a `TensorMap`) is
+permuted with no dedicated method. A dense operand ignores the bipartition and stores
+the result flat.
+"""
+function permutedims(a, perm)
+    dest = similar_map(a, eltype(a), map(p -> axes(a, p), perm), ())
+    return permutedims!(dest, a, perm)
+end
+function permutedims(a, perm_codomain, perm_domain)
+    codomain_axes = map(p -> axes(a, p), perm_codomain)
+    # `similar_map` dualizes the domain axes it is given (as it does for `similar_map`
+    # itself), so pass them pre-conjugated to land back on the source's own axes.
+    domain_axes = map(p -> conj(axes(a, p)), perm_domain)
+    dest = similar_map(a, eltype(a), codomain_axes, domain_axes)
+    return permutedims!(dest, a, perm_codomain, perm_domain)
+end
