@@ -29,24 +29,39 @@ end
 
 # ===============================  zeros_map / randn_map / rand_map  ========================
 # A `TensorMap` keeps its codomain and domain as separate `ProductSpace`s rather than a single
-# flattened axis, so build them directly instead of the dense flatten-and-dualize fallback. As
-# with `similar_map`, the axes arrive codomain-facing (un-dualized), which is TensorKit's own
-# codomain/domain convention. An empty `domain_axes` gives the unit space `ProductSpace{S}()`.
+# flattened axis, so build the `codomain ← domain` space directly instead of the dense
+# flatten-and-dualize fallback. As with `similar_map`, the axes arrive codomain-facing
+# (un-dualized), which is TensorKit's own codomain/domain convention. The elementary space type
+# `S` is passed to `_map_homspace` explicitly so the two dispatch entries per constructor can
+# read it from whichever of the codomain/domain is non-empty and share one builder; an empty
+# axis tuple gives the unit space `ProductSpace{S}()`.
+function _map_homspace(::Type{S}, codomain_axes, domain_axes) where {S <: ElementarySpace}
+    return ProductSpace{S}(codomain_axes...) ← ProductSpace{S}(domain_axes...)
+end
 function TensorAlgebra.zeros_map(
         ::Type{T}, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    codomain = ProductSpace{S}(codomain_axes...)
-    domain = ProductSpace{S}(domain_axes...)
-    return TensorKit.zeros(T, codomain, domain)
+    return TensorKit.zeros(T, _map_homspace(S, codomain_axes, domain_axes))
+end
+function TensorAlgebra.zeros_map(
+        ::Type{T}, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+    ) where {T, S <: ElementarySpace}
+    return TensorKit.zeros(T, _map_homspace(S, codomain_axes, domain_axes))
 end
 for (f, g) in ((:randn_map, :randn), (:rand_map, :rand))
-    @eval function TensorAlgebra.$f(
-            rng::AbstractRNG, ::Type{T},
-            codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
-        ) where {T, S <: ElementarySpace}
-        codomain = ProductSpace{S}(codomain_axes...)
-        domain = ProductSpace{S}(domain_axes...)
-        return TensorKit.$g(rng, T, codomain, domain)
+    @eval begin
+        function TensorAlgebra.$f(
+                rng::AbstractRNG, ::Type{T},
+                codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+            ) where {T, S <: ElementarySpace}
+            return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
+        end
+        function TensorAlgebra.$f(
+                rng::AbstractRNG, ::Type{T},
+                codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+            ) where {T, S <: ElementarySpace}
+            return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
+        end
     end
 end
 

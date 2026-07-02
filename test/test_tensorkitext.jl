@@ -123,6 +123,12 @@ using Test: @test, @test_throws, @testset
         # An empty domain gives an all-codomain `TensorMap`, the plain-tensor case.
         tc = randn_map(rng, elt, (A1, A2), ())
         @test space(tc) == ((A1 ⊗ A2) ← one(A1))
+
+        # An empty codomain is the mirror case: the space type comes from the domain.
+        td = randn_map(rng, elt, (), (A1, A2))
+        @test space(td) == (one(A1) ← (A1 ⊗ A2))
+        zd = zeros_map(elt, (), (A1, B))
+        @test space(zd) == (one(A1) ← (A1 ⊗ B))
     end
 
     # A linear combination of `TensorMap`s flattens to a `LinearBroadcasted` that materializes
