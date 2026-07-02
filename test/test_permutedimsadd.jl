@@ -1,7 +1,7 @@
 using Adapt: adapt
 using JLArrays: JLArray
-using TensorAlgebra: ConjArray, PermutedDims, add!, bipermutedimsopadd!, conjed,
-    permuteddims, permutedimsadd!, permutedimsopadd!
+using TensorAlgebra: TensorAlgebra, ConjArray, PermutedDims, add!, bipermutedimsopadd!,
+    conjed, permuteddims, permutedimsadd!, permutedimsopadd!
 using Test: @test, @testset
 
 # A non-`AbstractArray` operand, to check that `permuteddims` falls back to `PermutedDims`.
@@ -167,6 +167,26 @@ end
         dest = fill(T(2))
         bipermutedimsopadd!(dest, identity, src, (), (), T(3), T(5))
         @test dest[] == 3 * 7 + 5 * 2
+    end
+    @testset "permutedims / permutedims! (out-of-place, arraytype=$arrayt)" for arrayt in
+        (
+            Array,
+            JLArray,
+        )
+        dev = adapt(arrayt)
+        a = dev(randn(2, 3, 4))
+        ref = permutedims(a, (3, 1, 2))
+        # Flat form reorders all dimensions; on a dense array the bipartition form
+        # ignores the split and stores the result flat in the concatenated order.
+        @test TensorAlgebra.permutedims(a, (3, 1, 2)) == ref
+        @test TensorAlgebra.permutedims(a, (3, 1), (2,)) == ref
+        @test TensorAlgebra.permutedims(a, (), (3, 1, 2)) == ref
+        dest = dev(zeros(4, 2, 3))
+        @test TensorAlgebra.permutedims!(dest, a, (3, 1, 2)) === dest
+        @test dest == ref
+        dest = dev(zeros(4, 2, 3))
+        TensorAlgebra.permutedims!(dest, a, (3, 1), (2,))
+        @test dest == ref
     end
     @testset "permutedimsopadd! (arraytype=$arrayt)" for arrayt in (Array,)
         dev = adapt(arrayt)
