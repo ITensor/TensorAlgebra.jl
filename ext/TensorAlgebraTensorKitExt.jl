@@ -2,8 +2,9 @@ module TensorAlgebraTensorKitExt
 
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
-using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace, numind,
-    permute, space, spacetype, zerovector!, ←
+using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace,
+    TensorMapWithStorage, numind, permute, project_symmetric!, space, spacetype,
+    zerovector!, ←
 using TensorOperations: TensorOperations as TO
 
 # ============================  AbstractArray-vocabulary bridge  ============================
@@ -25,6 +26,33 @@ function TensorAlgebra.similar_map(
     ) where {T}
     S = spacetype(a)
     return similar(a, T, ProductSpace{S}(codomain_axes...), ProductSpace{S}(domain_axes...))
+end
+
+# A plain-array prototype with native (space) axes is the operator/state construction case: `raw`
+# is a dense matrix and the codomain/domain axes are `TensorMap` spaces. Build an uninitialized
+# `TensorMap` whose block storage type `A` follows `raw`'s array type, so the storage stays on the
+# same device (a GPU array's blocks stay on the GPU) while the map structure comes from the spaces.
+# `A` is the return type of `similar(raw, T, ::Int)`, a 1-d vector of `raw`'s family, which is the
+# block storage type. The elementary space type `S` is passed explicitly so the two dispatch
+# entries below can read it from whichever of codomain/domain is non-empty and share one builder,
+# mirroring `_map_homspace` and the map constructors.
+function similar_tensormap(
+        raw::AbstractArray, ::Type{T}, ::Type{S}, codomain_axes, domain_axes
+    ) where {T, S <: ElementarySpace}
+    A = Base.promote_op(similar, typeof(raw), Type{T}, Int)
+    return TensorMapWithStorage{T, A}(undef, _map_homspace(S, codomain_axes, domain_axes))
+end
+function TensorAlgebra.similar_map(
+        raw::AbstractArray, ::Type{T},
+        codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+    ) where {T, S <: ElementarySpace}
+    return similar_tensormap(raw, T, S, codomain_axes, domain_axes)
+end
+function TensorAlgebra.similar_map(
+        raw::AbstractArray, ::Type{T},
+        codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+    ) where {T, S <: ElementarySpace}
+    return similar_tensormap(raw, T, S, codomain_axes, domain_axes)
 end
 
 # ===============================  zeros_map / randn_map / rand_map  ========================
@@ -63,6 +91,32 @@ for (f, g) in ((:randn_map, :randn), (:rand_map, :rand))
             return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
         end
     end
+end
+
+# =====================================  projectto!  ========================================
+# `projectto!` places dense `src` data into the restricted (symmetric) space of `dest`. A
+# `TensorMap` is not an `AbstractArray`, so the generic `copyto!` default does not apply; delegate
+# to TensorKit's `project_symmetric!`, which fills the symmetry-allowed blocks from the dense data
+# and discards any component outside the block structure. Composed with the map constructors above,
+# this makes `project(dense, codomain_axes, domain_axes)` build a `TensorMap` from a dense matrix.
+function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
+    return project_symmetric!(dest, src)
+end
+
+# The generic `checked_projectto!` verifies the projection with `isapprox(src, dest)`, but a
+# `TensorMap` `dest` is not elementwise-comparable to the dense `src`. Densify `dest` with
+# `convert(Array, ...)` so the check is the same elementwise `isapprox(src, dest)` as the dense path,
+# keeping one `InexactError`/`kwargs` contract across backends rather than TensorKit's own
+# residual-norm `tol`/`ArgumentError` check.
+function TensorAlgebra.checked_projectto!(
+        dest::AbstractTensorMap,
+        src::AbstractArray;
+        kwargs...
+    )
+    TensorAlgebra.projectto!(dest, src)
+    isapprox(src, convert(Array, dest); kwargs...) ||
+        throw(InexactError(:checked_projectto!, typeof(dest), src))
+    return dest
 end
 
 # ================================  bipermutedimsopadd!  =====================================
