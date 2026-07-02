@@ -1,6 +1,9 @@
+using Base.Broadcast: broadcasted
 using StableRNGs: StableRNG
-using TensorAlgebra: contract, matricize, similar_map, unmatricize
-using TensorKit: @tensor, Rep, SU₂, U₁, fuse, isomorphism, randn, space, ←, ⊗
+using TensorAlgebra: TensorAlgebra, contract, matricize, rand_map, randn_map, similar_map,
+    tryflattenlinear, unmatricize, zeros_map
+using TensorKit:
+    @tensor, AbstractTensorMap, Rep, SU₂, U₁, fuse, isomorphism, randn, space, ←, ⊗
 using Test: @test, @test_throws, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
@@ -98,5 +101,44 @@ using Test: @test, @test_throws, @testset
         t_domain = randn(rng, elt, one(A1) ← (A1 ⊗ A2))
         sm_domain = similar_map(t_domain, elt, (), (A1, A2))
         @test space(sm_domain) == space(t_domain)
+    end
+
+    # The map constructors build a `TensorMap` from the codomain/domain spaces directly rather
+    # than flattening, mirroring the `similar_map` space convention (domain given un-dualized).
+    @testset "map construction on spaces" begin
+        A1 = Rep[U₁](0 => 2, 1 => 1)
+        A2 = Rep[U₁](0 => 1, 1 => 1)
+        B = Rep[U₁](0 => 1, -1 => 2)
+
+        for f in (randn_map, rand_map)
+            t = f(rng, elt, (A1, A2), (B,))
+            @test t isa AbstractTensorMap
+            @test space(t) == ((A1 ⊗ A2) ← B)
+        end
+        z = zeros_map(elt, (A1, A2), (B,))
+        @test z isa AbstractTensorMap
+        @test space(z) == ((A1 ⊗ A2) ← B)
+        @test iszero(z)
+
+        # An empty domain gives an all-codomain `TensorMap`, the plain-tensor case.
+        tc = randn_map(rng, elt, (A1, A2), ())
+        @test space(tc) == ((A1 ⊗ A2) ← one(A1))
+    end
+
+    # A linear combination of `TensorMap`s flattens to a `LinearBroadcasted` that materializes
+    # into a `TensorMap` destination via `copyto!`; a nonlinear broadcast has no linear form.
+    @testset "linear-combination broadcast" begin
+        V = Rep[SU₂](0 => 1, 1 // 2 => 2)
+        a = randn(rng, elt, V ← V)
+        b = randn(rng, elt, V ← V)
+
+        lb = tryflattenlinear(broadcasted(+, a, broadcasted(*, 2, b)))
+        dest = similar(a)
+        copyto!(dest, lb)
+        @test dest ≈ a + 2 * b
+
+        # A nonlinear (element-wise) broadcast is not expressible as a `LinearBroadcasted`.
+        @test isnothing(tryflattenlinear(broadcasted(*, a, b)))
+        @test_throws ErrorException copy(broadcasted(*, a, b))
     end
 end
