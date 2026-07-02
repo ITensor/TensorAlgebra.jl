@@ -174,6 +174,13 @@ function matricizekind(
     return PermuteMatricizeKind
 end
 
+# Whether `matricizeperm(style, a, perm_codomain, perm_domain)` aliases `a` — returns a view (so a
+# `mul!` into it writes through to `a`) rather than freshly allocated storage. Only a style whose
+# `matricize` is itself a view (a dense reshape) can alias, and only when the bipermutation needs
+# no permuted copy. Defaults to `false`: a style that gathers into new storage, such as a graded
+# array, never aliases its input.
+matricizepermaliases(::FusionStyle, perm_codomain, perm_domain) = false
+
 # Skip the permuted copy when the classifier says it is unnecessary. `ReshapeMatricizeKind`
 # calls `matricize` directly on `a` (a view for dense, a gather without the extra permute
 # for graded); `TransposeMatricizeKind` returns a lazy `transpose` of the reshape. Both
@@ -278,6 +285,11 @@ function matricizekind(
     isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
     isidentityperm((perm_domain..., perm_codomain...)) && return TransposeMatricizeKind
     return PermuteMatricizeKind
+end
+# A dense reshape/transpose is a view of `a`; only a permuted copy detaches. So the matricized
+# output aliases `a` for every kind except `PermuteMatricizeKind`.
+function matricizepermaliases(style::ReshapeFusion, perm_codomain, perm_domain)
+    return matricizekind(style, perm_codomain, perm_domain) != PermuteMatricizeKind
 end
 # A dense reshape ignores the codomain/domain split: it just reshapes to the concatenated axes.
 # `conj` re-dualizes the codomain-facing `domain_axes` into stored form, a no-op on a dense axis.
