@@ -1,9 +1,10 @@
 module TensorAlgebra
 
 export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc,
-    eigh_vals, gram_eigh_full, gram_eigh_full_with_pinv, left_null, left_orth,
-    left_polar, lq_compact, lq_full, qr_compact, qr_full, right_null, right_orth,
-    right_polar, svd_compact, svd_full, svd_trunc, svd_vals
+    eigh_vals, gram_eigh_full, gram_eigh_full_with_pinv, invsqrth_safe, left_null,
+    left_orth, left_polar, lq_compact, lq_full, project_hermitian, qr_compact,
+    qr_full, right_null, right_orth, right_polar, sqrth_invsqrth_safe, sqrth_safe,
+    svd_compact, svd_full, svd_trunc, svd_vals
 
 if VERSION >= v"1.11.0-DEV.469"
     eval(
