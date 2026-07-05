@@ -37,9 +37,15 @@ end
 TensorAlgebra.scalar(t::AbstractTensorMap) = TensorKit.scalar(t)
 
 # The trivial length-1 axis of a space is its unit space (`oneunit`), the trivial-sector
-# one-dimensional space.
+# one-dimensional space; the length-`n` form is the direct sum of `n` unit spaces.
 TensorAlgebra.trivialrange(V::ElementarySpace) = oneunit(V)
 TensorAlgebra.trivialrange(::Type{S}) where {S <: ElementarySpace} = oneunit(S)
+function TensorAlgebra.trivialrange(V::ElementarySpace, n::Integer)
+    return TensorAlgebra.trivialrange(typeof(V), n)
+end
+function TensorAlgebra.trivialrange(::Type{S}, n::Integer) where {S <: ElementarySpace}
+    return TensorKit.oplus(ntuple(Returns(oneunit(S)), n)...)
+end
 
 # Sum of the dense elements. Through the dense presentation rather than the block data:
 # for a non-abelian sector type the dense embedding expands each block by its fusion-tree
