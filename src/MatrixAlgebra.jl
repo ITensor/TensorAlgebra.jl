@@ -52,7 +52,10 @@ function pow_diag_safe(
     )
     σ = MAK.diagview(D)
     tol = max(atol, rtol * maximum(abs, σ; init = zero(real(eltype(D)))))
-    return MAK.diagonal(map(d -> abs(d) < tol ? zero(d) : real(d)^p, σ))
+    # `oftype` keeps the entry type: the clamp branch (`zero(d)`) and the power branch
+    # (`real(d)^p`) otherwise differ (e.g. `ComplexF32` vs `Float64`) and `map` would
+    # widen the diagonal to an abstract eltype.
+    return MAK.diagonal(map(d -> oftype(d, abs(d) < tol ? zero(d) : real(d)^p), σ))
 end
 
 # Non-`AbstractMatrix` matrix-like backends (e.g. a `TensorMap`): `map` over the
