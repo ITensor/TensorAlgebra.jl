@@ -179,9 +179,8 @@ function infer_aux_space(
     # Probe the surplus axis slice by slice: a slice keeps the aux axis (width `dim(s)`), so its
     # rank matches the candidate axes exactly and `tryproject` allocates, fills, and round-trip-
     # verifies without re-entering the derivation branch. This builds one `TensorMap` per candidate
-    # column, which is fine for operator-sized inputs but not cheap. A faster derivation would read
-    # the covariant sectors from the fusion-tree block structure (as the `TensorMap` constructor
-    # does) instead of constructing a projection per slice.
+    # column, which is fine for operator-sized inputs but not cheap. Reading each column's sector
+    # directly from the block structure of the fused content could avoid the per-slice projection.
     function slice_is_covariant(r, s)
         slice = selectdim(raw, aux_dim, r)
         return !isnothing(
