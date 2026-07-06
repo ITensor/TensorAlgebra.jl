@@ -1,9 +1,10 @@
 module TensorAlgebraTensorKitExt
 
+using MatrixAlgebraKit: diagview
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace,
-    TensorMapWithStorage, codomain, dim, domain, dual, fuse, numind, permute,
+    TensorMapWithStorage, blocks, codomain, dim, domain, dual, fuse, numind, permute,
     project_symmetric!, sectors, space, spacetype, zerovector!, ←
 using TensorOperations: TensorOperations as TO
 
@@ -293,6 +294,18 @@ function Base.copy(::Base.Broadcast.Broadcasted{TensorMapStyle})
         "element-wise broadcast is not supported for a `TensorMap`; only linear combinations \
         such as `a .+ b` and `2 .* a` are supported"
     )
+end
+
+# ====================================  pow_diag_safe  ======================================
+# `MAK.diagview` of a `TensorMap` is shape-shifting (a `SectorVector` for a `DiagonalTensorMap`,
+# a per-sector dict otherwise), so clamp the diagonal per block instead: each block's `diagview`
+# is a plain vector view regardless of the map's type.
+function TensorAlgebra.MatrixAlgebra._pow_diag!(D::AbstractTensorMap, p, tol)
+    for (_, b) in blocks(D)
+        σ = diagview(b)
+        copyto!(σ, map(d -> TensorAlgebra.MatrixAlgebra._clamped_pow(d, p, tol), σ))
+    end
+    return D
 end
 
 end

@@ -33,11 +33,10 @@ Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
 `p = 1//2`) and pass through for integer `p`, so the operation itself
 enforces the PSD precondition per-power. Errors if `isdiag(D)` is `false`.
 
-The implementation writes the clamped powers back through `MAK.diagview`
-onto a `copy` of `D`, so the result has the input's type and structure, and
-types extending `diagview` (e.g. graded or block diagonal, a `TensorMap`)
-automatically extend [`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref),
-and the [`powh_safe`](@ref) family.
+The clamped powers are written onto a `copy` of `D`, so the result keeps the
+input's type and structure. This drives [`sqrt_diag_safe`](@ref),
+[`invsqrt_diag_safe`](@ref), and the [`powh_safe`](@ref) family, and works for
+any diagonal-structured backend (dense, graded, or a `TensorMap`).
 
 ## Keyword arguments
 
@@ -54,21 +53,24 @@ function pow_diag_safe(
     )
     tol = max(atol, rtol * norm(D, Inf))
     Dp = copy(D)
-    _pow_diag!(MAK.diagview(Dp), p, tol)
+    _pow_diag!(Dp, p, tol)
     return Dp
 end
 
-# `copyto!` rather than `.=`: block-structured diagonal views (e.g. a graded fused
-# vector) have a blockwise `map` and `copyto!` but no broadcast support.
-function _pow_diag!(σ, p, tol)
-    copyto!(σ, map(d -> abs(d) < tol ? zero(d) : real(d)^p, σ))
-    return σ
-end
-# A backend's `diagview` may be a dict of per-block diagonal views (e.g. a `TensorMap`,
-# keyed by sector) rather than a single vector view.
-function _pow_diag!(σ::AbstractDict, p, tol)
-    foreach(v -> _pow_diag!(v, p, tol), values(σ))
-    return σ
+# Clamp-then-power one diagonal entry: entries below `tol` go to zero, and a negative entry
+# above `tol` lets `real(d)^p` error for fractional `p`, enforcing the PSD precondition
+# per-power. Branching also skips the power for clamped entries.
+_clamped_pow(d, p, tol) = abs(d) < tol ? zero(d) : real(d)^p
+
+# Clamp the powers in place on `D`'s diagonal, returning `D` with its type and structure
+# intact. This generic path reads the diagonal with `MAK.diagview`, which for a dense or
+# graded diagonal is a single mappable vector; a backend whose diagonal is stored otherwise
+# (e.g. a `TensorMap`, per sector) overloads `_pow_diag!` directly. `copyto!` rather than
+# `.=`: a graded fused diagonal vector has a blockwise `map` and `copyto!` but no broadcast.
+function _pow_diag!(D, p, tol)
+    σ = MAK.diagview(D)
+    copyto!(σ, map(d -> _clamped_pow(d, p, tol), σ))
+    return D
 end
 
 """
