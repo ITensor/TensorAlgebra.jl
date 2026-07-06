@@ -173,14 +173,17 @@ end
 function infer_aux_space(
         raw, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
     ) where {S <: ElementarySpace}
-    naux = length(codomain_axes) + length(domain_axes) + 1
-    auxdim = size(raw, naux)
+    aux_dim = length(codomain_axes) + length(domain_axes) + 1
+    aux_length = size(raw, aux_dim)
     content = fuse(codomain_axes..., dual.(domain_axes)...)
-    # A slice keeps the aux axis (width `dim(s)`), so its rank matches the candidate axes
-    # exactly and `tryproject` allocates, fills, and round-trip-verifies without re-entering
-    # the derivation branch.
+    # Probe the surplus axis slice by slice: a slice keeps the aux axis (width `dim(s)`), so its
+    # rank matches the candidate axes exactly and `tryproject` allocates, fills, and round-trip-
+    # verifies without re-entering the derivation branch. This builds one `TensorMap` per candidate
+    # column, which is fine for operator-sized inputs but not cheap. A faster derivation would read
+    # the covariant sectors from the fusion-tree block structure (as the `TensorMap` constructor
+    # does) instead of constructing a projection per slice.
     function slice_is_covariant(r, s)
-        slice = selectdim(raw, naux, r)
+        slice = selectdim(raw, aux_dim, r)
         return !isnothing(
             TensorAlgebra.tryproject(slice, codomain_axes, (domain_axes..., S(s => 1)))
         )
@@ -190,16 +193,16 @@ function infer_aux_space(
     for s in sectors(content)
         d = dim(S(s => 1))
         m = 0
-        while pos + d - 1 <= auxdim && slice_is_covariant(pos:(pos + d - 1), s)
+        while pos + d - 1 <= aux_length && slice_is_covariant(pos:(pos + d - 1), s)
             m += 1
             pos += d
         end
         m > 0 && push!(seccounts, s => m)
     end
-    pos == auxdim + 1 || throw(
+    pos == aux_length + 1 || throw(
         ArgumentError(
             "`project`: could not derive a covariant auxiliary space for the surplus axis of \
-            dimension $auxdim; the aux slices must be ordered by the canonical (sorted) sector \
+            length $aux_length; the aux slices must be ordered by the canonical (sorted) sector \
             order of the derived space"
         )
     )
