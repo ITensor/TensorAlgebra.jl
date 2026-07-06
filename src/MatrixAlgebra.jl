@@ -63,13 +63,12 @@ end
 _clamped_pow(d, p, tol) = abs(d) < tol ? zero(d) : real(d)^p
 
 # Clamp the powers in place on `D`'s diagonal, returning `D` with its type and structure
-# intact. This generic path reads the diagonal with `MAK.diagview`, which for a dense or
-# graded diagonal is a single mappable vector; a backend whose diagonal is stored otherwise
-# (e.g. a `TensorMap`, per sector) overloads `_pow_diag!` directly. `copyto!` rather than
-# `.=`: a graded fused diagonal vector has a blockwise `map` and `copyto!` but no broadcast.
+# intact. The generic path maps over `MAK.diagview(D)`, a single in-place-mappable vector
+# (dense); a backend whose diagonal view is not (e.g. a `TensorMap`, stored per sector)
+# overloads `_pow_diag!` directly.
 function _pow_diag!(D, p, tol)
     σ = MAK.diagview(D)
-    copyto!(σ, map(d -> _clamped_pow(d, p, tol), σ))
+    map!(d -> _clamped_pow(d, p, tol), σ, σ)
     return D
 end
 

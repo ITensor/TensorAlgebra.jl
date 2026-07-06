@@ -303,7 +303,7 @@ end
 function TensorAlgebra.MatrixAlgebra._pow_diag!(D::AbstractTensorMap, p, tol)
     for (_, b) in blocks(D)
         σ = diagview(b)
-        copyto!(σ, map(d -> TensorAlgebra.MatrixAlgebra._clamped_pow(d, p, tol), σ))
+        map!(d -> TensorAlgebra.MatrixAlgebra._clamped_pow(d, p, tol), σ, σ)
     end
     return D
 end
