@@ -139,7 +139,7 @@ end
 # no-op when the ranks already match); this lets a lower-rank `src` omit trailing length-1 axes,
 # matching the generic `projectto!`, and rejects a genuine shape mismatch.
 function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
-    TensorAlgebra.check_project_shape(size(src), TensorAlgebra.size(dest))
+    TensorAlgebra.check_project_size(size(src), TensorAlgebra.size(dest))
     return project_symmetric!(dest, reshape(src, TensorAlgebra.size(dest)))
 end
 
@@ -147,11 +147,25 @@ end
 # defines for an `AbstractTensorMap`, so no dedicated method is needed here.
 
 # =============================  allocate_project (aux-leg derivation)  =====================
-# `allocate_project` for `TensorMap` spaces. With no surplus axis this is plain `similar_map`;
-# a single trailing surplus axis in `raw` is an auxiliary leg whose space is derived (see
-# `infer_aux_space`) and appended as the last domain axis so the result is symmetry-allowed.
+# `allocate_project` for `TensorMap` spaces routes both the codomain-led and the (empty-codomain)
+# domain-led cases to `allocate_project_tensormap`, reading the elementary space type `S` from
+# whichever side is non-empty, the same two-entry split `similar_map` uses.
 function TensorAlgebra.allocate_project(
         raw::AbstractArray, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+    ) where {S <: ElementarySpace}
+    return allocate_project_tensormap(raw, S, codomain_axes, domain_axes)
+end
+function TensorAlgebra.allocate_project(
+        raw::AbstractArray, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+    ) where {S <: ElementarySpace}
+    return allocate_project_tensormap(raw, S, codomain_axes, domain_axes)
+end
+
+# With no surplus axis this is plain `similar_map`; a single trailing surplus axis in `raw` is an
+# auxiliary leg whose space is derived (see `infer_aux_space`) and appended as the last domain axis
+# so the result is symmetry-allowed.
+function allocate_project_tensormap(
+        raw, ::Type{S}, codomain_axes, domain_axes
     ) where {S <: ElementarySpace}
     nphys = length(codomain_axes) + length(domain_axes)
     ndims(raw) <= nphys &&
@@ -162,7 +176,7 @@ function TensorAlgebra.allocate_project(
             given axes, got a rank-$(ndims(raw)) input"
         )
     )
-    aux = infer_aux_space(raw, codomain_axes, domain_axes)
+    aux = infer_aux_space(raw, S, codomain_axes, domain_axes)
     return TensorAlgebra.similar_map(raw, codomain_axes, (domain_axes..., aux))
 end
 
@@ -172,7 +186,7 @@ end
 # follows, so the aux slices must appear in that order. The result may span several sectors (a
 # direct-sum, MPO-style virtual leg).
 function infer_aux_space(
-        raw, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+        raw, ::Type{S}, codomain_axes, domain_axes
     ) where {S <: ElementarySpace}
     aux_dim = length(codomain_axes) + length(domain_axes) + 1
     aux_length = size(raw, aux_dim)

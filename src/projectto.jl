@@ -3,7 +3,7 @@
 # `reshape` against silently reinterpreting same-length data of a genuinely different shape, while
 # still allowing trailing length-1 axes to be added or dropped (the projection verbs' "omit
 # trailing length-1 axes" convention).
-function check_project_shape(sz1::Dims, sz2::Dims)
+function check_project_size(sz1::Dims, sz2::Dims)
     all(i -> get(sz1, i, 1) == get(sz2, i, 1), 1:max(length(sz1), length(sz2))) || throw(
         DimensionMismatch("sizes $sz1 and $sz2 differ beyond trailing length-1 axes")
     )
@@ -23,7 +23,7 @@ rather than reinterpreting the data. A backend whose arrays are not
 fill primitive that [`unchecked_project`](@ref) allocates a destination for.
 """
 function projectto!(dest, src)
-    check_project_shape(size(src), size(dest))
+    check_project_size(size(src), size(dest))
     return copyto!(dest, reshape(src, size(dest)))
 end
 
@@ -80,7 +80,7 @@ comparable to a dense array (opaque block storage, a `TensorMap`) only needs
 that conversion.
 """
 function is_projected(dest, src; kwargs...)
-    check_project_shape(size(src), size(dest))
+    check_project_size(size(src), size(dest))
     return isapprox(reshape(src, size(dest)), convert(Array, dest); kwargs...)
 end
 
