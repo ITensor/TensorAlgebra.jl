@@ -596,10 +596,12 @@ end
     sqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
     sqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
 
-Square root of a generic N-dimensional array, interpreting it as an
-approximately Hermitian positive semi-definite linear map from the domain
-to the codomain dimensions. The result carries the same codomain and
-domain axes as `A`. Eigenvalues below tolerance are clamped to zero.
+Square root of a generic N-dimensional array, interpreting it as a
+Hermitian positive semi-definite linear map from the domain to the
+codomain dimensions. The result carries the same codomain and domain axes
+as `A`. Eigenvalues below tolerance are clamped to zero. The input must be
+Hermitian: project with `project_hermitian` first if it is Hermitian only
+up to numerical noise.
 
 ## Keyword arguments
 
@@ -618,10 +620,11 @@ sqrth_safe
     invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
 
 Pseudo-inverse square root of a generic N-dimensional array, interpreting
-it as an approximately Hermitian positive semi-definite linear map from
-the domain to the codomain dimensions. The result carries the same
-codomain and domain axes as `A`. Eigenvalues below tolerance are clamped
-to zero (Moore-Penrose convention).
+it as a Hermitian positive semi-definite linear map from the domain to the
+codomain dimensions. The result carries the same codomain and domain axes
+as `A`. Eigenvalues below tolerance are clamped to zero (Moore-Penrose
+convention). The input must be Hermitian: project with `project_hermitian`
+first if it is Hermitian only up to numerical noise.
 
 ## Keyword arguments
 

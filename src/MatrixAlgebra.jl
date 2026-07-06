@@ -117,12 +117,14 @@ invsqrt_diag_safe(D::AbstractMatrix; kwargs...) = pow_diag_safe(D, -1 // 2; kwar
 """
     powh_safe(M, p; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^p
 
-Raise an approximately Hermitian positive semi-definite matrix to the
-power `p`. For diagonal-structured `M` (`isdiag(M) == true`), dispatches
-to [`pow_diag_safe`](@ref) and skips the eigendecomposition. Otherwise,
-projects `M` onto its Hermitian part `(M + M') / 2` (so input that is
-Hermitian only up to numerical noise is accepted) and computes via
-`M = V * D * V'` as `V * pow_diag_safe(D, p; atol, rtol) * V'`.
+Raise a Hermitian positive semi-definite matrix to the power `p`. For
+diagonal-structured `M` (`isdiag(M) == true`), dispatches to
+[`pow_diag_safe`](@ref) and skips the eigendecomposition. Otherwise
+computes via `M = V * D * V'` as `V * pow_diag_safe(D, p; atol, rtol) * V'`.
+
+The input must be Hermitian (as for `MatrixAlgebraKit.eigh_full`): project
+with `MatrixAlgebraKit.project_hermitian` first if it is Hermitian only up
+to numerical noise.
 
 ## Keyword arguments
 
@@ -132,19 +134,14 @@ $(_clamp_kwargs_doc("M"))
 """
 function powh_safe(M, p; alg = nothing, kwargs...)
     isdiag(M) && return pow_diag_safe(M, p; kwargs...)
-    D, V = _eigh_full_hermitianpart(M, alg)
+    D, V = MAK.eigh_full(M; alg)
     return V * pow_diag_safe(D, p; kwargs...) * V'
-end
-
-function _eigh_full_hermitianpart(M, alg)
-    M = MAK.project_hermitian(M)
-    return MAK.eigh_full(M, MAK.select_algorithm(MAK.eigh_full, M, alg))
 end
 
 """
     sqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2)
 
-Square root of an approximately Hermitian positive semi-definite matrix.
+Square root of a Hermitian positive semi-definite matrix.
 Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
 
 ## Keyword arguments
@@ -158,8 +155,8 @@ sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
 """
     invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(-1//2)
 
-Inverse square root of an approximately Hermitian positive semi-definite
-matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
+Inverse square root of a Hermitian positive semi-definite matrix.
+Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 
 ## Keyword arguments
 
@@ -172,11 +169,15 @@ invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
 """
     sqrth_invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2), M^(-1//2)
 
-Square root and pseudo-inverse square root of an approximately Hermitian
-positive semi-definite matrix, from a single eigendecomposition. Equivalent
+Square root and pseudo-inverse square root of a Hermitian positive
+semi-definite matrix, from a single eigendecomposition. Equivalent
 to `(sqrth_safe(M; ...), invsqrth_safe(M; ...))` but with the
 eigendecomposition computed once. Eigenvalues below tolerance are clamped
 to zero in both factors (Moore-Penrose convention for the inverse).
+
+The input must be Hermitian (as for `MatrixAlgebraKit.eigh_full`): project
+with `MatrixAlgebraKit.project_hermitian` first if it is Hermitian only up
+to numerical noise.
 
 ## Keyword arguments
 
@@ -188,7 +189,7 @@ function sqrth_invsqrth_safe(M; alg = nothing, kwargs...)
     if isdiag(M)
         return pow_diag_safe(M, 1 // 2; kwargs...), pow_diag_safe(M, -1 // 2; kwargs...)
     end
-    D, V = _eigh_full_hermitianpart(M, alg)
+    D, V = MAK.eigh_full(M; alg)
     return V * pow_diag_safe(D, 1 // 2; kwargs...) * V',
         V * pow_diag_safe(D, -1 // 2; kwargs...) * V'
 end
@@ -199,11 +200,11 @@ for (gram, gram_with_pinv, eigh_full) in (
     )
     @eval begin
         function $gram(A::AbstractMatrix; alg = nothing, kwargs...)
-            D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
+            D, V = MAK.$eigh_full(A; alg)
             return V * sqrth_safe(D; kwargs...)
         end
         function $gram_with_pinv(A::AbstractMatrix; alg = nothing, kwargs...)
-            D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
+            D, V = MAK.$eigh_full(A; alg)
             return V * sqrth_safe(D; kwargs...), invsqrth_safe(D; kwargs...) * V'
         end
     end
