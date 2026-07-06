@@ -145,55 +145,64 @@ end
 # defines for an `AbstractTensorMap`, so no dedicated method is needed here.
 
 # =============================  allocate_project (aux-leg derivation)  =====================
-# `allocate_project` for `TensorMap` spaces. An optional trailing surplus axis in `raw` (an
-# auxiliary leg appended as the last domain axis) has its space derived here so the result is
-# symmetry-allowed; without one this is plain `similar_map`. Candidates are the operator content
-# `codomain ⊗ conj(domain)`, scanned in canonical (sorted) sector order — a `GradedSpace` sorts
-# its sectors and the dense layout follows, so the aux slices must appear in that order. The
-# derived aux may span several sectors (a direct-sum, MPO-style virtual leg).
+# `allocate_project` for `TensorMap` spaces. With no surplus axis this is plain `similar_map`;
+# a single trailing surplus axis in `raw` is an auxiliary leg whose space is derived (see
+# `infer_aux_space`) and appended as the last domain axis so the result is symmetry-allowed.
 function TensorAlgebra.allocate_project(
         raw::AbstractArray, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
     ) where {S <: ElementarySpace}
     nphys = length(codomain_axes) + length(domain_axes)
-    if ndims(raw) > nphys
-        ndims(raw) == nphys + 1 || throw(
-            ArgumentError(
-                "`project`: expected at most one trailing auxiliary axis beyond the \
-                $nphys given axes, got a rank-$(ndims(raw)) input"
-            )
+    ndims(raw) <= nphys &&
+        return TensorAlgebra.similar_map(raw, codomain_axes, domain_axes)
+    ndims(raw) == nphys + 1 || throw(
+        ArgumentError(
+            "`project`: expected at most one trailing auxiliary axis beyond the $nphys \
+            given axes, got a rank-$(ndims(raw)) input"
         )
-        auxdim = size(raw, nphys + 1)
-        content = fuse(codomain_axes..., dual.(domain_axes)...)
-        # A slice keeps the aux axis (width `dim(s)`), so its rank matches the candidate
-        # axes exactly and `tryproject` allocates, fills, and round-trip-verifies without
-        # re-entering the derivation branch.
-        function slice_is_covariant(r, s)
-            slice = selectdim(raw, nphys + 1, r)
-            return !isnothing(
-                TensorAlgebra.tryproject(slice, codomain_axes, (domain_axes..., S(s => 1)))
-            )
-        end
-        seccounts = Pair{TensorKit.sectortype(S), Int}[]
-        pos = 1
-        for s in sectors(content)
-            d = dim(S(s => 1))
-            m = 0
-            while pos + d - 1 <= auxdim && slice_is_covariant(pos:(pos + d - 1), s)
-                m += 1
-                pos += d
-            end
-            m > 0 && push!(seccounts, s => m)
-        end
-        pos == auxdim + 1 || throw(
-            ArgumentError(
-                "`project`: could not derive a covariant auxiliary space for the surplus axis \
-                of dimension $auxdim; the aux slices must be ordered by the canonical (sorted) \
-                sector order of the derived space"
-            )
+    )
+    aux = infer_aux_space(raw, codomain_axes, domain_axes)
+    return TensorAlgebra.similar_map(raw, codomain_axes, (domain_axes..., aux))
+end
+
+# The space of `raw`'s trailing auxiliary axis, derived so the projected result is
+# symmetry-allowed. Candidates are the operator content `codomain ⊗ conj(domain)`, scanned in
+# canonical (sorted) sector order — a `GradedSpace` sorts its sectors and the dense layout
+# follows, so the aux slices must appear in that order. The result may span several sectors (a
+# direct-sum, MPO-style virtual leg).
+function infer_aux_space(
+        raw, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+    ) where {S <: ElementarySpace}
+    naux = length(codomain_axes) + length(domain_axes) + 1
+    auxdim = size(raw, naux)
+    content = fuse(codomain_axes..., dual.(domain_axes)...)
+    # A slice keeps the aux axis (width `dim(s)`), so its rank matches the candidate axes
+    # exactly and `tryproject` allocates, fills, and round-trip-verifies without re-entering
+    # the derivation branch.
+    function slice_is_covariant(r, s)
+        slice = selectdim(raw, naux, r)
+        return !isnothing(
+            TensorAlgebra.tryproject(slice, codomain_axes, (domain_axes..., S(s => 1)))
         )
-        domain_axes = (domain_axes..., S(seccounts...))
     end
-    return TensorAlgebra.similar_map(raw, codomain_axes, domain_axes)
+    seccounts = Pair{TensorKit.sectortype(S), Int}[]
+    pos = 1
+    for s in sectors(content)
+        d = dim(S(s => 1))
+        m = 0
+        while pos + d - 1 <= auxdim && slice_is_covariant(pos:(pos + d - 1), s)
+            m += 1
+            pos += d
+        end
+        m > 0 && push!(seccounts, s => m)
+    end
+    pos == auxdim + 1 || throw(
+        ArgumentError(
+            "`project`: could not derive a covariant auxiliary space for the surplus axis of \
+            dimension $auxdim; the aux slices must be ordered by the canonical (sorted) sector \
+            order of the derived space"
+        )
+    )
+    return S(seccounts...)
 end
 
 # ================================  bipermutedimsopadd!  =====================================
