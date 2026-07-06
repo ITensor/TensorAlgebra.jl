@@ -23,17 +23,19 @@ function _clamp_kwargs_doc(arg::AbstractString)
 end
 
 """
-    pow_diag_safe(D::AbstractMatrix, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
+    pow_diag_safe(D, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
 
 Raise a diagonal-structured matrix `D` to the power `p`. Diagonal entries
-`d` of `MAK.diagview(D)` with `abs(d) < tol` are clamped to zero before
-exponentiation, where `tol = max(atol, rtol * maximum(abs, diagview(D)))`.
+`d` with `abs(d) < tol` are clamped to zero before exponentiation, where
+`tol = max(atol, rtol * norm(D, Inf))` (the largest-magnitude entry, which
+is the largest-magnitude diagonal entry for a diagonal-structured matrix).
 Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
 `p = 1//2`) and pass through for integer `p`, so the operation itself
 enforces the PSD precondition per-power. Errors if `isdiag(D)` is `false`.
 
-The implementation extracts entries via `MAK.diagview` and rebuilds via
-`MAK.diagonal`, so types extending those (e.g. graded or block diagonal)
+The implementation writes the clamped powers back through `MAK.diagview`
+onto a `copy` of `D`, so the result has the input's type and structure, and
+types extending `diagview` (e.g. graded or block diagonal, a `TensorMap`)
 automatically extend [`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref),
 and the [`powh_safe`](@ref) family.
 
@@ -41,28 +43,6 @@ and the [`powh_safe`](@ref) family.
 
 $(_clamp_kwargs_doc("D"))
 """
-function pow_diag_safe(
-        D::AbstractMatrix, p;
-        atol = zero(real(eltype(D))),
-        rtol = iszero(atol) ? eps(real(eltype(D)))^(3 // 4) :
-            zero(real(eltype(D)))
-    )
-    isdiag(D) || throw(
-        ArgumentError("pow_diag_safe requires a diagonal-structured matrix")
-    )
-    σ = MAK.diagview(D)
-    tol = max(atol, rtol * maximum(abs, σ; init = zero(real(eltype(D)))))
-    # `oftype` keeps the entry type: the clamp branch (`zero(d)`) and the power branch
-    # (`real(d)^p`) otherwise differ (e.g. `ComplexF32` vs `Float64`) and `map` would
-    # widen the diagonal to an abstract eltype.
-    return MAK.diagonal(map(d -> oftype(d, abs(d) < tol ? zero(d) : real(d)^p), σ))
-end
-
-# Non-`AbstractMatrix` matrix-like backends (e.g. a `TensorMap`): `map` over the
-# `MAK.diagview` may not preserve the backend's block structure, so write the mapped
-# diagonal back into a `copy` through the (aliasing) `diagview` instead of rebuilding
-# with `MAK.diagonal`. The tolerance uses `norm(D, Inf)` (the largest-magnitude entry),
-# which equals the largest-magnitude diagonal entry under the `isdiag` guard.
 function pow_diag_safe(
         D, p;
         atol = zero(real(eltype(D))),
@@ -78,8 +58,10 @@ function pow_diag_safe(
     return Dp
 end
 
+# `copyto!` rather than `.=`: block-structured diagonal views (e.g. a graded fused
+# vector) have a blockwise `map` and `copyto!` but no broadcast support.
 function _pow_diag!(σ, p, tol)
-    σ .= map(d -> abs(d) < tol ? zero(d) : real(d)^p, σ)
+    copyto!(σ, map(d -> abs(d) < tol ? zero(d) : real(d)^p, σ))
     return σ
 end
 # A backend's `diagview` may be a dict of per-block diagonal views (e.g. a `TensorMap`,
@@ -90,7 +72,7 @@ function _pow_diag!(σ::AbstractDict, p, tol)
 end
 
 """
-    sqrt_diag_safe(D::AbstractMatrix; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
+    sqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
 
 Square root of a diagonal-structured matrix `D`, equivalent to
 `pow_diag_safe(D, 1//2; atol, rtol)`.
@@ -99,10 +81,10 @@ Square root of a diagonal-structured matrix `D`, equivalent to
 
 $(_clamp_kwargs_doc("D"))
 """
-sqrt_diag_safe(D::AbstractMatrix; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
+sqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
 
 """
-    invsqrt_diag_safe(D::AbstractMatrix; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
+    invsqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
 
 Inverse square root of a diagonal-structured matrix `D`, treating diagonal
 entries below tolerance as zero (Moore-Penrose convention). Equivalent to
@@ -112,7 +94,7 @@ entries below tolerance as zero (Moore-Penrose convention). Equivalent to
 
 $(_clamp_kwargs_doc("D"))
 """
-invsqrt_diag_safe(D::AbstractMatrix; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
+invsqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
 
 """
     powh_safe(M, p; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^p

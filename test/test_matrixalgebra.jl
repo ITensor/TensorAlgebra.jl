@@ -202,11 +202,13 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
         # `isdiag` fast-path: a dense matrix that happens to be diagonal-
         # structured goes through `pow_diag_safe`, not `eigh_full`, and
-        # the result is still a `Diagonal` (from `MAK.diagonal`).
+        # the result keeps the input's type (the clamped powers are written
+        # back onto a `copy` through `MAK.diagview`).
         Mdiag = Matrix(D)
         sqrtMdiag = MatrixAlgebra.powh_safe(Mdiag, 1 // 2)
-        @test sqrtMdiag isa Diagonal
+        @test sqrtMdiag isa Matrix
         @test sqrtMdiag ≈ MatrixAlgebra.pow_diag_safe(D, 1 // 2)
+        @test MatrixAlgebra.pow_diag_safe(D, 1 // 2) isa Diagonal
 
         # `pow_diag_safe` directly on a diagonal-structured `AbstractMatrix`.
         @test MatrixAlgebra.pow_diag_safe(Mdiag, 1 // 2) ≈

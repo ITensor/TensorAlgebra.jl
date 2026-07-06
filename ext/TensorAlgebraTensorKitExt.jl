@@ -2,7 +2,7 @@ module TensorAlgebraTensorKitExt
 
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
-using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace, TensorMap,
+using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace,
     TensorMapWithStorage, codomain, dim, domain, dual, fuse, numind, permute,
     project_symmetric!, sectors, space, spacetype, zerovector!, ←
 using TensorOperations: TensorOperations as TO
@@ -150,8 +150,8 @@ end
 # the shape of `raw` — gets its space derived so the result is symmetry-allowed. The candidate
 # irreps are the operator content `codomain ⊗ conj(domain)`; scan the aux axis in the content's
 # canonical (sorted) sector order, consuming contiguous width-`dim(s)` slices that are covariant
-# with irrep `s` (`TensorMap(data, space)` does the projection and the covariance check per
-# slice). The result is a possibly multi-sector (direct-sum) aux, e.g. an MPO-style virtual leg;
+# with irrep `s` (`tryproject` at default tolerances does the projection and the covariance check
+# per slice). The result is a possibly multi-sector (direct-sum) aux, e.g. an MPO-style virtual leg;
 # a single irrep and the abelian single-charge case fall out. The slice order must match the
 # canonical sector order, since a `GradedSpace` sorts its sectors and the dense layout follows
 # it. The fill onto the derived axes (`projectto!`) is magnitude-blind; the `project` wrapper
@@ -170,15 +170,14 @@ function TensorAlgebra.allocate_project(
         )
         auxdim = size(raw, nphys + 1)
         content = fuse(codomain_axes..., dual.(domain_axes)...)
+        # A slice keeps the aux axis (width `dim(s)`), so its rank matches the candidate
+        # axes exactly and `tryproject` allocates, fills, and round-trip-verifies without
+        # re-entering the derivation branch.
         function slice_is_covariant(r, s)
-            target = _map_homspace(S, codomain_axes, (domain_axes..., S(s => 1)))
-            return try
-                TensorMap(selectdim(raw, nphys + 1, r), target)
-                true
-            catch e
-                e isa Union{ArgumentError, DimensionMismatch} || rethrow()
-                false
-            end
+            slice = selectdim(raw, nphys + 1, r)
+            return !isnothing(
+                TensorAlgebra.tryproject(slice, codomain_axes, (domain_axes..., S(s => 1)))
+            )
         end
         seccounts = Pair{TensorKit.sectortype(S), Int}[]
         pos = 1
