@@ -137,8 +137,9 @@ end
 # this makes `project(dense, codomain_axes, domain_axes)` build a `TensorMap` from a dense matrix.
 # `project_symmetric!` requires a matching dense size, so reshape `src` to `size(dest)` first (a
 # no-op when the ranks already match); this lets a lower-rank `src` omit trailing length-1 axes,
-# matching the generic `projectto!`.
+# matching the generic `projectto!`, and rejects a genuine shape mismatch.
 function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
+    TensorAlgebra.check_project_shape(size(src), TensorAlgebra.size(dest))
     return project_symmetric!(dest, reshape(src, TensorAlgebra.size(dest)))
 end
 

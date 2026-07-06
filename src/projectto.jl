@@ -1,15 +1,31 @@
+# Throw unless `sz1` and `sz2` are equal ignoring trailing length-1 axes: an axis beyond one
+# size's rank counts as length 1, mirroring `Base.size(A, d)` for `d > ndims(A)`. Guards a
+# `reshape` against silently reinterpreting same-length data of a genuinely different shape, while
+# still allowing trailing length-1 axes to be added or dropped (the projection verbs' "omit
+# trailing length-1 axes" convention).
+function check_project_shape(sz1::Dims, sz2::Dims)
+    all(i -> get(sz1, i, 1) == get(sz2, i, 1), 1:max(length(sz1), length(sz2))) || throw(
+        DimensionMismatch("sizes $sz1 and $sz2 differ beyond trailing length-1 axes")
+    )
+    return nothing
+end
+
 """
     projectto!(dest, src) -> dest
 
 Project `src` into the restricted space of `dest` without checking which
-components may have been projected out. Defaults to `copyto!`, which copies
-by linear index, so a lower-rank `src` may omit trailing length-1 axes (e.g.
-an auxiliary flux-canceling leg a codomain/domain split introduces on a
-symmetric state). A size-strict backend overloads this to reshape `src` to
-`size(dest)` for the same effect. This is the in-place fill primitive that
-[`unchecked_project`](@ref) allocates a destination for.
+components may have been projected out. The default reshapes `src` to
+`size(dest)` up to trailing length-1 axes (so a lower-rank `src` may omit
+them, e.g. an auxiliary flux-canceling leg a codomain/domain split introduces
+on a symmetric state) and `copyto!`s, throwing on a genuine shape mismatch
+rather than reinterpreting the data. A backend whose arrays are not
+`copyto!`-compatible with a dense array overloads this. This is the in-place
+fill primitive that [`unchecked_project`](@ref) allocates a destination for.
 """
-projectto!(dest, src) = copyto!(dest, src)
+function projectto!(dest, src)
+    check_project_shape(size(src), size(dest))
+    return copyto!(dest, reshape(src, size(dest)))
+end
 
 """
     allocate_project(raw, codomain_axes, domain_axes) -> dest
@@ -57,13 +73,14 @@ negligible component of `src`. Keyword arguments are forwarded to `isapprox`.
 
 Together with [`unchecked_project`](@ref) this is the backend customization
 point ([`project`](@ref) and [`tryproject`](@ref) derive from the two). The
-generic method reshapes `src` to `size(dest)` (so a lower-rank `src` that
-omits trailing length-1 axes lines up) and compares against
+generic method reshapes `src` to `size(dest)` up to trailing length-1 axes
+(so a lower-rank `src` that omits them lines up) and compares against
 `convert(Array, dest)`, so a backend whose arrays are not elementwise
 comparable to a dense array (opaque block storage, a `TensorMap`) only needs
 that conversion.
 """
 function is_projected(dest, src; kwargs...)
+    check_project_shape(size(src), size(dest))
     return isapprox(reshape(src, size(dest)), convert(Array, dest); kwargs...)
 end
 
