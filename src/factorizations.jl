@@ -1,15 +1,15 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-# Unfuse one side of a factorization factor, keeping its other (bond) axis as is: a
-# factor `X` carries the fused codomain (or domain) group of the input on one axis and
-# the new bond on the other, and only the fused group needs reconstructing. For fusing
-# backends the bond axis is read off the factor itself (`axes(X, 2)`, dualized to stay
-# codomain-facing). A backend whose `matricize` does not fuse (e.g. a `TensorMap`)
-# overrides these to return the factor unchanged: its factors keep their original legs,
-# so `axes(X, 2)` does not address the bond.
+# Reconstruct one side of a factorization factor, keeping its other (bond) axis as is: a
+# factor carries the codomain (or domain) group of the input on one side and the new bond
+# on the other, and only that group needs reconstructing. The bond is the factor's last
+# axis (codomain factor) or first axis (domain factor) on every backend: a fusing backend
+# returns a rank-2 factor `[fused group, bond]`, a non-fusing backend (e.g. a `TensorMap`)
+# returns the group's original legs plus the bond. So `unmatricize` reconstructs both with
+# no per-backend override; the bond axis is dualized to stay codomain-facing.
 function unmatricize_codomain(style::FusionStyle, X, axes_codomain)
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, 2)),))
+    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
 end
 function unmatricize_domain(style::FusionStyle, Y, axes_domain)
     return unmatricize(style, Y, (axes(Y, 1),), axes_domain)

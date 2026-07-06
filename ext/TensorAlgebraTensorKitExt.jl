@@ -145,18 +145,12 @@ end
 # defines for an `AbstractTensorMap`, so no dedicated method is needed here.
 
 # =============================  allocate_project (aux-leg derivation)  =====================
-# `allocate_project` with `TensorMap` spaces: the destination allocation, which is where a
-# trailing surplus axis in `raw` — an auxiliary leg appended as the last domain axis, matching
-# the shape of `raw` — gets its space derived so the result is symmetry-allowed. The candidate
-# irreps are the operator content `codomain ⊗ conj(domain)`; scan the aux axis in the content's
-# canonical (sorted) sector order, consuming contiguous width-`dim(s)` slices that are covariant
-# with irrep `s` (`tryproject` at default tolerances does the projection and the covariance check
-# per slice). The result is a possibly multi-sector (direct-sum) aux, e.g. an MPO-style virtual leg;
-# a single irrep and the abelian single-charge case fall out. The slice order must match the
-# canonical sector order, since a `GradedSpace` sorts its sectors and the dense layout follows
-# it. The fill onto the derived axes (`projectto!`) is magnitude-blind; the `project` wrapper
-# verifies that nothing was discarded. With no surplus axis (a lower-rank `raw` omits trailing
-# length-1 axes, which the `projectto!` reshape pads), this is plain `similar_map`.
+# `allocate_project` for `TensorMap` spaces. An optional trailing surplus axis in `raw` (an
+# auxiliary leg appended as the last domain axis) has its space derived here so the result is
+# symmetry-allowed; without one this is plain `similar_map`. Candidates are the operator content
+# `codomain ⊗ conj(domain)`, scanned in canonical (sorted) sector order — a `GradedSpace` sorts
+# its sectors and the dense layout follows, so the aux slices must appear in that order. The
+# derived aux may span several sectors (a direct-sum, MPO-style virtual leg).
 function TensorAlgebra.allocate_project(
         raw::AbstractArray, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
     ) where {S <: ElementarySpace}
@@ -252,37 +246,6 @@ function TensorAlgebra.unmatricize(
     space(m) == dest ||
         throw(ArgumentError("`unmatricize` space `$dest` does not match `$(space(m))`"))
     return m
-end
-
-# A factorization factor needs no unfusing here (`matricize` above does not fuse, so the
-# factors come back from MatrixAlgebraKit with their original legs plus the bond). The
-# generic defaults would reconstruct the bond axis with the matrix-flavored `axes(X, 2)`,
-# which on an unfused factor reads a codomain leg instead of the bond (the two only
-# coincide when the bond carries the trivial sector). Validate the known side and return
-# the factor unchanged.
-function TensorAlgebra.unmatricize_codomain(
-        ::TensorKitFusion, X::AbstractTensorMap, codomain_axes
-    )
-    S = spacetype(X)
-    dest = ProductSpace{S}(codomain_axes...)
-    codomain(X) == dest || throw(
-        ArgumentError(
-            "`unmatricize_codomain` space `$dest` does not match `$(codomain(X))`"
-        )
-    )
-    return X
-end
-function TensorAlgebra.unmatricize_domain(
-        ::TensorKitFusion, Y::AbstractTensorMap, domain_axes
-    )
-    S = spacetype(Y)
-    # The requested axes arrive codomain-facing (un-dualized), which is TensorKit's
-    # domain convention, so they build the domain `ProductSpace` directly.
-    dest = ProductSpace{S}(domain_axes...)
-    domain(Y) == dest || throw(
-        ArgumentError("`unmatricize_domain` space `$dest` does not match `$(domain(Y))`")
-    )
-    return Y
 end
 
 # ======================================  contract  =========================================
