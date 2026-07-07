@@ -53,6 +53,7 @@ using Test: @test, @testset
         :invsqrt_diag_safe,
         :invsqrth_safe,
         :pow_diag_safe,
+        :pow_diag_safe!,
         :powh_safe,
         :sqrt_diag_safe,
         :sqrth_invsqrth_safe,

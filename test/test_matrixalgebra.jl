@@ -216,5 +216,14 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
         # `pow_diag_safe` rejects non-diagonal inputs.
         @test_throws ArgumentError MatrixAlgebra.pow_diag_safe(A, 1 // 2)
+
+        # Positional-`tol` form and the in-place `pow_diag_safe!` kernel agree with
+        # the keyword form. Entries below `tol` clamp to zero.
+        Dc = Diagonal(real(elt)[4, 9, 0])
+        @test MatrixAlgebra.pow_diag_safe(Dc, 1 // 2, 1.0e-8) ==
+            Diagonal(real(elt)[2, 3, 0])
+        Dp = copy(Dc)
+        @test MatrixAlgebra.pow_diag_safe!(Dp, Dc, 1 // 2, 1.0e-8) === Dp
+        @test Dp == Diagonal(real(elt)[2, 3, 0])
     end
 end

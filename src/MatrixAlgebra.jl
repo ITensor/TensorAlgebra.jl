@@ -5,6 +5,7 @@ export gram_eigh_full,
     invsqrt_diag_safe,
     invsqrth_safe,
     pow_diag_safe,
+    pow_diag_safe!,
     powh_safe,
     sqrt_diag_safe,
     sqrth_safe,
@@ -24,19 +25,22 @@ end
 
 """
     pow_diag_safe(D, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
+    pow_diag_safe(D, p, tol) -> D^p
 
 Raise a diagonal-structured matrix `D` to the power `p`. Diagonal entries
 `d` with `abs(d) < tol` are clamped to zero before exponentiation, where
 `tol = max(atol, rtol * norm(D, Inf))` (the largest-magnitude entry, which
-is the largest-magnitude diagonal entry for a diagonal-structured matrix).
-Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
-`p = 1//2`) and pass through for integer `p`, so the operation itself
-enforces the PSD precondition per-power. Errors if `isdiag(D)` is `false`.
+is the largest-magnitude diagonal entry for a diagonal-structured matrix). The
+three-argument form takes `tol` directly. Negative `d` above `tol` cause `d^p`
+to error for fractional `p` (e.g. `p = 1//2`) and pass through for integer `p`,
+so the operation itself enforces the PSD precondition per-power. Errors if
+`isdiag(D)` is `false`.
 
-The clamped powers are written onto a `copy` of `D`, so the result keeps the
-input's type and structure. This drives [`sqrt_diag_safe`](@ref),
-[`invsqrt_diag_safe`](@ref), and the [`powh_safe`](@ref) family, and works for
-any diagonal-structured backend (dense, graded, or a `TensorMap`).
+The clamped powers are written onto a `copy` of `D` via [`pow_diag_safe!`](@ref),
+so the result keeps the input's type and structure. This drives
+[`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref), and the [`powh_safe`](@ref)
+family, and works for any diagonal-structured backend (dense, graded, or a
+`TensorMap`).
 
 ## Keyword arguments
 
@@ -52,8 +56,12 @@ function pow_diag_safe(
         ArgumentError("pow_diag_safe requires a diagonal-structured matrix")
     )
     tol = max(atol, rtol * norm(D, Inf))
+    return pow_diag_safe(D, p, tol)
+end
+
+function pow_diag_safe(D, p, tol)
     Dp = copy(D)
-    _pow_diag!(Dp, p, tol)
+    pow_diag_safe!(Dp, D, p, tol)
     return Dp
 end
 
@@ -62,14 +70,22 @@ end
 # per-power. Branching also skips the power for clamped entries.
 _clamped_pow(d, p, tol) = abs(d) < tol ? zero(d) : real(d)^p
 
-# Clamp the powers in place on `D`'s diagonal, returning `D` with its type and structure
-# intact. The generic path maps over `MAK.diagview(D)`, a single in-place-mappable vector
-# (dense); a backend whose diagonal view is not (e.g. a `TensorMap`, stored per sector)
-# overloads `_pow_diag!` directly.
-function _pow_diag!(D, p, tol)
-    σ = MAK.diagview(D)
-    map!(d -> _clamped_pow(d, p, tol), σ, σ)
-    return D
+"""
+    pow_diag_safe!(Dp, D, p, tol) -> Dp
+
+In-place kernel behind [`pow_diag_safe`](@ref): write the clamped powers of
+`D`'s diagonal onto `Dp`, where entries `d` with `abs(d) < tol` become zero and
+the rest become `d^p`. `Dp` must be diagonal-structured with the same structure
+as `D` (in the allocating [`pow_diag_safe`](@ref) path it is `copy(D)`).
+
+This is the backend overload point. The generic method maps over `MAK.diagview`,
+valid when the diagonal view is a single in-place-mappable vector (dense). A
+backend whose diagonal is stored per sector (a `TensorMap`, or a graded matrix)
+overloads this method to clamp each reduced block.
+"""
+function pow_diag_safe!(Dp, D, p, tol)
+    map!(d -> _clamped_pow(d, p, tol), MAK.diagview(Dp), MAK.diagview(D))
+    return Dp
 end
 
 """

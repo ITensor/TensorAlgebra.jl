@@ -305,12 +305,17 @@ end
 # `MAK.diagview` of a `TensorMap` is shape-shifting (a `SectorVector` for a `DiagonalTensorMap`,
 # a per-sector dict otherwise), so clamp the diagonal per block instead: each block's `diagview`
 # is a plain vector view regardless of the map's type.
-function TensorAlgebra.MatrixAlgebra._pow_diag!(D::AbstractTensorMap, p, tol)
-    for (_, b) in blocks(D)
-        σ = diagview(b)
-        map!(d -> TensorAlgebra.MatrixAlgebra._clamped_pow(d, p, tol), σ, σ)
+function TensorAlgebra.MatrixAlgebra.pow_diag_safe!(
+        Dp::AbstractTensorMap, D::AbstractTensorMap, p, tol
+    )
+    for ((_, bp), (_, b)) in zip(blocks(Dp), blocks(D))
+        map!(
+            d -> TensorAlgebra.MatrixAlgebra._clamped_pow(d, p, tol),
+            diagview(bp),
+            diagview(b)
+        )
     end
-    return D
+    return Dp
 end
 
 end
