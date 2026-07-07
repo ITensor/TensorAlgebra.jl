@@ -1,7 +1,7 @@
 using Adapt: adapt
 using JLArrays: JLArray
-using TensorAlgebra: TensorAlgebra, ConjArray, PermutedDims, add!, bipermutedimsopadd!,
-    conjed, permuteddims, permutedimsadd!, permutedimsopadd!
+using TensorAlgebra: TensorAlgebra, ConjBroadcasted, PermutedDims, add!,
+    bipermutedimsopadd!, permuteddims, permutedimsadd!, permutedimsopadd!
 using Test: @test, @testset
 
 # A non-`AbstractArray` operand, to check that `permuteddims` falls back to `PermutedDims`.
@@ -104,14 +104,14 @@ end
             end
         end
     end
-    @testset "bipermutedimsopadd! unwraps ConjArray src (arraytype=$arrayt)" for arrayt in
+    @testset "bipermutedimsopadd! unwraps ConjBroadcasted src (arraytype=$arrayt)" for arrayt in
         (
             Array,
             JLArray,
         )
         dev = adapt(arrayt)
         parent = dev(randn(ComplexF64, 2, 3, 4, 5))
-        src = ConjArray(parent)
+        src = ConjBroadcasted(parent)
         for (pc, pd) in (((1, 2, 3, 4), ()), ((2, 4), (1, 3)), ((3, 1), (2, 4)))
             perm = (pc..., pd...)
             # `op = identity` composes with the wrapper's `conj`: result is the conjugated,
@@ -131,7 +131,7 @@ end
             end
         end
     end
-    @testset "add!(b, conjed(a)) matches eager conj (arraytype=$arrayt)" for arrayt in
+    @testset "add!(b, ConjBroadcasted(a)) matches eager conj (arraytype=$arrayt)" for arrayt in
         (
             Array,
             JLArray,
@@ -143,7 +143,7 @@ end
             b = dev(randn(ComplexF64, 2, 3, 4))
             b_lazy = copy(b)
             b_eager = copy(b)
-            add!(b_lazy, conjed(a), α, β)
+            add!(b_lazy, ConjBroadcasted(a), α, β)
             add!(b_eager, conj(a), α, β)
             @test b_lazy ≈ b_eager
         end

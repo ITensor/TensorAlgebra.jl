@@ -12,17 +12,22 @@ FusionStyle(style1::FusionStyle, style2::FusionStyle) = ReshapeFusion()
 # =======================================  misc  ========================================
 
 """
-    TensorAlgebra.trivialrange(R::Type{<:AbstractUnitRange})
-    TensorAlgebra.trivialrange(r::AbstractUnitRange)
+    TensorAlgebra.trivialrange(R::Type{<:AbstractUnitRange}[, n::Integer])
+    TensorAlgebra.trivialrange(r::AbstractUnitRange[, n::Integer])
 
 Return the identity range for fusing ranges of type `R`: a one-dimensional range
 `t` for which fusing `t` with any other range of the same family leaves that range
 unchanged. Defaults to `Base.OneTo(1)`. Downstream packages overload the type-level
-method to return their own identity (for example, a charge-0 one-dimensional sector
+methods to return their own identity (for example, a charge-0 one-dimensional sector
 for a graded range).
+
+With a length `n`, return the `n`-dimensional analogue: `n` copies of the identity
+range stacked into one range (for a graded range, a charge-0 sector of dimension `n`).
 """
 trivialrange(r::AbstractUnitRange) = trivialrange(typeof(r))
 trivialrange(::Type{<:AbstractUnitRange}) = Base.OneTo(1)
+trivialrange(r::AbstractUnitRange, n::Integer) = trivialrange(typeof(r), n)
+trivialrange(::Type{<:AbstractUnitRange}, n::Integer) = Base.OneTo(n)
 
 """
     permutedimsop(op, src, perm_codomain, perm_domain)

@@ -1,6 +1,13 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
+# Each factorization reconstructs its factors with `unmatricize`, reading the freshly created
+# bond axis off the factor itself: it is the factor's last axis on a codomain factor
+# (`[group…, bond]`) and its first axis on a domain factor (`[bond, group…]`), on every backend
+# (a fusing backend returns a rank-2 factor, a `TensorMap` keeps the group's original legs). The
+# bond is dualized to codomain-facing form (`conj`, a no-op on a dense axis) when it lands on the
+# domain side of the reconstruction, matching the `unmatricize`/`similar_map` axis convention.
+
 # Two-output factorizations: the first factor `X` has the codomain axes plus a trailing
 # rank axis, the second factor `Y` has a leading rank axis plus the domain axes.
 for f in (
@@ -12,7 +19,7 @@ for f in (
             A_mat = matricize(style, A, ndims_codomain)
             X, Y = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
-            return unmatricize(style, X, axes_codomain, (conj(axes(X, 2)),)),
+            return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
                 unmatricize(style, Y, (axes(Y, 1),), axes_domain)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
@@ -27,6 +34,7 @@ for f in (
         :svd_compact, :svd_full, :svd_trunc, :svd_vals,
         :eigh_full, :eig_full, :eigh_trunc, :eig_trunc, :eigh_vals, :eig_vals,
         :left_null, :right_null, :gram_eigh_full, :gram_eigh_full_with_pinv, :one,
+        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe, :project_hermitian,
     )
     @eval begin
         function $f(
@@ -210,7 +218,7 @@ for f in (:svd_compact, :svd_full, :svd_trunc)
             A_mat = matricize(style, A, ndims_codomain)
             U, S, Vᴴ = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
-            return unmatricize(style, U, axes_codomain, (conj(axes(U, 2)),)),
+            return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
                 unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
                 unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain)
         end
@@ -406,7 +414,7 @@ function left_null!!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, N, axes_codomain, (conj(axes(N, 2)),))
+    return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
 end
 function left_null!!(A, ndims_codomain::Val; kwargs...)
     return left_null!!(FusionStyle(A), A, ndims_codomain; kwargs...)
@@ -499,7 +507,7 @@ function gram_eigh_full!!(
     A_mat = matricize(style, A, ndims_codomain)
     X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, 2)),))
+    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
 end
 function gram_eigh_full!!(A, ndims_codomain::Val; kwargs...)
     return gram_eigh_full!!(FusionStyle(A), A, ndims_codomain; kwargs...)
@@ -560,7 +568,7 @@ function gram_eigh_full_with_pinv!!(
     A_mat = matricize(style, A, ndims_codomain)
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, 2)),)),
+    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
         unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
 end
 function gram_eigh_full_with_pinv!!(A, ndims_codomain::Val; kwargs...)
@@ -574,6 +582,120 @@ function gram_eigh_full_with_pinv(
 end
 function gram_eigh_full_with_pinv(A, ndims_codomain::Val; kwargs...)
     return gram_eigh_full_with_pinv!!(copy(A), ndims_codomain; kwargs...)
+end
+
+"""
+    sqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
+    sqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
+    sqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
+
+Square root of a generic N-dimensional array, interpreting it as a
+Hermitian positive semi-definite linear map from the domain to the
+codomain dimensions. The result carries the same codomain and domain axes
+as `A`. Eigenvalues below tolerance are clamped to zero. The input must be
+Hermitian: project with `project_hermitian` first if it is Hermitian only
+up to numerical noise.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
+
+See also [`invsqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
+[`MatrixAlgebra.sqrth_safe`](@ref).
+"""
+sqrth_safe
+
+"""
+    invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
+    invsqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
+    invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
+
+Pseudo-inverse square root of a generic N-dimensional array, interpreting
+it as a Hermitian positive semi-definite linear map from the domain to the
+codomain dimensions. The result carries the same codomain and domain axes
+as `A`. Eigenvalues below tolerance are clamped to zero (Moore-Penrose
+convention). The input must be Hermitian: project with `project_hermitian`
+first if it is Hermitian only up to numerical noise.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
+
+See also [`sqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
+[`MatrixAlgebra.invsqrth_safe`](@ref).
+"""
+invsqrth_safe
+
+for f in (:sqrth_safe, :invsqrth_safe)
+    @eval begin
+        function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+            A_mat = matricize(style, A, ndims_codomain)
+            P_mat = MatrixAlgebra.$f(A_mat; kwargs...)
+            axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+            return unmatricize(style, P_mat, axes_codomain, axes_domain)
+        end
+        function $f(A, ndims_codomain::Val; kwargs...)
+            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+        end
+    end
+end
+
+"""
+    project_hermitian(A, labels_A, labels_codomain, labels_domain; kwargs...) -> H
+    project_hermitian(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> H
+    project_hermitian(A, ndims_codomain::Val; kwargs...) -> H
+
+Hermitian part `(M + M') / 2` of a generic N-dimensional array, interpreting
+it as a linear map `M` from the domain to the codomain dimensions. The result
+carries the same codomain and domain axes as `A`.
+
+See also `MatrixAlgebraKit.project_hermitian`.
+"""
+project_hermitian
+
+function project_hermitian(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    H_mat = MatrixAlgebraKit.project_hermitian(A_mat; kwargs...)
+    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+    return unmatricize(style, H_mat, axes_codomain, axes_domain)
+end
+function project_hermitian(A, ndims_codomain::Val; kwargs...)
+    return project_hermitian(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+"""
+    sqrth_invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, Pinv
+    sqrth_invsqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P, Pinv
+    sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P, Pinv
+
+Square root and pseudo-inverse square root of a generic N-dimensional
+array (see [`sqrth_safe`](@ref) and [`invsqrth_safe`](@ref)), from a
+single eigendecomposition. Both results carry the same codomain and
+domain axes as `A`.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
+
+See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
+"""
+sqrth_invsqrth_safe
+
+function sqrth_invsqrth_safe(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    P_mat, Pinv_mat = MatrixAlgebra.sqrth_invsqrth_safe(A_mat; kwargs...)
+    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+    return unmatricize(style, P_mat, axes_codomain, axes_domain),
+        unmatricize(style, Pinv_mat, axes_codomain, axes_domain)
+end
+function sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...)
+    return sqrth_invsqrth_safe(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """

@@ -1,10 +1,11 @@
 module TensorAlgebraTensorKitExt
 
+using MatrixAlgebraKit: diagview
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace,
-    TensorMapWithStorage, numind, permute, project_symmetric!, space, spacetype,
-    zerovector!, ←
+    TensorMapWithStorage, blocks, codomain, dim, domain, dual, fuse, numind, permute,
+    project_symmetric!, sectors, space, spacetype, zerovector!, ←
 using TensorOperations: TensorOperations as TO
 
 # ============================  AbstractArray-vocabulary bridge  ============================
@@ -16,6 +17,29 @@ using TensorOperations: TensorOperations as TO
 TensorAlgebra.ndims(t::AbstractTensorMap) = numind(t)
 TensorAlgebra.axes(t::AbstractTensorMap, i::Int) = space(t, i)
 TensorAlgebra.axes(t::AbstractTensorMap) = ntuple(i -> space(t, i), numind(t))
+# A `TensorMap` has no `Base.size`; its dense size is the per-index space dimension.
+TensorAlgebra.size(t::AbstractTensorMap, i::Int) = dim(space(t, i))
+TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(t))
+
+# `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
+# general spelling.
+TensorAlgebra.scalar(t::AbstractTensorMap) = TensorKit.scalar(t)
+
+# The trivial length-1 axis of a space is its unit space (`oneunit`), the trivial-sector
+# one-dimensional space; the length-`n` form is the direct sum of `n` unit spaces.
+TensorAlgebra.trivialrange(V::ElementarySpace) = oneunit(V)
+TensorAlgebra.trivialrange(::Type{S}) where {S <: ElementarySpace} = oneunit(S)
+function TensorAlgebra.trivialrange(V::ElementarySpace, n::Integer)
+    return TensorAlgebra.trivialrange(typeof(V), n)
+end
+function TensorAlgebra.trivialrange(::Type{S}, n::Integer) where {S <: ElementarySpace}
+    return TensorKit.oplus(ntuple(Returns(oneunit(S)), n)...)
+end
+
+# Sum of the dense elements. Through the dense presentation rather than the block data:
+# for a non-abelian sector type the dense embedding expands each block by its fusion-tree
+# structure, so the block-data sum would differ.
+TensorAlgebra.sum(t::AbstractTensorMap; kwargs...) = Base.sum(convert(Array, t); kwargs...)
 
 # =====================================  similar_map  =======================================
 # `similar_map` takes the codomain/domain axes in codomain-facing (un-dualized) form, which is
@@ -99,24 +123,92 @@ end
 # to TensorKit's `project_symmetric!`, which fills the symmetry-allowed blocks from the dense data
 # and discards any component outside the block structure. Composed with the map constructors above,
 # this makes `project(dense, codomain_axes, domain_axes)` build a `TensorMap` from a dense matrix.
+# `project_symmetric!` requires a matching dense size, so reshape `src` to `size(dest)` first (a
+# no-op when the ranks already match); this lets a lower-rank `src` omit trailing length-1 axes,
+# matching the generic `projectto!`, and rejects a genuine shape mismatch.
 function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
-    return project_symmetric!(dest, src)
+    TensorAlgebra.check_project_size(size(src), TensorAlgebra.size(dest))
+    return project_symmetric!(dest, reshape(src, TensorAlgebra.size(dest)))
 end
 
-# The generic `checked_projectto!` verifies the projection with `isapprox(src, dest)`, but a
-# `TensorMap` `dest` is not elementwise-comparable to the dense `src`. Densify `dest` with
-# `convert(Array, ...)` so the check is the same elementwise `isapprox(src, dest)` as the dense path,
-# keeping one `InexactError`/`kwargs` contract across backends rather than TensorKit's own
-# residual-norm `tol`/`ArgumentError` check.
-function TensorAlgebra.checked_projectto!(
-        dest::AbstractTensorMap,
-        src::AbstractArray;
-        kwargs...
+# The `is_projected` check compares through `convert(Array, dest)`, which TensorKit already
+# defines for an `AbstractTensorMap`, so no dedicated method is needed here.
+
+# =============================  allocate_project (aux-leg derivation)  =====================
+# `allocate_project` for `TensorMap` spaces routes both the codomain-led and the (empty-codomain)
+# domain-led cases to `allocate_project_tensormap`, reading the elementary space type `S` from
+# whichever side is non-empty, the same two-entry split `similar_map` uses.
+function TensorAlgebra.allocate_project(
+        raw::AbstractArray, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+    ) where {S <: ElementarySpace}
+    return allocate_project_tensormap(raw, S, codomain_axes, domain_axes)
+end
+function TensorAlgebra.allocate_project(
+        raw::AbstractArray, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+    ) where {S <: ElementarySpace}
+    return allocate_project_tensormap(raw, S, codomain_axes, domain_axes)
+end
+
+# With no surplus axis this is plain `similar_map`; a single trailing surplus axis in `raw` is an
+# auxiliary leg whose space is derived (see `infer_aux_space`) and appended as the last domain axis
+# so the result is symmetry-allowed.
+function allocate_project_tensormap(
+        raw, ::Type{S}, codomain_axes, domain_axes
+    ) where {S <: ElementarySpace}
+    nphys = length(codomain_axes) + length(domain_axes)
+    ndims(raw) <= nphys &&
+        return TensorAlgebra.similar_map(raw, codomain_axes, domain_axes)
+    ndims(raw) == nphys + 1 || throw(
+        ArgumentError(
+            "`project`: expected at most one trailing auxiliary axis beyond the $nphys \
+            given axes, got a rank-$(ndims(raw)) input"
+        )
     )
-    TensorAlgebra.projectto!(dest, src)
-    isapprox(src, convert(Array, dest); kwargs...) ||
-        throw(InexactError(:checked_projectto!, typeof(dest), src))
-    return dest
+    aux = infer_aux_space(raw, S, codomain_axes, domain_axes)
+    return TensorAlgebra.similar_map(raw, codomain_axes, (domain_axes..., aux))
+end
+
+# The space of `raw`'s trailing auxiliary axis, derived so the projected result is
+# symmetry-allowed. Candidates are the operator content `codomain ⊗ conj(domain)`, scanned in
+# canonical (sorted) sector order — a `GradedSpace` sorts its sectors and the dense layout
+# follows, so the aux slices must appear in that order. The result may span several sectors (a
+# direct-sum, MPO-style virtual leg).
+function infer_aux_space(
+        raw, ::Type{S}, codomain_axes, domain_axes
+    ) where {S <: ElementarySpace}
+    aux_dim = length(codomain_axes) + length(domain_axes) + 1
+    aux_length = size(raw, aux_dim)
+    content = fuse(codomain_axes..., dual.(domain_axes)...)
+    # Probe the surplus axis slice by slice: a slice keeps the aux axis (width `dim(s)`), so its
+    # rank matches the candidate axes exactly and `tryproject` allocates, fills, and round-trip-
+    # verifies without re-entering the derivation branch. This builds one `TensorMap` per candidate
+    # column, which is fine for operator-sized inputs but not cheap. Reading each column's sector
+    # directly from the block structure of the fused content could avoid the per-slice projection.
+    function slice_is_covariant(r, s)
+        slice = selectdim(raw, aux_dim, r)
+        return !isnothing(
+            TensorAlgebra.tryproject(slice, codomain_axes, (domain_axes..., S(s => 1)))
+        )
+    end
+    seccounts = Pair{TensorKit.sectortype(S), Int}[]
+    pos = 1
+    for s in sectors(content)
+        d = dim(S(s => 1))
+        m = 0
+        while pos + d - 1 <= aux_length && slice_is_covariant(pos:(pos + d - 1), s)
+            m += 1
+            pos += d
+        end
+        m > 0 && push!(seccounts, s => m)
+    end
+    pos == aux_length + 1 || throw(
+        ArgumentError(
+            "`project`: could not derive a covariant auxiliary space for the surplus axis of \
+            length $aux_length; the aux slices must be ordered by the canonical (sorted) sector \
+            order of the derived space"
+        )
+    )
+    return S(seccounts...)
 end
 
 # ================================  bipermutedimsopadd!  =====================================
@@ -146,6 +238,14 @@ function TensorAlgebra.matricize(
     ) where {K}
     N = numind(t)
     return permute(t, (ntuple(identity, Val(K)), ntuple(i -> K + i, Val(N - K))))
+end
+
+# The identity fill on the regrouped map is TensorKit's own `one!` (MatrixAlgebraKit's
+# `one!` speaks `AbstractMatrix` only).
+function TensorAlgebra.one!!(
+        style::TensorKitFusion, A::AbstractTensorMap, ndims_codomain::Val; kwargs...
+    )
+    return TensorKit.one!(TensorAlgebra.matricize(style, A, ndims_codomain))
 end
 
 # `unmatricize` reconstructs the codomain/domain axes from the matrix `m`. A `TensorMap` already
@@ -199,6 +299,23 @@ function Base.copy(::Base.Broadcast.Broadcasted{TensorMapStyle})
         "element-wise broadcast is not supported for a `TensorMap`; only linear combinations \
         such as `a .+ b` and `2 .* a` are supported"
     )
+end
+
+# ====================================  pow_diag_safe  ======================================
+# `MAK.diagview` of a `TensorMap` is shape-shifting (a `SectorVector` for a `DiagonalTensorMap`,
+# a per-sector dict otherwise), so clamp the diagonal per block instead: each block's `diagview`
+# is a plain vector view regardless of the map's type.
+function TensorAlgebra.MatrixAlgebra.pow_diag_safe!(
+        Dp::AbstractTensorMap, D::AbstractTensorMap, p, tol
+    )
+    for ((_, bp), (_, b)) in zip(blocks(Dp), blocks(D))
+        map!(
+            d -> TensorAlgebra.MatrixAlgebra._clamped_pow(d, p, tol),
+            diagview(bp),
+            diagview(b)
+        )
+    end
+    return Dp
 end
 
 end

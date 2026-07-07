@@ -1,9 +1,9 @@
 using Base.Broadcast: broadcasted
 using LinearAlgebra: norm
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, checked_project, contract, matricize, project,
-    project_map, projectto!, rand_map, randn_map, similar_map, tryflattenlinear,
-    unmatricize, zeros_map
+using TensorAlgebra: TensorAlgebra, contract, matricize, project, projectto!, rand_map,
+    randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project, unmatricize,
+    zeros_map
 using TensorKit: @tensor, AbstractTensorMap, Rep, SU₂, TensorMap, U₁, dual, fuse,
     isomorphism, randn, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
@@ -133,11 +133,11 @@ using Test: @test, @test_throws, @testset
         @test space(zd) == (one(A1) ← (A1 ⊗ B))
     end
 
-    # `project` builds a `TensorMap` from a dense matrix: `similar_map` allocates a same-device
-    # buffer (its block storage type follows the dense prototype) and `projectto!` fills the
-    # symmetry-allowed blocks via `project_symmetric!`, discarding the rest. A charge-preserving
-    # matrix survives; a charge-breaking one is projected away, and `checked_project` rejects that
-    # loss.
+    # `project` builds a `TensorMap` from a dense matrix: `allocate_project` allocates a
+    # same-device buffer (its block storage type follows the dense prototype) and `projectto!`
+    # fills the symmetry-allowed blocks via `project_symmetric!`, discarding the rest. A
+    # charge-preserving matrix survives; a charge-breaking one is projected away, which
+    # `unchecked_project` allows silently and `project` rejects.
     @testset "project a dense matrix into a TensorMap" begin
         W = Rep[U₁](0 => 1, 1 => 1)
         Sz = elt[0.5 0; 0 -0.5]
@@ -147,19 +147,16 @@ using Test: @test, @test_throws, @testset
         @test pz isa AbstractTensorMap
         @test space(pz) == (W ← W)
         @test pz ≈ TensorMap(Sz, W ← W)
-        # `project` forwards to the `project_map` hook
-        @test project_map(Sz, (W,), (W,)) ≈ pz
         # the block storage type follows the dense prototype's array type (device-preserving)
         @test storagetype(pz) == Vector{elt}
 
         # `projectto!` into a same-space buffer agrees with `project`
         @test projectto!(similar_map(Sz, elt, (W,), (W,)), Sz) ≈ pz
 
-        # `checked_project` accepts the charge-preserving matrix (nothing discarded)
-        @test checked_project(Sz, (W,), (W,)) ≈ pz
-        # a charge-breaking matrix is projected to zero; `checked_project` rejects the discard
-        @test norm(project(Sx, (W,), (W,))) == 0
-        @test_throws InexactError checked_project(Sx, (W,), (W,); atol = 0, rtol = 0)
+        # a charge-breaking matrix is projected to zero by `unchecked_project`; the checked
+        # `project` rejects the discard
+        @test norm(unchecked_project(Sx, (W,), (W,))) == 0
+        @test_throws InexactError project(Sx, (W,), (W,); atol = 0, rtol = 0)
 
         # the flat two-argument form builds an all-codomain `TensorMap` (empty domain): only
         # the trivial-charge component of a dense vector survives the projection
@@ -167,7 +164,85 @@ using Test: @test, @test_throws, @testset
         @test pv isa AbstractTensorMap
         @test space(pv) == (W ← one(W))
         @test norm(pv) ≈ 1
-        @test norm(project(elt[0, 1], (W,))) == 0
+        @test norm(unchecked_project(elt[0, 1], (W,))) == 0
+
+        # a flat vector may omit a trailing length-1 auxiliary axis from its rank:
+        # `project` appends it. An aux index carrying the canceling charge lets a
+        # charged (equivariant) component survive the projection.
+        aux = Rep[U₁](-1 => 1)
+        pa = project(elt[0, 1], (W, aux))
+        @test pa isa AbstractTensorMap
+        @test space(pa) == ((W ⊗ aux) ← one(W))
+        @test norm(pa) ≈ 1
+
+        # only trailing *length-1* axes may be omitted: a longer trailing axis is a genuine
+        # size mismatch that the block projection still rejects
+        @test_throws DimensionMismatch project(elt[0, 1], (W, Rep[U₁](-1 => 3)))
+    end
+
+    # When `raw` has one trailing axis more than the given codomain/domain account for, that
+    # surplus axis is an auxiliary leg (appended as the last domain axis, matching the shape of
+    # `raw`) whose space `project` derives, so the result is symmetry-allowed. The derivation
+    # scans the aux axis against the operator content and works for non-abelian symmetries and
+    # multi-sector (direct-sum) auxes; the abelian single-charge case falls out.
+    @testset "project derives the auxiliary space" begin
+        # SU(2): a spin operator (aux = spin-1, dim 3) is recovered from its dense components.
+        Ws = Rep[SU₂](1 // 2 => 1)
+        ts = randn(rng, elt, Ws, Ws ⊗ Rep[SU₂](1 => 1))
+        rs = project(convert(Array, ts), (Ws,), (Ws,))
+        @test space(rs) == (Ws ← (Ws ⊗ Rep[SU₂](1 => 1)))
+        @test rs ≈ ts
+
+        # U(1): a charge-shifting operator (non-self-dual aux = charge +1) is recovered.
+        Wu = Rep[U₁](0 => 1, 1 => 1)
+        tu = randn(rng, elt, Wu, Wu ⊗ Rep[U₁](1 => 1))
+        ru = project(convert(Array, tu), (Wu,), (Wu,))
+        @test space(ru) == (Wu ← (Wu ⊗ Rep[U₁](1 => 1)))
+        @test ru ≈ tu
+
+        # U(1) direct sum (an MPO-style virtual leg): each slice carries its own charge.
+        tds = randn(rng, elt, Wu, Wu ⊗ Rep[U₁](1 => 1, -1 => 1))
+        rds = project(convert(Array, tds), (Wu,), (Wu,))
+        @test space(rds) == (Wu ← (Wu ⊗ Rep[U₁](1 => 1, -1 => 1)))
+        @test rds ≈ tds
+
+        # SU(2) direct sum of different irreps (scalar ⊕ vector part, dim 4).
+        tmx = randn(rng, elt, Ws, Ws ⊗ Rep[SU₂](0 => 1, 1 => 1))
+        rmx = project(convert(Array, tmx), (Ws,), (Ws,))
+        @test space(rmx) == (Ws ← (Ws ⊗ Rep[SU₂](0 => 1, 1 => 1)))
+        @test rmx ≈ tmx
+
+        # SU(2) multiplicity > 1: two spin-1 copies (dim 6).
+        tm2 = randn(rng, elt, Ws, Ws ⊗ Rep[SU₂](1 => 2))
+        rm2 = project(convert(Array, tm2), (Ws,), (Ws,))
+        @test space(rm2) == (Ws ← (Ws ⊗ Rep[SU₂](1 => 2)))
+        @test rm2 ≈ tm2
+
+        # data not covariant with any aux decomposition of the surplus axis is rejected
+        @test_throws ArgumentError project(randn(rng, elt, 2, 2, 3), (Ws,), (Ws,))
+
+        # only one trailing surplus axis is supported: more is an error, not a flattening
+        @test_throws ArgumentError project(
+            reshape(convert(Array, ts), 2, 2, 3, 1), (Ws,), (Ws,)
+        )
+
+        # a lower-rank `raw` that omits explicitly-given trailing length-1 axes is the
+        # trailing-axes tolerance, not a surplus axis: it pads, it does not derive. A domain
+        # aux of charge +1 admits the charge-1 component.
+        aux1 = Rep[U₁](1 => 1)
+        po = project(elt[0, 1], (Wu,), (aux1,))
+        @test space(po) == (Wu ← aux1)
+        @test norm(po) ≈ 1
+
+        # the flat all-codomain (state) form also derives: a stack of basis states with
+        # different charges gets a multi-sector aux
+        ps = project(elt[1 0; 0 1], (Wu,))
+        @test space(ps) == (Wu ← Rep[U₁](0 => 1, 1 => 1))
+
+        # `tryproject` gives `nothing` instead of throwing when the data is not invariant
+        # in the given (all-given) axes — the branch-and-fall-back-to-derivation idiom
+        @test isnothing(tryproject(elt[0, 1], (Wu,)))
+        @test tryproject(elt[1, 0], (Wu,)) isa AbstractTensorMap
     end
 
     # `permutedims` reorders a `TensorMap`'s indices; the flat form gives an all-codomain

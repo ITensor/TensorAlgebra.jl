@@ -89,9 +89,14 @@ function bipermutedimsopadd!(
     perm = (perm_codomain..., perm_domain...)
     check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
 
-    dest′ = SV.StridedView(dest)
-    src′ = Base.permutedims(SV.StridedView(src), perm)
-    _opadd!(dest′, op, src′, α, β)
+    src′ = permuteddims(src, perm)
+    if SV.isstrided(dest) && SV.isstrided(src′)
+        _opadd!(SV.StridedView(dest), op, SV.StridedView(src′), α, β)
+    else
+        # Non-strided operands (e.g. structured matrices like `Diagonal`) accumulate
+        # through generic broadcasting.
+        _opadd!(dest, op, src′, α, β)
+    end
     return dest
 end
 

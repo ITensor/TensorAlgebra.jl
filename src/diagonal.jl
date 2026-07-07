@@ -10,8 +10,12 @@ using LinearAlgebra: Diagonal
 # (the latter falls back to Base's dense `similar`, since `contract` allocates from a flat
 # axis tuple, not a `BiTuple`).
 
-# Permuting the two axes of a square `Diagonal` (identity or transpose) leaves the stored
-# diagonal unchanged, so accumulate straight onto it.
+# Permuting the two axes of a square `Diagonal` (identity or transpose) leaves it
+# unchanged, so the lazy permutation is the matrix itself.
+permuteddims(a::Diagonal, perm) = a
+
+# Same reasoning for the in-place accumulate: skip the permutation and accumulate
+# straight onto the destination.
 function bipermutedimsopadd!(
         dest::Diagonal, op, src::Diagonal,
         perm_codomain, perm_domain,

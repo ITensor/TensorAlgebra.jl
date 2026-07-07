@@ -5,9 +5,11 @@ export gram_eigh_full,
     invsqrt_diag_safe,
     invsqrth_safe,
     pow_diag_safe,
+    pow_diag_safe!,
     powh_safe,
     sqrt_diag_safe,
-    sqrth_safe
+    sqrth_safe,
+    sqrth_invsqrth_safe
 
 using LinearAlgebra: LinearAlgebra, Diagonal, isdiag, norm
 using MatrixAlgebraKit: MatrixAlgebraKit as MAK
@@ -22,26 +24,30 @@ function _clamp_kwargs_doc(arg::AbstractString)
 end
 
 """
-    pow_diag_safe(D::AbstractMatrix, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
+    pow_diag_safe(D, p; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^p
+    pow_diag_safe(D, p, tol) -> D^p
 
 Raise a diagonal-structured matrix `D` to the power `p`. Diagonal entries
-`d` of `MAK.diagview(D)` with `abs(d) < tol` are clamped to zero before
-exponentiation, where `tol = max(atol, rtol * maximum(abs, diagview(D)))`.
-Negative `d` above `tol` cause `d^p` to error for fractional `p` (e.g.
-`p = 1//2`) and pass through for integer `p`, so the operation itself
-enforces the PSD precondition per-power. Errors if `isdiag(D)` is `false`.
+`d` with `abs(d) < tol` are clamped to zero before exponentiation, where
+`tol = max(atol, rtol * norm(D, Inf))` (the largest-magnitude entry, which
+is the largest-magnitude diagonal entry for a diagonal-structured matrix). The
+three-argument form takes `tol` directly. Negative `d` above `tol` cause `d^p`
+to error for fractional `p` (e.g. `p = 1//2`) and pass through for integer `p`,
+so the operation itself enforces the PSD precondition per-power. Errors if
+`isdiag(D)` is `false`.
 
-The implementation extracts entries via `MAK.diagview` and rebuilds via
-`MAK.diagonal`, so types extending those (e.g. graded or block diagonal)
-automatically extend [`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref),
-and the [`powh_safe`](@ref) family.
+The clamped powers are written onto a `copy` of `D` via [`pow_diag_safe!`](@ref),
+so the result keeps the input's type and structure. This drives
+[`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref), and the [`powh_safe`](@ref)
+family, and works for any diagonal-structured backend (dense, graded, or a
+`TensorMap`).
 
 ## Keyword arguments
 
 $(_clamp_kwargs_doc("D"))
 """
 function pow_diag_safe(
-        D::AbstractMatrix, p;
+        D, p;
         atol = zero(real(eltype(D))),
         rtol = iszero(atol) ? eps(real(eltype(D)))^(3 // 4) :
             zero(real(eltype(D)))
@@ -49,13 +55,41 @@ function pow_diag_safe(
     isdiag(D) || throw(
         ArgumentError("pow_diag_safe requires a diagonal-structured matrix")
     )
-    σ = MAK.diagview(D)
-    tol = max(atol, rtol * maximum(abs, σ; init = zero(real(eltype(D)))))
-    return MAK.diagonal(map(d -> abs(d) < tol ? zero(d) : real(d)^p, σ))
+    tol = max(atol, rtol * norm(D, Inf))
+    return pow_diag_safe(D, p, tol)
+end
+
+function pow_diag_safe(D, p, tol)
+    Dp = copy(D)
+    pow_diag_safe!(Dp, D, p, tol)
+    return Dp
+end
+
+# Clamp-then-power one diagonal entry: entries below `tol` go to zero, and a negative entry
+# above `tol` lets `real(d)^p` error for fractional `p`, enforcing the PSD precondition
+# per-power. Branching also skips the power for clamped entries.
+_clamped_pow(d, p, tol) = abs(d) < tol ? zero(d) : real(d)^p
+
+"""
+    pow_diag_safe!(Dp, D, p, tol) -> Dp
+
+In-place kernel behind [`pow_diag_safe`](@ref): write the clamped powers of
+`D`'s diagonal onto `Dp`, where entries `d` with `abs(d) < tol` become zero and
+the rest become `d^p`. `Dp` must be diagonal-structured with the same structure
+as `D` (in the allocating [`pow_diag_safe`](@ref) path it is `copy(D)`).
+
+This is the backend overload point. The generic method maps over `MAK.diagview`,
+valid when the diagonal view is a single in-place-mappable vector (dense). A
+backend whose diagonal is stored per sector (a `TensorMap`, or a graded matrix)
+overloads this method to clamp each reduced block.
+"""
+function pow_diag_safe!(Dp, D, p, tol)
+    map!(d -> _clamped_pow(d, p, tol), MAK.diagview(Dp), MAK.diagview(D))
+    return Dp
 end
 
 """
-    sqrt_diag_safe(D::AbstractMatrix; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
+    sqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(1//2)
 
 Square root of a diagonal-structured matrix `D`, equivalent to
 `pow_diag_safe(D, 1//2; atol, rtol)`.
@@ -64,10 +98,10 @@ Square root of a diagonal-structured matrix `D`, equivalent to
 
 $(_clamp_kwargs_doc("D"))
 """
-sqrt_diag_safe(D::AbstractMatrix; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
+sqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, 1 // 2; kwargs...)
 
 """
-    invsqrt_diag_safe(D::AbstractMatrix; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
+    invsqrt_diag_safe(D; atol=0, rtol=eps(real(eltype(D)))^(3//4)) -> D^(-1//2)
 
 Inverse square root of a diagonal-structured matrix `D`, treating diagonal
 entries below tolerance as zero (Moore-Penrose convention). Equivalent to
@@ -77,15 +111,19 @@ entries below tolerance as zero (Moore-Penrose convention). Equivalent to
 
 $(_clamp_kwargs_doc("D"))
 """
-invsqrt_diag_safe(D::AbstractMatrix; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
+invsqrt_diag_safe(D; kwargs...) = pow_diag_safe(D, -1 // 2; kwargs...)
 
 """
-    powh_safe(M::AbstractMatrix, p; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^p
+    powh_safe(M, p; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^p
 
-Raise an approximately Hermitian positive semi-definite matrix to the
-power `p`. For diagonal-structured `M` (`isdiag(M) == true`), dispatches
-to [`pow_diag_safe`](@ref) and skips the eigendecomposition. Otherwise,
+Raise a Hermitian positive semi-definite matrix to the power `p`. For
+diagonal-structured `M` (`isdiag(M) == true`), dispatches to
+[`pow_diag_safe`](@ref) and skips the eigendecomposition. Otherwise
 computes via `M = V * D * V'` as `V * pow_diag_safe(D, p; atol, rtol) * V'`.
+
+The input must be Hermitian (as for `MatrixAlgebraKit.eigh_full`): project
+with `MatrixAlgebraKit.project_hermitian` first if it is Hermitian only up
+to numerical noise.
 
 ## Keyword arguments
 
@@ -93,16 +131,16 @@ computes via `M = V * D * V'` as `V * pow_diag_safe(D, p; atol, rtol) * V'`.
 
 $(_clamp_kwargs_doc("M"))
 """
-function powh_safe(M::AbstractMatrix, p; alg = nothing, kwargs...)
+function powh_safe(M, p; alg = nothing, kwargs...)
     isdiag(M) && return pow_diag_safe(M, p; kwargs...)
-    D, V = MAK.eigh_full(M, MAK.select_algorithm(MAK.eigh_full, M, alg))
+    D, V = MAK.eigh_full(M; alg)
     return V * pow_diag_safe(D, p; kwargs...) * V'
 end
 
 """
-    sqrth_safe(M::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2)
+    sqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2)
 
-Square root of an approximately Hermitian positive semi-definite matrix.
+Square root of a Hermitian positive semi-definite matrix.
 Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
 
 ## Keyword arguments
@@ -111,13 +149,13 @@ Equivalent to `powh_safe(M, 1//2; alg, atol, rtol)`.
 
 $(_clamp_kwargs_doc("M"))
 """
-sqrth_safe(M::AbstractMatrix; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
+sqrth_safe(M; kwargs...) = powh_safe(M, 1 // 2; kwargs...)
 
 """
-    invsqrth_safe(M::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(-1//2)
+    invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(-1//2)
 
-Inverse square root of an approximately Hermitian positive semi-definite
-matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
+Inverse square root of a Hermitian positive semi-definite matrix.
+Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 
 ## Keyword arguments
 
@@ -125,7 +163,35 @@ matrix. Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 
 $(_clamp_kwargs_doc("M"))
 """
-invsqrth_safe(M::AbstractMatrix; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
+invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
+
+"""
+    sqrth_invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2), M^(-1//2)
+
+Square root and pseudo-inverse square root of a Hermitian positive
+semi-definite matrix, from a single eigendecomposition. Equivalent
+to `(sqrth_safe(M; ...), invsqrth_safe(M; ...))` but with the
+eigendecomposition computed once. Eigenvalues below tolerance are clamped
+to zero in both factors (Moore-Penrose convention for the inverse).
+
+The input must be Hermitian (as for `MatrixAlgebraKit.eigh_full`): project
+with `MatrixAlgebraKit.project_hermitian` first if it is Hermitian only up
+to numerical noise.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(_clamp_kwargs_doc("M"))
+"""
+function sqrth_invsqrth_safe(M; alg = nothing, kwargs...)
+    if isdiag(M)
+        return pow_diag_safe(M, 1 // 2; kwargs...), pow_diag_safe(M, -1 // 2; kwargs...)
+    end
+    D, V = MAK.eigh_full(M; alg)
+    return V * pow_diag_safe(D, 1 // 2; kwargs...) * V',
+        V * pow_diag_safe(D, -1 // 2; kwargs...) * V'
+end
 
 for (gram, gram_with_pinv, eigh_full) in (
         (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
@@ -133,11 +199,11 @@ for (gram, gram_with_pinv, eigh_full) in (
     )
     @eval begin
         function $gram(A::AbstractMatrix; alg = nothing, kwargs...)
-            D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
+            D, V = MAK.$eigh_full(A; alg)
             return V * sqrth_safe(D; kwargs...)
         end
         function $gram_with_pinv(A::AbstractMatrix; alg = nothing, kwargs...)
-            D, V = MAK.$eigh_full(A, MAK.select_algorithm(MAK.$eigh_full, A, alg))
+            D, V = MAK.$eigh_full(A; alg)
             return V * sqrth_safe(D; kwargs...), invsqrth_safe(D; kwargs...) * V'
         end
     end
