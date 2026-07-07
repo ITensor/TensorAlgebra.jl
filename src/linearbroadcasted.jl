@@ -65,10 +65,55 @@ Base.ndims(a::ScaledBroadcasted) = ndims(unscaled(a))
 operation(::ScaledBroadcasted) = *
 arguments(a::ScaledBroadcasted) = (coeff(a), unscaled(a))
 
-# Conjugation is represented by the `ConjArray` lazy wrapper (a real `AbstractArray` with
-# conjugated axes), not a dedicated `LinearBroadcasted` node. The lowering below produces
-# `ConjArray` leaves, and the op primitives absorb them by folding `conj` into `op` (see
-# `conjarray.jl`).
+# --- ConjBroadcasted ----------------------------------------------------------
+
+"""
+    ConjBroadcasted(parent)
+
+Lazy conjugate node in the linear-combination broadcast fold, the [`LinearBroadcasted`](@ref)
+counterpart of `ScaledBroadcasted`/`AddBroadcasted`. Holds `parent` (any array-like operand or
+backend tensor, not necessarily an `AbstractArray`) and presents its axes conjugated (dualized);
+the op primitives absorb it by unwrapping to the parent and folding `conj` into their `op` (see
+the `bipermutedimsopadd!` method below). Produced internally by the `conj` lowering of a
+broadcast (`linearbroadcasted(conj, a)`), not a user-facing lazy-conjugate wrapper. Because it
+is not an `AbstractArray`, it works for non-array backends (e.g. a `TensorMap`) as well as dense
+arrays.
+"""
+struct ConjBroadcasted{P} <: LinearBroadcasted
+    parent::P
+end
+
+Base.parent(a::ConjBroadcasted) = a.parent
+
+# Conjugating an axis is identity for plain integer ranges and dualizes graded axes (where
+# `conj` is overloaded as `dual` downstream).
+Base.axes(a::ConjBroadcasted) = map(conj, axes(parent(a)))
+Base.eltype(a::ConjBroadcasted) = eltype(parent(a))
+Base.ndims(a::ConjBroadcasted) = ndims(parent(a))
+
+operation(::ConjBroadcasted) = conj
+arguments(a::ConjBroadcasted) = (parent(a),)
+
+function BC.BroadcastStyle(::Type{<:ConjBroadcasted{P}}) where {P}
+    return BC.BroadcastStyle(P)
+end
+
+# Absorb a `ConjBroadcasted` source by unwrapping to the parent and folding `conj` into `op`
+# (`identity -> conj`, `conj -> identity`). Mirrors the `PermutedDims` absorption, which
+# instead folds its permutation into `perm`. `dest` is unrestricted so a non-`AbstractArray`
+# backend (e.g. a `TensorMap`) receives it and applies `conj` through its own op-aware
+# `bipermutedimsopadd!`.
+function bipermutedimsopadd!(
+        dest, op, src::ConjBroadcasted,
+        perm_codomain, perm_domain,
+        α::Number, β::Number
+    )
+    return bipermutedimsopadd!(
+        dest, _compose_op(op, conj), parent(src),
+        perm_codomain, perm_domain,
+        α, β
+    )
+end
 
 # --- AddBroadcasted -----------------------------------------------------------
 
@@ -79,7 +124,18 @@ end
 
 addends(a::AddBroadcasted) = a.args
 
-Base.axes(a::AddBroadcasted) = BC.combine_axes(addends(a)...)
+# All addends of a linear combination share axes (a linear combination does not broadcast
+# differing shapes), so combine by verifying equality through `axes` (TensorAlgebra's, which
+# works for a non-`AbstractArray` backend like a `TensorMap`) rather than Base's `combine_axes`,
+# which would call `Base.axes`/`Base.size` on the operands. A mismatch (e.g. a half-conjugated
+# `conj.(a) .- b`, whose dualized and non-dualized axes differ) throws here.
+function Base.axes(a::AddBroadcasted)
+    axs = map(axes, addends(a))
+    ax = first(axs)
+    all(x -> x == ax, axs) ||
+        throw(DimensionMismatch("linear-combination operands have mismatched axes: $axs"))
+    return ax
+end
 Base.eltype(a::AddBroadcasted) = Base.promote_op(+, eltype.(addends(a))...)
 Base.ndims(a::AddBroadcasted) = ndims(first(addends(a)))
 
@@ -195,7 +251,7 @@ Analogous to `Base.Broadcast.broadcasted(f, args...)`.
 
 ```julia
 linearbroadcasted(*, 2.0, a)   # ScaledBroadcasted(2.0, a)
-linearbroadcasted(conj, a)     # ConjArray(a)
+linearbroadcasted(conj, a)     # ConjBroadcasted(a)
 linearbroadcasted(+, a, b)     # AddBroadcasted(a, b)
 ```
 """
@@ -208,10 +264,11 @@ linearbroadcasted(::typeof(*), a, α::Number) = ScaledBroadcasted(α, a)
 function linearbroadcasted(::typeof(*), α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
 end
-# Conjugation lowers to the `ConjArray` lazy wrapper. A scaled `ConjArray` (e.g.
-# `conj.(a) ./ β`) is handled by the generic `AbstractArray` scaling method above, since
-# `ConjArray <: AbstractArray`.
-linearbroadcasted(::typeof(conj), a) = conjed(a)
+# Conjugation lowers to the `ConjBroadcasted` node; a nested conjugate cancels (`conj∘conj =
+# identity`). A scaled conjugate (e.g. `conj.(a) ./ β`) is handled by the generic scaling method
+# above, whose operand slot is untyped, so it wraps the `ConjBroadcasted` in a `ScaledBroadcasted`.
+linearbroadcasted(::typeof(conj), a) = ConjBroadcasted(a)
+linearbroadcasted(::typeof(conj), a::ConjBroadcasted) = parent(a)
 function linearbroadcasted(::typeof(conj), a::ScaledBroadcasted)
     return ScaledBroadcasted(conj(coeff(a)), linearbroadcasted(conj, unscaled(a)))
 end

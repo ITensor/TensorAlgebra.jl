@@ -14,16 +14,6 @@ function size end
 size(a) = Base.size(a)
 size(a, i::Int) = Base.size(a, i)
 
-# Eager conjugation in the same vocabulary: conjugated elements on conjugated (dualized)
-# axes, leg order unchanged. Backends whose native conjugation is `adjoint`-shaped (such as
-# a `TensorMap`, where the adjoint also swaps codomain and domain) overload this to restore
-# the original leg order. Named `conjugate` (the eager companion of the lazy `conjed`)
-# rather than `conj`: `Base.conj` is passed around as an `op` value inside this package
-# (`op === conj` guards, `::typeof(conj)` dispatch), so a module-level `conj` binding
-# would silently change what those mean.
-function conjugate end
-conjugate(a) = Base.conj(a)
-
 # The scalar held by a rank-0 tensor. The Base spelling is `a[]`, which a `TensorMap`
 # with a nontrivial sector type does not support (TensorKit provides `scalar` instead).
 function scalar end

@@ -9,7 +9,7 @@ export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc
 if VERSION >= v"1.11.0-DEV.469"
     eval(
         Meta.parse(
-            "public biperm, bipartition, contractopadd!, label_type, matricizeopperm, permutedims, permutedims!, to_range, zero!, scale!, permuteddims, PermutedDims, conjed, ConjArray"
+            "public biperm, bipartition, contractopadd!, label_type, matricizeopperm, permutedims, permutedims!, to_range, zero!, scale!, permuteddims, PermutedDims"
         )
     )
 end
@@ -19,7 +19,6 @@ include("inplace.jl")
 include("MatrixAlgebra.jl")
 include("bituple.jl")
 include("permutedimsadd.jl")
-include("conjarray.jl")
 include("matricize.jl")
 include("diagonal.jl")
 include("to_range.jl")

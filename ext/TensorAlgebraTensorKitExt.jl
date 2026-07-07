@@ -21,18 +21,6 @@ TensorAlgebra.axes(t::AbstractTensorMap) = ntuple(i -> space(t, i), numind(t))
 TensorAlgebra.size(t::AbstractTensorMap, i::Int) = dim(space(t, i))
 TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(t))
 
-# TensorKit deliberately defines no `Base.conj` for tensors; its native conjugation is
-# `adjoint`, which also swaps the codomain and domain. `TensorAlgebra.conjugate`
-# (conjugated elements on dualized spaces, leg order unchanged) is the adjoint followed by
-# the block swap returning each leg to its original flat position — the inverse of
-# TensorKit's `adjointtensorindex` convention (`i <= numout ? numin + i : i - numout`),
-# the same lowering its TensorOperations interface uses for `conj` arguments.
-function TensorAlgebra.conjugate(t::AbstractTensorMap)
-    m, n = TensorKit.numout(t), TensorKit.numin(t)
-    p = ntuple(i -> i <= m ? n + i : i - m, m + n)
-    return permute(adjoint(t), (p[1:m], p[(m + 1):(m + n)]))
-end
-
 # `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
 # general spelling.
 TensorAlgebra.scalar(t::AbstractTensorMap) = TensorKit.scalar(t)

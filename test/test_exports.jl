@@ -40,7 +40,7 @@ using Test: @test, @testset
             [
                 :biperm, :bipartition, :contractopadd!, :label_type, :matricizeopperm,
                 :permutedims, :permutedims!, :to_range, :zero!, :scale!, :permuteddims,
-                :PermutedDims, :conjed, :ConjArray,
+                :PermutedDims,
             ]
         )
     end
