@@ -212,7 +212,7 @@ right_orth
 
 # Three-output SVD: `U` carries the codomain axes plus a trailing rank axis, `S` is the
 # rank × rank spectrum, and `Vᴴ` carries a leading rank axis plus the domain axes.
-for f in (:svd_compact, :svd_full, :svd_trunc)
+for f in (:svd_compact, :svd_full)
     @eval begin
         function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
@@ -226,6 +226,22 @@ for f in (:svd_compact, :svd_full, :svd_trunc)
             return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
         end
     end
+end
+
+# `svd_trunc` matches the three-output SVD but additionally surfaces the truncation error
+# `ϵ` (the 2-norm of the discarded singular values, computed by MatrixAlgebraKit without
+# catastrophic cancellation), so it is spelled out here rather than sharing the loop above.
+function svd_trunc(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc(A_mat; kwargs...)
+    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+    return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
+        unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
+        unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain),
+        ϵ
+end
+function svd_trunc(A, ndims_codomain::Val; kwargs...)
+    return svd_trunc(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 # Eigendecomposition: `D` is the rank × rank spectrum, left as a matrix, while `V` carries
@@ -284,13 +300,14 @@ See also `MatrixAlgebraKit.svd_full!`.
 svd_full
 
 """
-    svd_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ
-    svd_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ
-    svd_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ
+    svd_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ, ϵ
+    svd_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ, ϵ
+    svd_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ, ϵ
 
 Compute the truncated SVD of a generic N-dimensional array, by interpreting it as a linear
 map from the domain to the codomain dimensions. The partition is specified either via
-labels or directly through a bi-permutation.
+labels or directly through a bi-permutation. In addition to the factors, returns the
+truncation error `ϵ`, the 2-norm of the discarded singular values.
 
 ## Keyword arguments
 

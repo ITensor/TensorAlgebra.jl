@@ -202,13 +202,15 @@ end
     _, S_untrunc, _ = svd_compact(A, labels_A, labels_U, labels_Vᴴ)
 
     trunc = truncrank(size(S_untrunc, 1) - 1)
-    U, S, Vᴴ = @constinferred svd_trunc(A, labels_A, labels_U, labels_Vᴴ; trunc)
+    U, S, Vᴴ, ϵ = @constinferred svd_trunc(A, labels_A, labels_U, labels_Vᴴ; trunc)
 
     @test A == Acopy # should not have altered initial array
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
     @test norm(A - A′) ≈ S_untrunc[end]
     @test size(S, 1) == size(S_untrunc, 1) - 1
+    # `ϵ` is the 2-norm of the discarded singular values (here the single dropped value).
+    @test ϵ ≈ S_untrunc[end]
 end
 
 @testset "Nullspace ($T)" for T in elts
