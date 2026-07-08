@@ -741,6 +741,19 @@ function one!!(A, ndims_codomain::Val; kwargs...)
     return one!!(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
+# In-place identity fill: writes the identity into `A` and returns it. Matricizes `A`, fills the
+# fused matrix with the identity, and — when the matricized form is a detached copy (a graded
+# gather) rather than a view aliasing `A` (a dense reshape) — scatters it back with `unmatricize!`.
+function one!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    MatrixAlgebraKit.one!(A_mat)
+    Base.mightalias(A_mat, A) && return A
+    return unmatricize!(A, A_mat, ndims_codomain)
+end
+function one!(A, ndims_codomain::Val; kwargs...)
+    return one!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
 function one(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
     return one!!(style, copy(A), ndims_codomain; kwargs...)
 end

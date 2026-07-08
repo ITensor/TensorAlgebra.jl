@@ -14,9 +14,14 @@ function size end
 size(a) = Base.size(a)
 size(a, i::Int) = Base.size(a, i)
 
-# The scalar held by a rank-0 tensor. The Base spelling is `a[]`, which a `TensorMap`
-# with a nontrivial sector type does not support (TensorKit provides `scalar` instead).
+"""
+    scalar(a)
+
+The single scalar held by a rank-0 (zero-dimensional) `a`, i.e. `a[]`.
+"""
 function scalar end
+# The Base spelling is `a[]`, which a `TensorMap` with a nontrivial sector type does not
+# support (TensorKit provides `scalar` instead).
 scalar(a) = a[]
 
 # The sum of the (dense) elements. A `TensorMap` is not iterable, so `Base.sum` does not

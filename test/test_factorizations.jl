@@ -383,4 +383,19 @@ end
     @test TensorAlgebra.matricize(Id_perm, Val(2)) ≈ I
     # Perm- and biperm-tuple forms agree with the label form.
     @test TensorAlgebra.one(B, (1, 3), (2, 4)) ≈ Id_perm
+
+    # In-place `one!` fills the identity into its argument and returns it.
+    C = randn(T, 2, 3, 2, 3)
+    Cret = @constinferred TensorAlgebra.one!(C, Val(2))
+    @test Cret === C
+    @test TensorAlgebra.matricize(C, Val(2)) ≈ I
+    @test C ≈ TensorAlgebra.one(A, Val(2))
+
+    # `unmatricize!` scatters a fused matrix back into an existing array.
+    D = randn(T, 2, 3, 2, 3)
+    Dmat = TensorAlgebra.matricize(D, Val(2))
+    E = similar(D)
+    Eret = TensorAlgebra.unmatricize!(E, Dmat, Val(2))
+    @test Eret === E
+    @test E ≈ D
 end
