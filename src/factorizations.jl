@@ -71,6 +71,48 @@ for f in (
 end
 
 """
+    TensorAlgebra.tr(A, labels_A, labels_codomain, labels_domain)
+    TensorAlgebra.tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+    TensorAlgebra.tr(A, ndims_codomain::Val)
+
+Trace of a generic N-dimensional array `A` interpreted as a linear map from its domain to its
+codomain dimensions. The map is matricized into its square matrix, then the matrix trace is
+taken, so the backend's own matrix `tr` (dense, graded, or `TensorMap`) does the work. The
+partition is specified via labels, a bi-permutation, or directly as the codomain rank, matching
+the factorization entry points.
+
+This is `TensorAlgebra`'s own function, distinct from `LinearAlgebra.tr`; the two-argument and
+higher forms take a codomain/domain partition rather than a bare matrix.
+
+# Examples
+
+```jldoctest
+julia> import TensorAlgebra
+
+julia> A = randn(2, 2, 2, 2);
+
+julia> TensorAlgebra.tr(A, (:i, :j, :k, :l), (:i, :k), (:j, :l)) ≈
+       sum(A[i, i, k, k] for i in 1:2, k in 1:2)
+true
+```
+"""
+function tr(style::FusionStyle, A, ndims_codomain::Val)
+    return LinearAlgebra.tr(matricize(style, A, ndims_codomain))
+end
+function tr(A, ndims_codomain::Val)
+    return tr(FusionStyle(A), A, ndims_codomain)
+end
+function tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+    A_perm = bipermutedims(A, perm_codomain, perm_domain)
+    return tr(A_perm, Val(length(perm_codomain)))
+end
+function tr(A, labels_A, labels_codomain, labels_domain)
+    perm_codomain, perm_domain =
+        biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return tr(A, perm_codomain, perm_domain)
+end
+
+"""
     qr_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
     qr_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
     qr_compact(A, ndims_codomain::Val; kwargs...) -> Q, R
@@ -212,7 +254,7 @@ right_orth
 
 # Three-output SVD: `U` carries the codomain axes plus a trailing rank axis, `S` is the
 # rank × rank spectrum, and `Vᴴ` carries a leading rank axis plus the domain axes.
-for f in (:svd_compact, :svd_full, :svd_trunc)
+for f in (:svd_compact, :svd_full)
     @eval begin
         function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
@@ -226,6 +268,22 @@ for f in (:svd_compact, :svd_full, :svd_trunc)
             return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
         end
     end
+end
+
+# `svd_trunc` matches the three-output SVD but additionally surfaces the truncation error
+# `ϵ` (the 2-norm of the discarded singular values, computed by MatrixAlgebraKit without
+# catastrophic cancellation), so it is spelled out here rather than sharing the loop above.
+function svd_trunc(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc(A_mat; kwargs...)
+    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+    return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
+        unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
+        unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain),
+        ϵ
+end
+function svd_trunc(A, ndims_codomain::Val; kwargs...)
+    return svd_trunc(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 # Eigendecomposition: `D` is the rank × rank spectrum, left as a matrix, while `V` carries
@@ -284,18 +342,37 @@ See also `MatrixAlgebraKit.svd_full!`.
 svd_full
 
 """
-    svd_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ
-    svd_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ
-    svd_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ
+    svd_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ, ϵ
+    svd_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ, ϵ
+    svd_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ, ϵ
 
 Compute the truncated SVD of a generic N-dimensional array, by interpreting it as a linear
 map from the domain to the codomain dimensions. The partition is specified either via
-labels or directly through a bi-permutation.
+labels or directly through a bi-permutation. In addition to the factors, returns the
+truncation error `ϵ`, the 2-norm of the discarded singular values.
 
 ## Keyword arguments
 
   - `trunc`: truncation strategy, passed on to `MatrixAlgebraKit.svd_trunc`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: svd_trunc, contract
+
+julia> A = randn(4, 4);
+
+julia> U, S, Vᴴ, ϵ = svd_trunc(A, (:i, :j), (:i,), (:j,));
+
+julia> SV = contract((:u, :j), S, (:u, :v), Vᴴ, (:v, :j));
+
+julia> contract((:i, :j), U, (:i, :u), SV, (:u, :j)) ≈ A
+true
+
+julia> isapprox(ϵ, 0; atol = 1e-10)
+true
+```
 
 See also `MatrixAlgebraKit.svd_trunc!`.
 """
@@ -739,6 +816,19 @@ function one!!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
 end
 function one!!(A, ndims_codomain::Val; kwargs...)
     return one!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+end
+
+# In-place identity fill: writes the identity into `A` and returns it. Matricizes `A`, fills the
+# fused matrix with the identity, and — when the matricized form is a detached copy (a graded
+# gather) rather than a view aliasing `A` (a dense reshape) — scatters it back with `unmatricize!`.
+function one!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = matricize(style, A, ndims_codomain)
+    MatrixAlgebraKit.one!(A_mat)
+    Base.mightalias(A_mat, A) && return A
+    return unmatricize!(A, A_mat, ndims_codomain)
+end
+function one!(A, ndims_codomain::Val; kwargs...)
+    return one!(FusionStyle(A), A, ndims_codomain; kwargs...)
 end
 
 function one(style::FusionStyle, A, ndims_codomain::Val; kwargs...)

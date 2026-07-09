@@ -38,9 +38,9 @@ using Test: @test, @testset
         append!(
             exports,
             [
-                :biperm, :bipartition, :contractopadd!, :label_type, :matricizeopperm,
-                :permutedims, :permutedims!, :to_range, :zero!, :scale!, :permuteddims,
-                :PermutedDims,
+                :biperm, :bipartition, :contractopadd!, :data, :datatype, :label_type,
+                :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
+                :to_range, :tr, :ungrade, :zero!, :scale!, :permuteddims, :PermutedDims,
             ]
         )
     end

@@ -272,6 +272,21 @@ function unmatricizeperm!(
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
+# In-place split-axes counterpart of `unmatricize`, as `unmatricizeperm!` is of `unmatricizeperm`:
+# scatter the fused matrix `m` back into `a_dest`'s existing storage across the codomain/domain
+# split at `ndims_codomain`. The split applies no permutation, so this is `unmatricizeperm!` at the
+# trivial bipermutation, reusing its in-place block scatter (no intermediate `unmatricize` copy).
+function unmatricize!(a_dest, m, ndims_codomain::Val)
+    K = unval(ndims_codomain)
+    N = ndims(a_dest)
+    return unmatricizeperm!(
+        a_dest,
+        m,
+        ntuple(identity, Val(K)),
+        ntuple(i -> K + i, Val(N - K))
+    )
+end
+
 # Defaults to ReshapeFusion, a simple reshape
 struct ReshapeFusion <: FusionStyle end
 FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()

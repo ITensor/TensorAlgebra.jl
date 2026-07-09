@@ -13,3 +13,23 @@ that turns a vector of sector-to-multiplicity pairs into a graded range.
 """
 to_range(space::AbstractUnitRange) = space
 to_range(space::Integer) = Base.OneTo(space)
+
+"""
+    TensorAlgebra.ungrade(r)
+
+Return the plain range underlying an axis, keeping only its extent and stripping any added
+structure. On a plain `AbstractUnitRange` this is the identity (there is nothing to strip, and any
+offset is preserved). Downstream packages extend it for richer axes: GradedArrays maps a graded
+range to the `Base.OneTo` of its total dimension, and a native TensorKit space maps to the
+`Base.OneTo` of its dimension.
+
+# Examples
+
+```jldoctest
+julia> import TensorAlgebra
+
+julia> TensorAlgebra.ungrade(2:5)
+2:5
+```
+"""
+ungrade(r::AbstractUnitRange) = r
