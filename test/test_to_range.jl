@@ -13,3 +13,10 @@ using Test: @test, @testset
         end
     end
 end
+
+@testset "ungrade" begin
+    # On a plain range the ungraded range is the identity, offset preserved.
+    for r in (Base.OneTo(4), 2:5)
+        @test TensorAlgebra.ungrade(r) === r
+    end
+end

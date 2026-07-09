@@ -36,6 +36,10 @@ function TensorAlgebra.trivialrange(::Type{S}, n::Integer) where {S <: Elementar
     return TensorKit.oplus(ntuple(Returns(oneunit(S)), n)...)
 end
 
+# The ungraded extent of a space-backed axis is the range over its dense dimension, dropping
+# sectors and the arrow so `conj`-equal spaces share an ungraded value.
+TensorAlgebra.ungrade(V::ElementarySpace) = Base.OneTo(dim(V))
+
 # Sum of the dense elements. Through the dense presentation rather than the block data:
 # for a non-abelian sector type the dense embedding expands each block by its fusion-tree
 # structure, so the block-data sum would differ.

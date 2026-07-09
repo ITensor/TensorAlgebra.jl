@@ -71,6 +71,36 @@ for f in (
 end
 
 """
+    TensorAlgebra.tr(A, labels_A, labels_codomain, labels_domain)
+    TensorAlgebra.tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+    TensorAlgebra.tr(A, ndims_codomain::Val)
+
+Trace of a generic N-dimensional array `A` interpreted as a linear map from its domain to its
+codomain dimensions. The map is matricized into its square matrix, then the matrix trace is
+taken, so the backend's own matrix `tr` (dense, graded, or `TensorMap`) does the work. The
+partition is specified via labels, a bi-permutation, or directly as the codomain rank, matching
+the factorization entry points.
+
+This is `TensorAlgebra`'s own function, distinct from `LinearAlgebra.tr`; the two-argument and
+higher forms take a codomain/domain partition rather than a bare matrix.
+"""
+function tr(style::FusionStyle, A, ndims_codomain::Val)
+    return LinearAlgebra.tr(matricize(style, A, ndims_codomain))
+end
+function tr(A, ndims_codomain::Val)
+    return tr(FusionStyle(A), A, ndims_codomain)
+end
+function tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+    A_perm = bipermutedims(A, perm_codomain, perm_domain)
+    return tr(A_perm, Val(length(perm_codomain)))
+end
+function tr(A, labels_A, labels_codomain, labels_domain)
+    perm_codomain, perm_domain =
+        biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return tr(A, perm_codomain, perm_domain)
+end
+
+"""
     qr_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
     qr_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
     qr_compact(A, ndims_codomain::Val; kwargs...) -> Q, R

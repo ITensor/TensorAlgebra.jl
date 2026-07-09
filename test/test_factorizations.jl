@@ -401,3 +401,16 @@ end
     @test Eret === E
     @test E ≈ D
 end
+
+# Trace
+# -----
+@testset "tr ($T)" for T in elts
+    A = randn(T, 2, 3, 2, 3)
+    m = reshape(A, 6, 6)
+    # The labels, bi-permutation, and codomain-rank forms all agree with the matrix trace of
+    # the matricized map.
+    @test TensorAlgebra.tr(A, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp)) ≈
+        LinearAlgebra.tr(m)
+    @test TensorAlgebra.tr(A, (1, 2), (3, 4)) ≈ LinearAlgebra.tr(m)
+    @test TensorAlgebra.tr(A, Val(2)) ≈ LinearAlgebra.tr(m)
+end

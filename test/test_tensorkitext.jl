@@ -1,10 +1,10 @@
 using Base.Broadcast: broadcasted
-using LinearAlgebra: norm
+using LinearAlgebra: LinearAlgebra, norm
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, contract, matricize, project, projectto!, rand_map,
     randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project, unmatricize,
     zeros_map
-using TensorKit: @tensor, AbstractTensorMap, Rep, SU₂, TensorMap, U₁, dual, fuse,
+using TensorKit: @tensor, AbstractTensorMap, Rep, SU₂, TensorMap, U₁, dim, dual, fuse,
     isomorphism, randn, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
 
@@ -298,5 +298,18 @@ using Test: @test, @test_throws, @testset
         # A nonlinear (element-wise) broadcast is not expressible as a `LinearBroadcasted`.
         @test isnothing(tryflattenlinear(broadcasted(*, a, b)))
         @test_throws ErrorException copy(broadcasted(*, a, b))
+    end
+
+    @testset "ungrade / tr" begin
+        W = Rep[U₁](0 => 2, 1 => 1)
+        X = Rep[U₁](0 => 1, 1 => 2)
+        # `ungrade` drops sectors and the arrow, so a space and its dual share the ungraded extent.
+        @test TensorAlgebra.ungrade(W) == Base.OneTo(dim(W))
+        @test TensorAlgebra.ungrade(dual(W)) == TensorAlgebra.ungrade(W)
+
+        # `tr` over a codomain/domain bipartition matches TensorKit's native trace of the endomorphism.
+        t = randn(rng, elt, W ⊗ X, W ⊗ X)
+        @test TensorAlgebra.tr(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp)) ≈
+            LinearAlgebra.tr(t)
     end
 end
