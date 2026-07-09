@@ -1,16 +1,23 @@
 using LinearAlgebra: Diagonal, transpose
-using TensorAlgebra: datatype
+using TensorAlgebra: data, datatype
 using Test: @test, @testset
+
+@testset "data" begin
+    # A plain array is its own storage.
+    a = randn(2, 3)
+    @test data(a) === a
+
+    # Wrappers recurse through `parent` to the underlying storage.
+    @test data(transpose(a)) === a
+    @test data(view(transpose(a), 1:2, 1:2)) === a
+end
 
 @testset "datatype" begin
     # A plain array is its own storage type.
     a = randn(2, 3)
     @test datatype(a) === Matrix{Float64}
-    @test datatype(typeof(a)) === Matrix{Float64}
-    # Instance and type forms agree on the base case.
-    @test datatype(a) === datatype(typeof(a))
 
-    # Wrappers recurse through `parent` to the underlying storage, no bespoke method.
+    # Wrappers recurse through `parent` to the underlying storage.
     @test datatype(transpose(a)) === Matrix{Float64}
     @test datatype(view(a, 1:2, 1:2)) === Matrix{Float64}
     @test datatype(Diagonal([1.0, 2.0])) === Vector{Float64}

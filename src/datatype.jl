@@ -1,39 +1,46 @@
 """
+    data(a)
+
+The underlying storage of `a`: the value reached by following `parent` to its fixed point
+(an object that is its own `parent`). A wrapper returns the storage it ultimately wraps, and
+a plain array returns itself.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: data
+
+julia> a = [1.0 2.0; 3.0 4.0];
+
+julia> data(transpose(a)) === a
+true
+
+julia> data(a) === a
+true
+```
+"""
+function data(a)
+    parent_a = parent(a)
+    parent_a === a && return a
+    return data(parent_a)
+end
+
+"""
     datatype(a) -> Type
-    datatype(::Type) -> Type
 
-The underlying storage array type of `a`, capturing both the element type and the
-container/device (e.g. `Vector{Float64}`, `CuArray{ComplexF32}`), as opposed to
-`scalartype`/`eltype` which capture the element type alone.
-
-The instance form is primary: array wrappers recurse through `parent` (the same
-unwrapping Adapt.jl uses), so `Diagonal`, `SubArray`, `transpose`, `Adjoint`, and
-similar wrappers resolve to their underlying storage with no bespoke method. A plain
-array is its own storage (its `parent` is itself), which terminates the recursion. The
-type form is the base case `datatype(::Type{T}) where {T<:AbstractArray} = T` and does
-not unwrap, since a wrapper's backing is generally not recoverable from its type alone.
-
-Backends whose backing is reached through an instance operation (e.g. an ITensor via
-`unnamed`, a `TensorMap` via its fused data) add their own `datatype` overloads.
+The type of the underlying storage of `a`, i.e. `typeof(data(a))`, in contrast to
+`scalartype`/`eltype`, which give its element type alone.
 
 # Examples
 
 ```jldoctest
 julia> using TensorAlgebra: datatype
 
-julia> datatype(randn(2, 3))
+julia> datatype([1.0 2.0; 3.0 4.0])
 Matrix{Float64} (alias for Array{Float64, 2})
 
-julia> datatype(transpose(randn(2, 3)))
+julia> datatype(transpose([1.0 2.0; 3.0 4.0]))
 Matrix{Float64} (alias for Array{Float64, 2})
 ```
 """
-function datatype end
-
-datatype(type::Type{<:AbstractArray}) = type
-
-function datatype(a::AbstractArray)
-    parent_a = parent(a)
-    parent_a === a && return typeof(a)
-    return datatype(parent_a)
-end
+datatype(a) = typeof(data(a))
