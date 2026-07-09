@@ -26,9 +26,9 @@ range to the `Base.OneTo` of its total dimension, and a native TensorKit space m
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: ungrade
+julia> import TensorAlgebra
 
-julia> ungrade(2:5)
+julia> TensorAlgebra.ungrade(2:5)
 2:5
 ```
 """

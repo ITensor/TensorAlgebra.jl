@@ -22,9 +22,9 @@ The single scalar held by a rank-0 (zero-dimensional) `a`, i.e. `a[]`.
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: scalar
+julia> import TensorAlgebra
 
-julia> scalar(fill(3.0))
+julia> TensorAlgebra.scalar(fill(3.0))
 3.0
 ```
 """

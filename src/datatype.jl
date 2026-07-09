@@ -8,14 +8,14 @@ a plain array returns itself.
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: data
+julia> import TensorAlgebra
 
 julia> a = [1.0 2.0; 3.0 4.0];
 
-julia> data(transpose(a)) === a
+julia> TensorAlgebra.data(transpose(a)) === a
 true
 
-julia> data(a) === a
+julia> TensorAlgebra.data(a) === a
 true
 ```
 """
@@ -34,12 +34,12 @@ The type of the underlying storage of `a`, i.e. `typeof(data(a))`, in contrast t
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: datatype
+julia> import TensorAlgebra
 
-julia> datatype([1.0 2.0; 3.0 4.0])
+julia> TensorAlgebra.datatype([1.0 2.0; 3.0 4.0])
 Matrix{Float64} (alias for Array{Float64, 2})
 
-julia> datatype(transpose([1.0 2.0; 3.0 4.0]))
+julia> TensorAlgebra.datatype(transpose([1.0 2.0; 3.0 4.0]))
 Matrix{Float64} (alias for Array{Float64, 2})
 ```
 """

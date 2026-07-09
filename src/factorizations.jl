@@ -87,10 +87,13 @@ higher forms take a codomain/domain partition rather than a bare matrix.
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: tr
+julia> import TensorAlgebra
 
-julia> tr([1.0 2.0; 3.0 4.0], Val(1))
-5.0
+julia> A = randn(2, 2, 2, 2);
+
+julia> TensorAlgebra.tr(A, (:i, :j, :k, :l), (:i, :k), (:j, :l)) ≈
+       sum(A[i, i, k, k] for i in 1:2, k in 1:2)
+true
 ```
 """
 function tr(style::FusionStyle, A, ndims_codomain::Val)
