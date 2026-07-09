@@ -22,5 +22,14 @@ structure. On a plain `AbstractUnitRange` this is the identity (there is nothing
 offset is preserved). Downstream packages extend it for richer axes: GradedArrays maps a graded
 range to the `Base.OneTo` of its total dimension, and a native TensorKit space maps to the
 `Base.OneTo` of its dimension.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: ungrade
+
+julia> ungrade(2:5)
+2:5
+```
 """
 ungrade(r::AbstractUnitRange) = r

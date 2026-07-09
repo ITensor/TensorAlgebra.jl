@@ -18,6 +18,15 @@ size(a, i::Int) = Base.size(a, i)
     scalar(a)
 
 The single scalar held by a rank-0 (zero-dimensional) `a`, i.e. `a[]`.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: scalar
+
+julia> scalar(fill(3.0))
+3.0
+```
 """
 function scalar end
 # The Base spelling is `a[]`, which a `TensorMap` with a nontrivial sector type does not

@@ -83,6 +83,15 @@ the factorization entry points.
 
 This is `TensorAlgebra`'s own function, distinct from `LinearAlgebra.tr`; the two-argument and
 higher forms take a codomain/domain partition rather than a bare matrix.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: tr
+
+julia> tr([1.0 2.0; 3.0 4.0], Val(1))
+5.0
+```
 """
 function tr(style::FusionStyle, A, ndims_codomain::Val)
     return LinearAlgebra.tr(matricize(style, A, ndims_codomain))
@@ -343,6 +352,24 @@ truncation error `ϵ`, the 2-norm of the discarded singular values.
 
   - `trunc`: truncation strategy, passed on to `MatrixAlgebraKit.svd_trunc`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: svd_trunc, contract
+
+julia> A = randn(4, 4);
+
+julia> U, S, Vᴴ, ϵ = svd_trunc(A, (:i, :j), (:i,), (:j,));
+
+julia> SV = contract((:u, :j), S, (:u, :v), Vᴴ, (:v, :j));
+
+julia> contract((:i, :j), U, (:i, :u), SV, (:u, :j)) ≈ A
+true
+
+julia> isapprox(ϵ, 0; atol = 1e-10)
+true
+```
 
 See also `MatrixAlgebraKit.svd_trunc!`.
 """
