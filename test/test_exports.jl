@@ -38,9 +38,11 @@ using Test: @test, @testset
         append!(
             exports,
             [
-                :biperm, :bipartition, :contractopadd!, :data, :datatype, :flattenlinear,
-                :label_type, :matricizeopperm, :permutedims, :permutedims!, :scalar,
-                :similar_map, :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,
+                :biperm, :bipartition, :cat, :cat!, :concatenate, :concatenated,
+                :Concatenated, :contractopadd!, :data, :datatype, :directsum,
+                :directsum_style, :flattenlinear, :label_type,
+                :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
+                :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,
                 :permuteddims, :PermutedDims,
             ]
         )

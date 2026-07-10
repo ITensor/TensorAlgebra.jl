@@ -9,7 +9,7 @@ export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc
 if VERSION >= v"1.11.0-DEV.469"
     eval(
         Meta.parse(
-            "public biperm, bipartition, contractopadd!, data, datatype, flattenlinear, label_type, matricizeopperm, permutedims, permutedims!, scalar, similar_map, to_range, tr, tryflattenlinear, ungrade, zero!, scale!, permuteddims, PermutedDims"
+            "public biperm, bipartition, cat, cat!, concatenate, concatenated, Concatenated, contractopadd!, data, datatype, directsum, directsum_style, flattenlinear, label_type, matricizeopperm, permutedims, permutedims!, scalar, similar_map, to_range, tr, tryflattenlinear, ungrade, zero!, scale!, permuteddims, PermutedDims"
         )
     )
 end
@@ -21,6 +21,8 @@ include("MatrixAlgebra.jl")
 include("bituple.jl")
 include("permutedimsadd.jl")
 include("matricize.jl")
+include("concatenate.jl")
+include("directsum.jl")
 include("diagonal.jl")
 include("to_range.jl")
 include("contract/contractalgorithm.jl")
