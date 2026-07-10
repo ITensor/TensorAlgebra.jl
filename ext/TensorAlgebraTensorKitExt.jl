@@ -3,9 +3,9 @@ module TensorAlgebraTensorKitExt
 using MatrixAlgebraKit: diagview
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
-using TensorKit: TensorKit, AbstractTensorMap, ElementarySpace, ProductSpace,
-    TensorMapWithStorage, blocks, codomain, dim, domain, dual, fuse, numind, permute,
-    project_symmetric!, sectors, space, spacetype, zerovector!, ←
+using TensorKit: TensorKit, AbstractTensorMap, DiagonalTensorMap, ElementarySpace,
+    ProductSpace, TensorMap, TensorMapWithStorage, blocks, codomain, dim, domain, dual,
+    fuse, numind, permute, project_symmetric!, sectors, space, spacetype, zerovector!, ←
 using TensorOperations: TensorOperations as TO
 
 # ============================  AbstractArray-vocabulary bridge  ============================
@@ -24,6 +24,15 @@ TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(
 # `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
 # general spelling.
 TensorAlgebra.scalar(t::AbstractTensorMap) = TensorKit.scalar(t)
+
+# `data`/`datatype` reach the underlying storage array. A `TensorMap`/`DiagonalTensorMap` owns its
+# storage as the flat block vector `t.data` (a `DenseVector`, type `storagetype(t)`), but is not an
+# `AbstractArray`, so the generic `data` recursion (which follows `Base.parent`) has no way in.
+# Route it into the storage vector and keep recursing, so any wrapper on that vector is unwrapped
+# to the true leaf. A lazy `AdjointTensorMap` defines `Base.parent`, so the generic recursion
+# already unwraps it; a general `AbstractTensorMap` has no single storage vector, so gets no method.
+TensorAlgebra.data(t::TensorMap) = TensorAlgebra.data(t.data)
+TensorAlgebra.data(t::DiagonalTensorMap) = TensorAlgebra.data(t.data)
 
 # The trivial length-1 axis of a space is its unit space (`oneunit`), the trivial-sector
 # one-dimensional space; the length-`n` form is the direct sum of `n` unit spaces.
