@@ -5,8 +5,9 @@ using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, DiagonalTensorMap, ElementarySpace,
     ProductSpace, TensorMap, TensorMapWithStorage, blocks, codomain, dim, domain, dual,
-    fuse, numind, permute, project_symmetric!, sectors, space, spacetype, zerovector!, ←
+    fuse, numind, permute, project_symmetric!, sectors, space, spacetype, ←
 using TensorOperations: TensorOperations as TO
+using VectorInterface: VectorInterface
 
 # ============================  AbstractArray-vocabulary bridge  ============================
 # TensorAlgebra's generic orchestration describes operands in the `AbstractArray` vocabulary
@@ -282,7 +283,18 @@ end
 # there: `zero!` clears the `similar_map`-allocated destination, and the default algorithm
 # hands the in-place contraction to the TensorOperations backend (see the TensorOperations
 # extension's `contractopadd!`).
-TensorAlgebra.zero!(t::AbstractTensorMap) = zerovector!(t)
+TensorAlgebra.zero!(t::AbstractTensorMap) = VectorInterface.zerovector!(t)
+
+# A `TensorMap` is not an `AbstractArray`, so the generic in-place `TensorAlgebra` operations
+# don't apply. Forward to TensorKit's `VectorInterface` methods, its primary interface for these.
+# `add!` here is the non-permuting `y = α*x + β*y`. The permuting `bipermutedimsopadd!` handles a
+# non-trivial codomain/domain permutation.
+TensorAlgebra.scale!(t::AbstractTensorMap, β::Number) = VectorInterface.scale!(t, β)
+function TensorAlgebra.add!(
+        y::AbstractTensorMap, x::AbstractTensorMap, α::Number, β::Number
+    )
+    return VectorInterface.add!(y, x, α, β)
+end
 
 function TensorAlgebra.default_contract_algorithm(
         ::Type{<:AbstractTensorMap}, ::Type{<:AbstractTensorMap}
