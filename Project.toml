@@ -1,6 +1,6 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
-version = "0.17.3"
+version = "0.17.4"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 
 [workspace]
@@ -37,5 +37,5 @@ StridedViews = "0.5"
 TensorKit = "0.17"
 TensorOperations = "5"
 TupleTools = "1.6"
-VectorInterface = "0.4.8, 0.5"
+VectorInterface = "0.4.8, 0.5, 0.6"
 julia = "1.10"
