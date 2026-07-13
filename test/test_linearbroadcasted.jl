@@ -55,6 +55,21 @@ using Test: @test, @test_throws, @testset
         @test TA.tryflattenlinear(BC.broadcasted(exp, a)) === nothing
         @test TA.tryflattenlinear(BC.broadcasted(+, a, BC.broadcasted(exp, b))) === nothing
     end
+    @testset "flattenlinear" begin
+        a = randn(ComplexF64, 2, 2)
+        b = randn(ComplexF64, 2, 2)
+
+        # Linear expressions convert successfully, matching `tryflattenlinear`
+        @test TA.flattenlinear(BC.broadcasted(*, 2, a)) ≡ linearbroadcasted(*, 2, a)
+        bc = BC.broadcasted(+, BC.broadcasted(*, 2, a), BC.broadcasted(*, 3, b))
+        @test copy(TA.flattenlinear(bc)) ≈ 2a + 3b
+
+        # Nonlinear expression throws instead of returning nothing
+        @test_throws ArgumentError TA.flattenlinear(BC.broadcasted(exp, a))
+        @test_throws ArgumentError TA.flattenlinear(
+            BC.broadcasted(+, a, BC.broadcasted(exp, b))
+        )
+    end
     @testset "linearbroadcasted algebra" begin
         a = randn(ComplexF64, 3, 3)
 

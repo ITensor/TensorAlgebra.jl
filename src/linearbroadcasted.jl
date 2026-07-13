@@ -399,6 +399,19 @@ function tryflattenlinear(bc::BC.Broadcasted)
     return linearbroadcasted(bc.f, args...)
 end
 
+"""
+    flattenlinear(bc::Broadcasted) -> LinearBroadcasted
+
+Like [`tryflattenlinear`](@ref), but throw an `ArgumentError` when the expression is not
+linear instead of returning `nothing`. The erroring counterpart to `tryflattenlinear`,
+following the `parse`/`tryparse` convention.
+"""
+function flattenlinear(bc)
+    lb = tryflattenlinear(bc)
+    isnothing(lb) && throw(ArgumentError("broadcast expression is not linear"))
+    return lb
+end
+
 # BroadcastStyle for LinearBroadcasted subtypes — delegate to the wrapped array type.
 function BC.BroadcastStyle(::Type{<:ScaledBroadcasted{<:Any, A}}) where {A}
     return BC.BroadcastStyle(A)
