@@ -38,8 +38,8 @@ using Test: @test, @testset
         append!(
             exports,
             [
-                :biperm, :bipartition, :cat, :cat!, :cat_copyto!, :cat_similar,
-                :concatenate, :contractopadd!, :data, :datatype, :directsum,
+                :biperm, :bipartition, :cat_copyto!, :cat_similar,
+                :concatenate, :concatenate!, :contractopadd!, :data, :datatype, :directsum,
                 :flattenlinear, :label_type,
                 :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
                 :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,

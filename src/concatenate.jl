@@ -1,4 +1,4 @@
-# `cat`/`cat!`/`concatenate` over arrays, with the destination chosen from all inputs rather than
+# `concatenate`/`concatenate!` over arrays, with the destination chosen from all inputs rather than
 # just the first (unlike `Base.cat`). Backends customize by overloading `cat_similar` (destination)
 # and `cat_copyto!` (placement) on the combined `cat_style` of the arguments.
 
@@ -48,9 +48,7 @@ function concatenate(dims::Val, args...)
     return cat_copyto!(dest, style, dims, args...)
 end
 
-cat(args...; dims) = concatenate(dims, args...)
-
-function cat!(dest, args...; dims)
+function concatenate!(dest, args...; dims)
     return cat_copyto!(dest, cat_style(dims, args...), dims, args...)
 end
 

@@ -1,40 +1,39 @@
-using TensorAlgebra: TensorAlgebra, cat, cat!, cat_axes, concatenate, directsum
+using TensorAlgebra: TensorAlgebra, cat_axes, concatenate, concatenate!, directsum
 using Test: @test, @testset
 
-@testset "cat / concatenate" begin
+@testset "concatenate" begin
     a = reshape(collect(1.0:6.0), 2, 3)
     b = reshape(collect(7.0:12.0), 2, 3)
 
-    # Single-dim concatenation matches `Base.cat`.
-    @test cat(a, b; dims = 1) == vcat(a, b)
-    @test cat(a, b; dims = 2) == hcat(a, b)
+    # Single-dim concatenation matches `vcat`/`hcat`.
     @test concatenate(1, a, b) == vcat(a, b)
+    @test concatenate(2, a, b) == hcat(a, b)
 
     # Multi-dim concatenation is the block-diagonal placement (off-diagonal blocks zeroed).
-    c = cat(a, b; dims = (1, 2))
+    c = concatenate((1, 2), a, b)
     ref = zeros(4, 6)
     ref[1:2, 1:3] .= a
     ref[3:4, 4:6] .= b
     @test c == ref
 
-    # `cat!` writes into a provided destination.
+    # `concatenate!` writes into a provided destination.
     dest = zeros(4, 6)
-    @test cat!(dest, a, b; dims = (1, 2)) === dest
+    @test concatenate!(dest, a, b; dims = (1, 2)) === dest
     @test dest == ref
 
     # Element type is promoted across all inputs, not taken from the first.
-    @test eltype(cat(a, b .+ 0im; dims = 1)) == ComplexF64
+    @test eltype(concatenate(1, a, b .+ 0im)) == ComplexF64
 
     # `cat_axes` computes the concatenated axes from the arguments.
     @test cat_axes(Val((1, 2)), a, b) == (Base.OneTo(4), Base.OneTo(6))
 end
 
-@testset "directsum (forwards to cat)" begin
+@testset "directsum (forwards to concatenate)" begin
     a = reshape(collect(1.0:6.0), 2, 3)
     b = reshape(collect(7.0:12.0), 2, 3)
 
-    # `directsum` is exactly `cat`: block-concatenation, no basis rotation.
-    @test directsum(a, b; dims = (1, 2)) == cat(a, b; dims = (1, 2))
+    # `directsum` is exactly `concatenate`: block-concatenation, no basis rotation.
+    @test directsum(a, b; dims = (1, 2)) == concatenate((1, 2), a, b)
     @test directsum(a, b; dims = 1) == vcat(a, b)
 
     # N-ary: each summand lands in its own diagonal hyper-block.
