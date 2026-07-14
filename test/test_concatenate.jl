@@ -18,7 +18,7 @@ using Test: @test, @testset
 
     # `concatenate!` writes into a provided destination.
     dest = zeros(4, 6)
-    @test concatenate!(dest, a, b; dims = (1, 2)) === dest
+    @test concatenate!(dest, (1, 2), a, b) === dest
     @test dest == ref
 
     # Element type is promoted across all inputs, not taken from the first.

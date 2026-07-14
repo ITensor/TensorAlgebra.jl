@@ -1,6 +1,7 @@
 # `concatenate`/`concatenate!` over arrays, with the destination chosen from all inputs rather than
-# just the first (unlike `Base.cat`). Backends customize by overloading `cat_similar` (destination)
-# and `concatenate!` (placement) on the combined `cat_style` of the arguments.
+# just the first (unlike `Base.cat`). A backend customizes allocation by overloading `cat_similar` on
+# the combined `cat_style` of the arguments, and placement by overloading `concatenate!` on the
+# destination type.
 
 import Base.Broadcast as BC
 using Base: promote_eltypeof
@@ -45,11 +46,7 @@ concatenate(dims, args...) = concatenate(Val(dims), args...)
 function concatenate(dims::Val, args...)
     style = cat_style(dims, args...)
     dest = cat_similar(style, promote_eltypeof(args...), cat_axes(dims, args...), args...)
-    return concatenate!(style, dest, dims, args...)
-end
-
-function concatenate!(dest, args...; dims)
-    return concatenate!(cat_style(dims, args...), dest, dims, args...)
+    return concatenate!(dest, dims, args...)
 end
 
 # The offset placement below is adapted from Base's `cat`:
@@ -102,9 +99,8 @@ function dims2cat(dims::Val)
     return ntuple(in(d), maximum(d))
 end
 
-# Generic placement, dispatched on the abstract style so a backend can override on its own
-# `cat_style`. The style itself is only used for dispatch here.
-function concatenate!(::BC.BroadcastStyle, dest, dims, args...)
+# Generic placement; a backend overrides `concatenate!` on its destination type.
+function concatenate!(dest, dims, args...)
     catdims = dims2cat(dims)
     shape = map(length, cat_axes(dims, args...))
     count(!iszero, catdims)::Int > 1 && zero!(dest)
