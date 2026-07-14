@@ -1,23 +1,10 @@
-# Concatenation interface, vendored flat from the `Concatenate` module that previously lived in
-# SparseArraysBase / FunctionImplementations. TensorAlgebra owns it here as the single source of
-# truth: `cat`/`cat!`/`concatenate`, plus the backend hooks `cat_similar` (destination allocation)
-# and `cat_copyto!` (placement). Both dispatch on the combined `cat_style` of the arguments, so a
-# backend (SparseArraysBase, GradedArrays, a TensorKit ext) customizes concatenation by overloading
-# `cat_similar`/`cat_copyto!` on its style, without scalar indexing.
-#
-# This is a function interface (no lazy `Concatenated` wrapper): concatenation does not fuse, so
-# there is nothing for a lazy object to defer. `cat`/`cat!` resolve the style with `cat_style`,
-# allocate with `cat_similar`, and place with `cat_copyto!`. Mostly a copy of Base's `cat`, except
-# the destination is chosen from all inputs instead of just the first.
+# `cat`/`cat!`/`concatenate` over arrays, with the destination chosen from all inputs rather than
+# just the first (unlike `Base.cat`). Backends customize by overloading `cat_similar` (destination)
+# and `cat_copyto!` (placement) on the combined `cat_style` of the arguments.
 
 import Base.Broadcast as BC
 using Base: promote_eltypeof
 
-_valdims(dims::Val) = dims
-_valdims(dims) = Val(dims)
-
-# Concatenation axes and style, computed directly from `dims` and the arguments.
-# ------------------------------------------------------------------------------
 function cat_axis(
         a1::AbstractUnitRange, a2::AbstractUnitRange, a_rest::AbstractUnitRange...
     )
@@ -28,24 +15,20 @@ function cat_axis(a1::AbstractUnitRange, a2::AbstractUnitRange)
     return Base.OneTo(length(a1) + length(a2))
 end
 
-function cat_ndims(dims, as::AbstractArray...)
-    return max(maximum(dims), maximum(ndims, as))
-end
+cat_ndims(dims, as::AbstractArray...) = cat_ndims(Val(dims), as...)
 function cat_ndims(dims::Val, as::AbstractArray...)
-    return cat_ndims(unval(dims), as...)
+    return max(maximum(unval(dims)), maximum(ndims, as))
 end
 
-function cat_axes(dims, a::AbstractArray, as::AbstractArray...)
+cat_axes(dims, as::AbstractArray...) = cat_axes(Val(dims), as...)
+function cat_axes(dims::Val, a::AbstractArray, as::AbstractArray...)
     return ntuple(cat_ndims(dims, a, as...)) do dim
-        return if dim in dims
+        return if dim in unval(dims)
             cat_axis(map(Base.Fix2(axes, dim), (a, as...))...)
         else
             axes(a, dim)
         end
     end
-end
-function cat_axes(dims::Val, as::AbstractArray...)
-    return cat_axes(unval(dims), as...)
 end
 
 function cat_style(dims, as::AbstractArray...)
@@ -53,35 +36,25 @@ function cat_style(dims, as::AbstractArray...)
     return typeof(BC.combine_styles(as...))(Val(N))
 end
 
-# Allocate the destination container.
-# -----------------------------------
-# Allocate the destination for concatenating `args` along the combined `style`, with element type
-# `T` and axes `ax`. Backends override on their style; the default reuses broadcast's `similar` by
-# building a `Broadcasted` with the same style and axes.
+# Default destination: reuse broadcast's `similar` for the style by wrapping in a `Broadcasted`.
 function cat_similar(style, ::Type{T}, ax, args...) where {T}
     return similar(BC.Broadcasted(style, identity, args, ax), T)
 end
 
-# Main logic.
-# -----------
-# Concatenate the supplied `args` along dimensions `dims`.
-concatenate(dims, args...) = concatenate(_valdims(dims), args...)
+concatenate(dims, args...) = concatenate(Val(dims), args...)
 function concatenate(dims::Val, args...)
     style = cat_style(dims, args...)
     dest = cat_similar(style, promote_eltypeof(args...), cat_axes(dims, args...), args...)
     return cat_copyto!(dest, style, dims, args...)
 end
 
-# Concatenate the supplied `args` along dimensions `dims`.
 cat(args...; dims) = concatenate(dims, args...)
 
-# Concatenate the supplied `args` along dimensions `dims`, placing the result into `dest`.
 function cat!(dest, args...; dims)
-    d = _valdims(dims)
-    return cat_copyto!(dest, cat_style(d, args...), d, args...)
+    return cat_copyto!(dest, cat_style(dims, args...), dims, args...)
 end
 
-# The following is largely copied from the Base implementation of `Base.cat`, see:
+# The offset placement below is adapted from Base's `cat`:
 # https://github.com/JuliaLang/julia/blob/885b1cd875f101f227b345f681cc36879124d80d/base/abstractarray.jl#L1778-L1887
 _copy_or_fill!(A, inds, x) = fill!(view(A, inds...), x)
 _copy_or_fill!(A, inds, x::AbstractArray) = (A[inds...] = x)
@@ -122,17 +95,17 @@ function __cat_offset1!(A, shape, catdims, offsets, x)
     return newoffsets
 end
 
-dims2cat(dims::Val) = dims2cat(unval(dims))
-function dims2cat(dims)
-    if any(≤(0), dims)
-        throw(ArgumentError("All cat dimensions must be positive integers, but got $dims"))
+dims2cat(dims) = dims2cat(Val(dims))
+function dims2cat(dims::Val)
+    d = unval(dims)
+    if any(≤(0), d)
+        throw(ArgumentError("All cat dimensions must be positive integers, but got $d"))
     end
-    return ntuple(in(dims), maximum(dims))
+    return ntuple(in(d), maximum(d))
 end
 
-# Materialize the concatenation into `dest`. Backends override on their `style`; the default strips
-# the style to `nothing` (which lets a backend instead specialize on `typeof(dest)` without
-# ambiguity against the style dispatch) and runs the generic offset placement.
+# The default strips the style to `nothing`, so a backend can instead specialize on `typeof(dest)`
+# without ambiguity against the style dispatch.
 cat_copyto!(dest, style, dims, args...) = cat_copyto!(dest, nothing, dims, args...)
 function cat_copyto!(dest, ::Nothing, dims, args...)
     catdims = dims2cat(dims)
