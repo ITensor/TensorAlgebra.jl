@@ -1,77 +1,23 @@
 # Concatenation interface, vendored flat from the `Concatenate` module that previously lived in
-# SparseArraysBase / FunctionImplementations (both carried identical copies). TensorAlgebra owns it
-# here as the single source of truth: `cat`/`cat!`/`concatenate` and the lazy `Concatenated` object,
-# with a generic `copyto!(::Concatenated{Nothing})` fallback. Backends (SparseArraysBase,
-# GradedArrays, a TensorKit ext) specialize `copyto!(dest, ::Concatenated{<:TheirStyle})` for
-# block-level placement without scalar indexing.
+# SparseArraysBase / FunctionImplementations. TensorAlgebra owns it here as the single source of
+# truth: `cat`/`cat!`/`concatenate`, plus the backend hooks `cat_similar` (destination allocation)
+# and `cat_copyto!` (placement). Both dispatch on the combined `cat_style` of the arguments, so a
+# backend (SparseArraysBase, GradedArrays, a TensorKit ext) customizes concatenation by overloading
+# `cat_similar`/`cat_copyto!` on its style, without scalar indexing.
 #
-# Alternative implementation for `Base.cat` through `cat`/`cat!`. This is mostly a copy of the Base
-# implementation, with the main difference being that the destination is chosen based on all inputs
-# instead of just the first. There is an intermediate representation in terms of a `Concatenated`
-# object, reminiscent of how Broadcast works. Destination selection can be customized through
-# `Base.similar(::Concatenated{Style}, ::Type{T}, axes)`, and the operation itself through
-# `Base.copy`/`Base.copyto!` on a `Concatenated`.
+# This is a function interface (no lazy `Concatenated` wrapper): concatenation does not fuse, so
+# there is nothing for a lazy object to defer. `cat`/`cat!` resolve the style with `cat_style`,
+# allocate with `cat_similar`, and place with `cat_copyto!`. Mostly a copy of Base's `cat`, except
+# the destination is chosen from all inputs instead of just the first.
 
 import Base.Broadcast as BC
 using Base: promote_eltypeof
 
-function _Concatenated end
+_valdims(dims::Val) = dims
+_valdims(dims) = Val(dims)
 
-# Lazy representation of the concatenation of various `Args` along `Dims`, in order to
-# provide hooks to customize the implementation.
-struct Concatenated{Style, Dims, Args <: Tuple}
-    style::Style
-    dims::Val{Dims}
-    args::Args
-    global @inline function _Concatenated(
-            style::Style, dims::Val{Dims}, args::Args
-        ) where {Style, Dims, Args <: Tuple}
-        return new{Style, Dims, Args}(style, dims, args)
-    end
-end
-
-function Concatenated(
-        style::Union{BC.AbstractArrayStyle, Nothing}, dims::Val, args::Tuple
-    )
-    return _Concatenated(style, dims, args)
-end
-function Concatenated(dims::Val, args::Tuple)
-    return Concatenated(cat_style(dims, args...), dims, args)
-end
-function Concatenated{Style}(
-        dims::Val, args::Tuple
-    ) where {Style <: Union{BC.AbstractArrayStyle, Nothing}}
-    return Concatenated(Style(), dims, args)
-end
-
-concatenated_dims(::Concatenated{<:Any, D}) where {D} = D
-concatenated_style(concat::Concatenated) = getfield(concat, :style)
-
-concatenated(dims, args...) = concatenated(Val(dims), args...)
-concatenated(dims::Val, args...) = Concatenated(dims, args)
-
-function Base.convert(
-        ::Type{Concatenated{NewStyle}}, concat::Concatenated{<:Any, Dims, Args}
-    ) where {NewStyle, Dims, Args}
-    return Concatenated{NewStyle}(
-        concat.dims, concat.args
-    )::Concatenated{NewStyle, Dims, Args}
-end
-
-# allocating the destination container
-# ------------------------------------
-Base.similar(concat::Concatenated) = similar(concat, eltype(concat))
-Base.similar(concat::Concatenated, ::Type{T}) where {T} = similar(concat, T, axes(concat))
-function Base.similar(concat::Concatenated, ax)
-    return similar(concat, eltype(concat), ax)
-end
-
-function Base.similar(concat::Concatenated, ::Type{T}, ax) where {T}
-    # Convert to a broadcasted to leverage its similar implementation.
-    bc = BC.Broadcasted(concatenated_style(concat), identity, concat.args, ax)
-    return similar(bc, T)
-end
-
+# Concatenation axes and style, computed directly from `dims` and the arguments.
+# ------------------------------------------------------------------------------
 function cat_axis(
         a1::AbstractUnitRange, a2::AbstractUnitRange, a_rest::AbstractUnitRange...
     )
@@ -107,28 +53,33 @@ function cat_style(dims, as::AbstractArray...)
     return typeof(BC.combine_styles(as...))(Val(N))
 end
 
-Base.eltype(concat::Concatenated) = promote_eltypeof(concat.args...)
-Base.axes(concat::Concatenated) = cat_axes(concatenated_dims(concat), concat.args...)
-Base.size(concat::Concatenated) = length.(axes(concat))
-Base.ndims(concat::Concatenated) = cat_ndims(concatenated_dims(concat), concat.args...)
+# Allocate the destination container.
+# -----------------------------------
+# Allocate the destination for concatenating `args` along the combined `style`, with element type
+# `T` and axes `ax`. Backends override on their style; the default reuses broadcast's `similar` by
+# building a `Broadcasted` with the same style and axes.
+function cat_similar(style, ::Type{T}, ax, args...) where {T}
+    return similar(BC.Broadcasted(style, identity, args, ax), T)
+end
 
-# Main logic
-# ----------
+# Main logic.
+# -----------
 # Concatenate the supplied `args` along dimensions `dims`.
-concatenate(dims, args...) = Base.materialize(concatenated(dims, args...))
+concatenate(dims, args...) = concatenate(_valdims(dims), args...)
+function concatenate(dims::Val, args...)
+    style = cat_style(dims, args...)
+    dest = cat_similar(style, promote_eltypeof(args...), cat_axes(dims, args...), args...)
+    return cat_copyto!(dest, style, dims, args...)
+end
 
 # Concatenate the supplied `args` along dimensions `dims`.
 cat(args...; dims) = concatenate(dims, args...)
-Base.materialize(concat::Concatenated) = copy(concat)
 
 # Concatenate the supplied `args` along dimensions `dims`, placing the result into `dest`.
 function cat!(dest, args...; dims)
-    Base.materialize!(dest, concatenated(dims, args...))
-    return dest
+    d = _valdims(dims)
+    return cat_copyto!(dest, cat_style(d, args...), d, args...)
 end
-Base.materialize!(dest, concat::Concatenated) = copyto!(dest, concat)
-
-Base.copy(concat::Concatenated) = copyto!(similar(concat), concat)
 
 # The following is largely copied from the Base implementation of `Base.cat`, see:
 # https://github.com/JuliaLang/julia/blob/885b1cd875f101f227b345f681cc36879124d80d/base/abstractarray.jl#L1778-L1887
@@ -179,16 +130,13 @@ function dims2cat(dims)
     return ntuple(in(dims), maximum(dims))
 end
 
-# default falls back to replacing style with Nothing
-# this permits specializing on typeof(dest) without ambiguities
-# Note: this needs to be defined for AbstractArray specifically to avoid ambiguities with Base.
-@inline function Base.copyto!(dest::AbstractArray, concat::Concatenated)
-    return copyto!(dest, convert(Concatenated{Nothing}, concat))
-end
-
-function Base.copyto!(dest::AbstractArray, concat::Concatenated{Nothing})
-    catdims = dims2cat(concatenated_dims(concat))
-    shape = size(concat)
+# Materialize the concatenation into `dest`. Backends override on their `style`; the default strips
+# the style to `nothing` (which lets a backend instead specialize on `typeof(dest)` without
+# ambiguity against the style dispatch) and runs the generic offset placement.
+cat_copyto!(dest, style, dims, args...) = cat_copyto!(dest, nothing, dims, args...)
+function cat_copyto!(dest, ::Nothing, dims, args...)
+    catdims = dims2cat(dims)
+    shape = map(length, cat_axes(dims, args...))
     count(!iszero, catdims)::Int > 1 && zero!(dest)
-    return __cat!(dest, shape, catdims, concat.args...)
+    return __cat!(dest, shape, catdims, args...)
 end

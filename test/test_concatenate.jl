@@ -1,5 +1,5 @@
 using TensorAlgebra:
-    TensorAlgebra, Concatenated, ReshapeFusion, cat, cat!, concatenate, directsum
+    TensorAlgebra, ReshapeFusion, cat, cat!, cat_axes, concatenate, directsum
 using Test: @test, @testset
 
 @testset "cat / concatenate" begin
@@ -26,8 +26,8 @@ using Test: @test, @testset
     # Element type is promoted across all inputs, not taken from the first.
     @test eltype(cat(a, b .+ 0im; dims = 1)) == ComplexF64
 
-    # The lazy representation carries the concatenated axes.
-    @test axes(Concatenated(Val((1, 2)), (a, b))) == (Base.OneTo(4), Base.OneTo(6))
+    # `cat_axes` computes the concatenated axes from the arguments.
+    @test cat_axes(Val((1, 2)), a, b) == (Base.OneTo(4), Base.OneTo(6))
 end
 
 @testset "directsum (dense: ReshapeFusion -> cat)" begin
