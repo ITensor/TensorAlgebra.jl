@@ -1,5 +1,4 @@
-using TensorAlgebra:
-    TensorAlgebra, ReshapeFusion, cat, cat!, cat_axes, concatenate, directsum
+using TensorAlgebra: TensorAlgebra, cat, cat!, cat_axes, concatenate, directsum
 using Test: @test, @testset
 
 @testset "cat / concatenate" begin
@@ -30,12 +29,11 @@ using Test: @test, @testset
     @test cat_axes(Val((1, 2)), a, b) == (Base.OneTo(4), Base.OneTo(6))
 end
 
-@testset "directsum (dense: ReshapeFusion -> cat)" begin
+@testset "directsum (forwards to cat)" begin
     a = reshape(collect(1.0:6.0), 2, 3)
     b = reshape(collect(7.0:12.0), 2, 3)
 
-    # Dense arrays carry `ReshapeFusion`, so `directsum` is exactly `cat` (no rotation needed).
-    @test TensorAlgebra.FusionStyle(a) === ReshapeFusion()
+    # `directsum` is exactly `cat`: block-concatenation, no basis rotation.
     @test directsum(a, b; dims = (1, 2)) == cat(a, b; dims = (1, 2))
     @test directsum(a, b; dims = 1) == vcat(a, b)
 
@@ -46,7 +44,4 @@ end
     @test s[1:2, 1:3] == a
     @test s[3:4, 4:6] == b
     @test s[5:6, 7:10] == d
-
-    # Passing the style explicitly matches the resolved-from-array path.
-    @test directsum(ReshapeFusion(), a, b; dims = (1, 2)) == directsum(a, b; dims = (1, 2))
 end

@@ -40,7 +40,7 @@ using Test: @test, @testset
             [
                 :biperm, :bipartition, :cat, :cat!, :cat_copyto!, :cat_similar,
                 :concatenate, :contractopadd!, :data, :datatype, :directsum,
-                :directsum_style, :flattenlinear, :label_type,
+                :flattenlinear, :label_type,
                 :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
                 :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,
                 :permuteddims, :PermutedDims,
