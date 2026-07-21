@@ -11,6 +11,18 @@ end
 Matricize(fusion_style) = Matricize(fusion_style, fusion_style, fusion_style)
 Matricize() = Matricize(ReshapeFusion())
 
+"""
+    TensorOperationsAlgorithm(; backend = nothing, allocator = nothing)
+
+Contract using TensorOperations, with `backend` selecting the contraction kernel and
+`allocator` the allocator for temporary tensors (e.g. `TensorOperations.ManualAllocator()`).
+A `nothing` field uses TensorOperations' default. Only usable with TensorOperations loaded.
+"""
+Base.@kwdef struct TensorOperationsAlgorithm{Backend, Allocator} <: ContractAlgorithm
+    backend::Backend = nothing
+    allocator::Allocator = nothing
+end
+
 function select_contract_algorithm(algorithm, a1, a2)
     return error("Not implemented.")
 end

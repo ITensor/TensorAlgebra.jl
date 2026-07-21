@@ -1,5 +1,7 @@
-using TensorAlgebra: Matricize
-using TensorOperations: @tensor, ncon, tensorcontract
+using TensorAlgebra:
+    ContractAlgorithm, Matricize, TensorOperationsAlgorithm, contract, contract!
+using TensorOperations:
+    @tensor, DefaultAllocator, DefaultBackend, ManualAllocator, ncon, tensorcontract
 using Test: @inferred, @test, @testset
 
 @testset "tensorcontract" begin
@@ -122,4 +124,36 @@ end
         result2 = ncon(tensors, indices; backend = Matricize())
         @test result1 ≈ result2
     end
+end
+
+@testset "TensorOperationsAlgorithm allocator ($T)" for T in elts
+    a1 = randn(T, 4, 5, 3)
+    a2 = randn(T, 3, 6)
+    labels1 = (:i, :j, :k)
+    labels2 = (:k, :l)
+    ref, ref_labels = contract(a1, labels1, a2, labels2)
+
+    @test TensorOperationsAlgorithm() isa ContractAlgorithm
+
+    @testset "allocator = $(nameof(typeof(alloc)))" for alloc in
+        (
+            DefaultAllocator(),
+            ManualAllocator(),
+        )
+        alg = TensorOperationsAlgorithm(; allocator = alloc)
+        c, labels = contract(a1, labels1, a2, labels2; alg)
+        @test labels == ref_labels
+        @test c ≈ ref
+
+        c_dest = similar(ref)
+        contract!(c_dest, ref_labels, a1, labels1, a2, labels2; alg)
+        @test c_dest ≈ ref
+    end
+
+    # The `ContractAlgorithm(backend, allocator)` constructor seam.
+    seam = ContractAlgorithm(DefaultBackend(), ManualAllocator())
+    @test contract(a1, labels1, a2, labels2; alg = seam)[1] ≈ ref
+
+    # `nothing` fields fall back to the TensorOperations defaults.
+    @test contract(a1, labels1, a2, labels2; alg = TensorOperationsAlgorithm())[1] ≈ ref
 end

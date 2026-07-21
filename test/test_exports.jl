@@ -39,9 +39,11 @@ using Test: @test, @testset
             exports,
             [
                 :biperm, :bipartition, :cat_similar,
-                :concatenate, :concatenate!, :contractopadd!, :data, :datatype, :directsum,
+                :concatenate, :concatenate!, :ContractAlgorithm, :contractopadd!, :data,
+                :datatype, :directsum,
                 :flattenlinear, :label_type,
                 :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
+                :TensorOperationsAlgorithm,
                 :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,
                 :permuteddims, :PermutedDims,
             ]
