@@ -6,10 +6,10 @@ using TensorOperations: TensorOperations as TO
 # `TensorOperationsAlgorithm` stores `nothing` to mean "TensorOperations' default"; resolve
 # those here, where the defaults can be named.
 function backend(algorithm::TensorOperationsAlgorithm)
-    return something(algorithm.backend, TO.DefaultBackend())
+    return @something algorithm.backend TO.DefaultBackend()
 end
 function allocator(algorithm::TensorOperationsAlgorithm)
-    return something(algorithm.allocator, TO.DefaultAllocator())
+    return @something algorithm.allocator TO.DefaultAllocator()
 end
 
 # Construct via the `ContractAlgorithm` public constructor seam as well.
