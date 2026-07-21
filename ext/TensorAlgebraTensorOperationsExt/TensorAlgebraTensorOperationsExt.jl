@@ -1,18 +1,22 @@
 module TensorAlgebraTensorOperationsExt
 
-using TensorAlgebra: TensorAlgebra as TA
+using TensorAlgebra: TensorAlgebra as TA, TensorOperationsAlgorithm
 using TensorOperations: TensorOperations as TO
 
-"""
-    TensorOperationsAlgorithm(backend::AbstractBackend)
-
-Wrapper type for making a TensorOperations backend work as a TensorAlgebra algorithm.
-"""
-struct TensorOperationsAlgorithm{B <: TO.AbstractBackend} <: TA.ContractAlgorithm
-    backend::B
+# `TensorOperationsAlgorithm` stores `nothing` to mean "TensorOperations' default"; resolve
+# those here, where the defaults can be named.
+function backend(algorithm::TensorOperationsAlgorithm)
+    return something(algorithm.backend, TO.DefaultBackend())
+end
+function allocator(algorithm::TensorOperationsAlgorithm)
+    return something(algorithm.allocator, TO.DefaultAllocator())
 end
 
-TA.ContractAlgorithm(backend::TO.AbstractBackend) = TensorOperationsAlgorithm(backend)
+# Construct via the `ContractAlgorithm` public constructor seam as well.
+TA.ContractAlgorithm(backend::TO.AbstractBackend) = TensorOperationsAlgorithm(; backend)
+function TA.ContractAlgorithm(backend::TO.AbstractBackend, allocator)
+    return TensorOperationsAlgorithm(; backend, allocator)
+end
 
 # Using TensorOperations backends as TensorAlgebra implementations
 # ----------------------------------------------------------------
@@ -31,7 +35,7 @@ function TA.contract(
     α = true
     return TO.tensorcontract(
         a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, algorithm.backend
+        permblocks_dest, α, backend(algorithm), allocator(algorithm)
     )
 end
 
@@ -47,7 +51,7 @@ function TA.contract(
     α = true
     return TO.tensorcontract(
         a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, algorithm.backend
+        permblocks_dest, α, backend(algorithm), allocator(algorithm)
     )
 end
 
@@ -68,7 +72,7 @@ function TA.contractopadd!(
     a2′ = (op2 === identity || op2 === conj) ? a2 : op2.(a2)
     return TO.tensorcontract!(
         a_dest, a1′, permblocks1, conj1, a2′, permblocks2, conj2,
-        permblocks_dest, α, β, algorithm.backend
+        permblocks_dest, α, β, backend(algorithm), allocator(algorithm)
     )
 end
 
