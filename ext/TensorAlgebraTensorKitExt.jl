@@ -5,7 +5,7 @@ using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, DiagonalTensorMap, ElementarySpace,
     ProductSpace, TensorMap, TensorMapWithStorage, blocks, codomain, dim, domain, dual,
-    fuse, numind, permute, project_symmetric!, sectors, space, spacetype, ←
+    fuse, numind, numout, permute, project_symmetric!, sectors, space, spacetype, ←
 using TensorOperations: TensorOperations as TO
 using VectorInterface: VectorInterface
 
@@ -21,6 +21,8 @@ TensorAlgebra.axes(t::AbstractTensorMap) = ntuple(i -> space(t, i), numind(t))
 # A `TensorMap` has no `Base.size`; its dense size is the per-index space dimension.
 TensorAlgebra.size(t::AbstractTensorMap, i::Int) = dim(space(t, i))
 TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(t))
+# A `TensorMap` stores its codomain/domain split, so its codomain rank is `numout`.
+TensorAlgebra.ndims_codomain(t::AbstractTensorMap) = numout(t)
 
 # `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
 # general spelling.
@@ -145,8 +147,16 @@ function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
     return project_symmetric!(dest, reshape(src, TensorAlgebra.size(dest)))
 end
 
-# The `is_projected` check compares through `convert(Array, dest)`, which TensorKit already
-# defines for an `AbstractTensorMap`, so no dedicated method is needed here.
+# A `TensorMap` carries its own split, so `unproject` is `convert(Array, t)`, only checking the
+# caller's split matches the map's codomain rank.
+function TensorAlgebra.unproject(t::AbstractTensorMap, ::Val{K}) where {K}
+    K == numout(t) || throw(
+        ArgumentError(
+            "`unproject`: codomain split Val($K) does not match the `TensorMap`'s codomain rank $(numout(t))"
+        )
+    )
+    return convert(Array, t)
+end
 
 # =============================  allocate_project (aux-leg derivation)  =====================
 # `allocate_project` for `TensorMap` spaces routes both the codomain-led and the (empty-codomain)

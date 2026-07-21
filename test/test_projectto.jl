@@ -1,5 +1,5 @@
 using TensorAlgebra: TensorAlgebra, is_projected, project, project!, projectto!, tryproject,
-    unchecked_project
+    unchecked_project, unproject
 using Test: @test, @test_throws, @testset
 
 const elts = (Float32, Float64, ComplexF32, ComplexF64)
@@ -80,6 +80,16 @@ end
     t = tryproject(raw, (Base.OneTo(2), Base.OneTo(3)))
     @test t == raw
     @test tryproject(raw, (Base.OneTo(2),), (Base.OneTo(3),)) == raw
+end
+
+@testset "unproject (dense default) ($T)" for T in elts
+    raw = randn(T, 2, 3, 2, 3)
+    cod = (Base.OneTo(2), Base.OneTo(3))
+    dom = (Base.OneTo(2), Base.OneTo(3))
+    M = project(raw, cod, dom)
+    @test unproject(M, Val(2)) == raw
+    @test unproject(M, Val(0)) == raw   # split is irrelevant for a dense array
+    @test is_projected(M, raw, Val(2))
 end
 
 @testset "project pads trailing length-1 axes ($T)" for T in elts
