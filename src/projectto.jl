@@ -64,31 +64,28 @@ end
 # applies to the flat all-codomain (state) form.
 unchecked_project(raw, axes) = unchecked_project(raw, axes, ())
 
+# The codomain rank a destination reports when no split is given: its full rank by default (no
+# domain), overloaded by a backend that stores a split (a `TensorMap` returns `numout`).
+ndims_codomain(a) = ndims(a)
+
 """
+    is_projected(dest, src, ndims_codomain::Val; kwargs...) -> Bool
     is_projected(dest, src; kwargs...) -> Bool
 
-Whether the projected `dest` still represents `src` within the `isapprox`
-tolerance, i.e. whether the projection that produced `dest` discarded only a
-negligible component of `src`. Keyword arguments are forwarded to `isapprox`.
+Whether the projected `dest` still represents `src` within the `isapprox` tolerance, i.e. whether
+the projection that produced `dest` discarded only a negligible component of `src`. Keyword
+arguments are forwarded to `isapprox`. Compares `src` against [`unproject`](@ref)`(dest, ndims_codomain)`, so a backend that changes basis in `project` is checked in the frame `src` was
+given in. The two-argument form uses the destination's own codomain rank.
 
-Together with [`unchecked_project`](@ref) this is the backend customization
-point ([`project`](@ref) and [`tryproject`](@ref) derive from the two). The
-generic method reshapes `src` to `size(dest)` up to trailing length-1 axes
-(so a lower-rank `src` that omits them lines up) and compares against
-`convert(Array, dest)`, so a backend whose arrays are not elementwise
-comparable to a dense array (opaque block storage, a `TensorMap`) only needs
-that conversion.
+Together with [`unchecked_project`](@ref) this is the backend customization point ([`project`](@ref)
+and [`tryproject`](@ref) derive from the two).
 """
-function is_projected(dest, src; kwargs...)
-    check_project_size(size(src), size(dest))
-    return isapprox(reshape(src, size(dest)), convert(Array, dest); kwargs...)
-end
-
-# Compare `src` against `unproject(dest, ndims_codomain)` rather than `convert(Array, dest)`, so a
-# backend that changes basis in `project` is checked in the frame `raw` was given in.
 function is_projected(dest, src, ndims_codomain::Val; kwargs...)
     check_project_size(size(src), size(dest))
     return isapprox(reshape(src, size(dest)), unproject(dest, ndims_codomain); kwargs...)
+end
+function is_projected(dest, src; kwargs...)
+    return is_projected(dest, src, Val(ndims_codomain(dest)); kwargs...)
 end
 
 """
