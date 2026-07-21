@@ -84,6 +84,24 @@ function is_projected(dest, src; kwargs...)
     return isapprox(reshape(src, size(dest)), convert(Array, dest); kwargs...)
 end
 
+# Compare `src` against `unproject(dest, ndims_codomain)` rather than `convert(Array, dest)`, so a
+# backend that changes basis in `project` is checked in the frame `raw` was given in.
+function is_projected(dest, src, ndims_codomain::Val; kwargs...)
+    check_project_size(size(src), size(dest))
+    return isapprox(reshape(src, size(dest)), unproject(dest, ndims_codomain); kwargs...)
+end
+
+"""
+    unproject(a, ndims_codomain::Val) -> raw
+
+Inverse of [`project`](@ref): recover the dense array that `project` maps to `a`, given the
+codomain/domain split `ndims_codomain` as a `Val`. The default is `convert(Array, a)`; a backend
+that changes basis in `project` overloads this to undo that change, so that
+
+    unproject(project(raw, codomain_axes, domain_axes), Val(length(codomain_axes))) ≈ raw
+"""
+unproject(a, ::Val) = convert(Array, a)
+
 """
     project!(dest, src; kwargs...) -> dest
 
@@ -125,7 +143,7 @@ domain.
 """
 function project(raw, codomain_axes, domain_axes; kwargs...)
     dest = unchecked_project(raw, codomain_axes, domain_axes)
-    is_projected(dest, raw; kwargs...) ||
+    is_projected(dest, raw, Val(length(codomain_axes)); kwargs...) ||
         throw(InexactError(:project, typeof(dest), raw))
     return dest
 end
@@ -147,6 +165,6 @@ Keyword arguments are forwarded to the `isapprox` tolerance check.
 """
 function tryproject(raw, codomain_axes, domain_axes; kwargs...)
     dest = unchecked_project(raw, codomain_axes, domain_axes)
-    return is_projected(dest, raw; kwargs...) ? dest : nothing
+    return is_projected(dest, raw, Val(length(codomain_axes)); kwargs...) ? dest : nothing
 end
 tryproject(raw, axes; kwargs...) = tryproject(raw, axes, (); kwargs...)
