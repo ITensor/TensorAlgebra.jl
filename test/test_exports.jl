@@ -44,7 +44,7 @@ using Test: @test, @testset
                 :flattenlinear, :label_type,
                 :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
                 :TensorOperationsAlgorithm,
-                :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,
+                :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!, :twist!,
                 :permuteddims, :PermutedDims,
             ]
         )
