@@ -3,7 +3,7 @@ module TensorAlgebraTensorKitSectorsExt
 using TensorAlgebra: TensorAlgebra
 using TensorKitSectors: TensorKitSectors, Sector
 
-# The dual of a sector is its conjugate (charge conjugation), which is TensorKitSectors' own.
+# A sector's dual is its conjugate (charge conjugation), forwarded to TensorKitSectors' `dual`.
 TensorAlgebra.dual(c::Sector) = TensorKitSectors.dual(c)
 
 end
