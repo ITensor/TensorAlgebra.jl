@@ -330,3 +330,10 @@ using Test: @test, @test_throws, @testset
             LinearAlgebra.tr(t)
     end
 end
+
+@testset "dual/isdual on a TensorKit space" begin
+    V = Rep[U₁](0 => 2, 1 => 1)
+    @test TensorAlgebra.isdual(V) == false
+    @test TensorAlgebra.isdual(dual(V)) == true
+    @test TensorAlgebra.dual(V) == dual(V)
+end
