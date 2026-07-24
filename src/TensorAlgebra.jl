@@ -1,7 +1,7 @@
 module TensorAlgebra
 
-export contract, contract!, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc,
-    eigh_vals, gram_eigh_full, gram_eigh_full_with_pinv, invsqrth_safe, left_null,
+export contract, contract!, dual, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc,
+    eigh_vals, gram_eigh_full, gram_eigh_full_with_pinv, invsqrth_safe, isdual, left_null,
     left_orth, left_polar, lq_compact, lq_full, project_hermitian, qr_compact,
     qr_full, right_null, right_orth, right_polar, sqrth_invsqrth_safe, sqrth_safe,
     svd_compact, svd_full, svd_trunc, svd_vals
@@ -24,6 +24,7 @@ include("matricize.jl")
 include("concatenate.jl")
 include("directsum.jl")
 include("diagonal.jl")
+include("dual.jl")
 include("to_range.jl")
 include("contract/contractalgorithm.jl")
 include("contract/contract.jl")
