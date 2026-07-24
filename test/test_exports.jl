@@ -40,8 +40,8 @@ using Test: @test, @testset
             [
                 :biperm, :bipartition, :cat_similar,
                 :concatenate, :concatenate!, :ContractAlgorithm, :contractopadd!, :data,
-                :datatype, :directsum,
-                :flattenlinear, :label_type,
+                :datatype, :directsum, :dual,
+                :flattenlinear, :isdual, :label_type,
                 :matricizeopperm, :permutedims, :permutedims!, :scalar, :similar_map,
                 :TensorOperationsAlgorithm,
                 :to_range, :tr, :tryflattenlinear, :ungrade, :zero!, :scale!,

@@ -37,6 +37,10 @@ TensorAlgebra.scalar(t::AbstractTensorMap) = TensorKit.scalar(t)
 TensorAlgebra.data(t::TensorMap) = TensorAlgebra.data(t.data)
 TensorAlgebra.data(t::DiagonalTensorMap) = TensorAlgebra.data(t.data)
 
+# Duality queries on a single index space route to TensorKit's own space duality.
+TensorAlgebra.isdual(V::ElementarySpace) = TensorKit.isdual(V)
+TensorAlgebra.dual(V::ElementarySpace) = TensorKit.dual(V)
+
 # The trivial length-1 axis of a space is its unit space (`oneunit`), the trivial-sector
 # one-dimensional space; the length-`n` form is the direct sum of `n` unit spaces.
 TensorAlgebra.trivialrange(V::ElementarySpace) = oneunit(V)
