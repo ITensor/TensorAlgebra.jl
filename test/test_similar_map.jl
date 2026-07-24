@@ -1,5 +1,6 @@
 using Random: default_rng
-using TensorAlgebra: TensorAlgebra, rand_map, randn_map, similar_map, zeros_map
+using TensorAlgebra:
+    TensorAlgebra, fill_map, ones_map, rand_map, randn_map, similar_map, zeros_map
 using Test: @test, @testset
 
 @testset "similar_map ($T)" for T in (Float32, Float64, ComplexF32, ComplexF64)
@@ -30,6 +31,14 @@ end
     @test z isa Matrix{T}
     @test size(z) == (2, 3)
     @test iszero(z)
+    o = TensorAlgebra.ones(T, ax)
+    @test o isa Matrix{T}
+    @test size(o) == (2, 3)
+    @test all(isone, o)
+    fl = TensorAlgebra.fill(T(2), ax)
+    @test fl isa Matrix{T}
+    @test size(fl) == (2, 3)
+    @test all(==(T(2)), fl)
     for f in (TensorAlgebra.randn, TensorAlgebra.rand)
         a = f(default_rng(), T, ax)
         @test a isa Matrix{T}
@@ -47,6 +56,17 @@ end
     @test z isa Array{T, 3}
     @test size(z) == (2, 3, 4)
     @test iszero(z)
+
+    o = ones_map(T, cod, dom)
+    @test o isa Array{T, 3}
+    @test size(o) == (2, 3, 4)
+    @test all(isone, o)
+    @test ones_map(cod, dom) isa Array{Float64, 3}   # eltype defaults to Float64
+
+    fl = fill_map(T(3), cod, dom)
+    @test fl isa Array{T, 3}
+    @test size(fl) == (2, 3, 4)
+    @test all(==(T(3)), fl)
 
     for f in (randn_map, rand_map)
         # Fully specified.
