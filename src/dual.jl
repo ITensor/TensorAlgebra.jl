@@ -1,12 +1,8 @@
 """
     isdual(a) -> Bool
 
-Whether the axis `a` is dual, i.e. carries the reversed arrow relative to the
-non-dual convention. An ordinary range has no arrow to reverse, so the
-`AbstractUnitRange` fallback returns `false`; graded axes and other backends with a
-duality concept (e.g. a TensorKit space) override this.
-
-See also [`dual`](@ref).
+Returns `true` or `false` depending on if the axis `a` is dual. Falls back to `false`
+for `AbstractUnitRange`.
 """
 function isdual end
 isdual(::AbstractUnitRange) = false
@@ -14,11 +10,8 @@ isdual(::AbstractUnitRange) = false
 """
     dual(a)
 
-The dual of the axis `a`, with its arrow reversed. An ordinary range has no arrow to
-reverse, so the `AbstractUnitRange` fallback returns `a` unchanged; graded axes and
-other backends with a duality concept (e.g. a TensorKit space) override this.
-
-See also [`isdual`](@ref).
+Returns the dual of the axis `a`. Falls back to returning `a` unchanged for
+`AbstractUnitRange`.
 """
 function dual end
 dual(a::AbstractUnitRange) = a
