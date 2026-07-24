@@ -1,6 +1,6 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
-version = "0.17.8"
+version = "0.17.9"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 
 [workspace]
@@ -18,12 +18,14 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 [weakdeps]
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 TensorKit = "07d1fe3e-3e46-537d-9eac-e9e13d0d4cec"
+TensorKitSectors = "13a9c161-d5da-41f0-bcbd-e1a08ae0647f"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [extensions]
 TensorAlgebraMooncakeExt = "Mooncake"
 TensorAlgebraTensorKitExt = ["TensorKit", "TensorOperations", "VectorInterface"]
+TensorAlgebraTensorKitSectorsExt = "TensorKitSectors"
 TensorAlgebraTensorOperationsExt = "TensorOperations"
 
 [compat]
@@ -35,6 +37,7 @@ Random = "1.10"
 Strided = "2.6"
 StridedViews = "0.5"
 TensorKit = "0.17"
+TensorKitSectors = "0.3.9"
 TensorOperations = "5"
 TupleTools = "1.6"
 VectorInterface = "0.4.8, 0.5"
