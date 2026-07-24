@@ -4,8 +4,8 @@ using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, contract, matricize, project, projectto!, rand_map,
     randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project, unmatricize,
     zeros_map
-using TensorKit: @tensor, AbstractTensorMap, DiagonalTensorMap, Rep, SU₂, TensorMap, U₁,
-    dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
+using TensorKit: @tensor, AbstractTensorMap, DiagonalTensorMap, Irrep, Rep, SU₂, TensorMap,
+    U₁, dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
@@ -331,9 +331,12 @@ using Test: @test, @test_throws, @testset
     end
 end
 
-@testset "dual/isdual on a TensorKit space" begin
+@testset "dual/isdual on TensorKit spaces and sectors" begin
     V = Rep[U₁](0 => 2, 1 => 1)
     @test TensorAlgebra.isdual(V) == false
     @test TensorAlgebra.isdual(dual(V)) == true
     @test TensorAlgebra.dual(V) == dual(V)
+    # A sector's dual is its conjugate.
+    s = Irrep[U₁](1)
+    @test TensorAlgebra.dual(s) == dual(s)
 end
