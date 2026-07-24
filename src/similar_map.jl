@@ -33,23 +33,31 @@ end
 
 """
     zeros([T,] axes) -> A
+    ones([T,] axes) -> A
     randn([rng,] [T,] axes) -> A
     rand([rng,] [T,] axes) -> A
+    fill(v, axes) -> A
 
-Axis-friendly counterparts of `Base.zeros`/`Base.randn`/`Base.rand`, taking the axes
-as a single tuple. `Base.zeros` already accepts axes, but `Base.randn`/`Base.rand`
-accept only integer dims, so these fill that gap for dense `Base.OneTo` axes and
-otherwise forward to `Base` (so a graded-axis backend that extends `Base.randn`/`rand`
-on its axis type is picked up). These are the flat (non-map) companions of
-[`zeros_map`](@ref).
+Axis-friendly counterparts of `Base.zeros`/`Base.ones`/`Base.randn`/`Base.rand`/`Base.fill`,
+taking the axes as a single tuple. `Base.zeros`/`Base.ones`/`Base.fill` already accept axes,
+but `Base.randn`/`Base.rand` accept only integer dims, so these fill that gap for dense
+`Base.OneTo` axes and otherwise forward to `Base` (so a graded-axis backend that extends
+`Base.randn`/`rand` on its axis type is picked up). These are the flat (non-map) companions
+of [`zeros_map`](@ref).
 """
 function zeros end
+function ones end
 function randn end
 function rand end
+function fill end
+@doc (@doc zeros) ones
 @doc (@doc zeros) randn
 @doc (@doc zeros) rand
+@doc (@doc zeros) fill
 
 zeros(::Type{T}, axes::Tuple) where {T} = Base.zeros(T, axes)
+ones(::Type{T}, axes::Tuple) where {T} = Base.ones(T, axes)
+fill(value, axes::Tuple) = Base.fill(value, axes)
 for (f, g) in ((:randn, :randn), (:rand, :rand))
     @eval begin
         $f(rng::AbstractRNG, ::Type{T}, axes::Tuple) where {T} = Base.$g(rng, T, axes)
@@ -63,28 +71,42 @@ end
 
 """
     zeros_map([T,] codomain_axes, domain_axes) -> M
+    ones_map([T,] codomain_axes, domain_axes) -> M
     randn_map([rng,] [T,] codomain_axes, domain_axes) -> M
     rand_map([rng,] [T,] codomain_axes, domain_axes) -> M
+    fill_map(v, codomain_axes, domain_axes) -> M
 
 Construct an array shaped as a linear map from `domain_axes` to `codomain_axes`,
-filled with zeros (`zeros_map`), normally-distributed values (`randn_map`), or
-uniformly-distributed values (`rand_map`), with element type `T` (defaulting to
-`Float64`). These are the value-filling companions of [`similar_map`](@ref): the
-domain axes are given un-dualized (codomain facing) and stored dual, so the default
-flattens to the axis-friendly [`zeros`](@ref)/[`randn`](@ref)/[`rand`](@ref) over
+filled with zeros (`zeros_map`), ones (`ones_map`), normally-distributed values
+(`randn_map`), uniformly-distributed values (`rand_map`), or the value `v` (`fill_map`),
+with element type `T` (defaulting to `Float64`; `fill_map` takes it from `v`). These are the
+value-filling companions of [`similar_map`](@ref): the domain axes are given un-dualized
+(codomain facing) and stored dual, so the default flattens to the axis-friendly
+[`zeros`](@ref)/[`ones`](@ref)/[`randn`](@ref)/[`rand`](@ref)/[`fill`](@ref) over
 `(codomain_axes..., conj.(domain_axes)...)` (`conj` dualizes a graded axis and is a
 no-op on a dense one). Backends with map-shaped storage (e.g. a `TensorMap`) overload
 these to build the codomain/domain directly.
 """
 function zeros_map end
+function ones_map end
 function randn_map end
 function rand_map end
+function fill_map end
+@doc (@doc zeros_map) ones_map
 @doc (@doc zeros_map) randn_map
 @doc (@doc zeros_map) rand_map
+@doc (@doc zeros_map) fill_map
 
 zeros_map(codomain_axes, domain_axes) = zeros_map(Float64, codomain_axes, domain_axes)
 function zeros_map(::Type{T}, codomain_axes, domain_axes) where {T}
     return zeros(T, (codomain_axes..., conj.(domain_axes)...))
+end
+ones_map(codomain_axes, domain_axes) = ones_map(Float64, codomain_axes, domain_axes)
+function ones_map(::Type{T}, codomain_axes, domain_axes) where {T}
+    return ones(T, (codomain_axes..., conj.(domain_axes)...))
+end
+function fill_map(value, codomain_axes, domain_axes)
+    return fill(value, (codomain_axes..., conj.(domain_axes)...))
 end
 
 for f in (:randn_map, :rand_map)
