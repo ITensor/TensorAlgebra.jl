@@ -109,3 +109,26 @@ end
     @test size(Msplit) == (2, 3, 1)
     @test vec(Msplit) == vec(flat)
 end
+
+@testset "project keeps a trailing surplus axis ($T)" for T in elts
+    # The dual of the padding case: when `raw` carries one axis *more* than the given axes
+    # account for, that trailing surplus axis is an auxiliary leg (e.g. a flux-canceling leg a
+    # codomain/domain split introduces on a symmetric state/operator), and its space is taken
+    # from `raw`. The result keeps the axis rather than reshaping it away, so its rank matches
+    # `raw`'s, matching the symmetric backends. Here the aux leg is the dim-1 leg a caller adds
+    # with `reshape(a, (size(a)..., 1))`.
+    raw = randn(T, 2, 3, 1)
+
+    # all-codomain (state) form
+    M = project(raw, (Base.OneTo(2), Base.OneTo(3)))
+    @test size(M) == (2, 3, 1)
+    @test M == raw
+
+    # explicit split: the surplus axis lands past the codomain/domain axes given
+    Msplit = project(raw, (Base.OneTo(2),), (Base.OneTo(3),))
+    @test size(Msplit) == (2, 3, 1)
+    @test Msplit == raw
+
+    # more than one surplus axis is rejected
+    @test_throws ArgumentError project(randn(T, 2, 3, 1, 1), (Base.OneTo(2), Base.OneTo(3)))
+end
