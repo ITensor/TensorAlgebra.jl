@@ -31,16 +31,27 @@ end
     allocate_project(raw, codomain_axes, domain_axes) -> dest
 
 Allocate the destination that projecting `raw` onto
-`codomain_axes`/`domain_axes` fills. The generic method is
-`similar_map(raw, codomain_axes, domain_axes)`. This is a backend
-customization point (with [`projectto!`](@ref) and [`is_projected`](@ref)):
-the allocation may depend on the data, since a symmetric backend derives the
-space of one trailing surplus axis in `raw` (an auxiliary leg appended as
-the last domain axis, e.g. a flux-canceling leg for a charge-shifting
-operator) before allocating.
+`codomain_axes`/`domain_axes` fills. This is a backend customization point
+(with [`projectto!`](@ref) and [`is_projected`](@ref)): the allocation may
+depend on the data, since a trailing surplus axis in `raw` (an auxiliary leg
+appended as the last domain axis, e.g. a flux-canceling leg for a
+charge-shifting operator) has its space taken from `raw` itself on a dense
+backend and derived from the sector structure on a symmetric one.
+
+The generic method keeps that trailing surplus axis (its `raw` axis appended
+to the domain), so the result's rank matches `raw`'s; with no surplus it is
+plain `similar_map(raw, codomain_axes, domain_axes)`.
 """
 function allocate_project(raw, codomain_axes, domain_axes)
-    return similar_map(raw, codomain_axes, domain_axes)
+    nphys = length(codomain_axes) + length(domain_axes)
+    ndims(raw) <= nphys && return similar_map(raw, codomain_axes, domain_axes)
+    ndims(raw) == nphys + 1 || throw(
+        ArgumentError(
+            "`project`: expected at most one trailing auxiliary axis beyond the $nphys \
+            given axes, got a rank-$(ndims(raw)) input"
+        )
+    )
+    return similar_map(raw, codomain_axes, (domain_axes..., axes(raw, nphys + 1)))
 end
 
 """
@@ -130,13 +141,13 @@ tolerances are subject to change in future versions). See
 for the unchecked projection this derives from.
 
 When `raw` has one axis more than the given axes account for, that trailing
-surplus axis is an auxiliary leg whose space a symmetric backend derives so
-the result is symmetry-allowed (e.g. a flux-canceling leg for a
-charge-shifting operator); the result's shape matches `raw`'s shape. The
-derivation is backend-internal: a graded backend reads the sector, the
-`TensorMap` backend projects over the `codomain ⊗ conj(domain)` content. The
-two-argument form takes a flat list of `axes` and is equivalent to an empty
-domain.
+surplus axis is an auxiliary leg appended as the last domain axis, so the
+result's shape matches `raw`'s (e.g. a flux-canceling leg for a
+charge-shifting operator). Its space comes from `raw` itself on a dense
+backend and is derived from the sector structure on a symmetric one (a graded
+backend reads the sector, the `TensorMap` backend projects over the
+`codomain ⊗ conj(domain)` content). The two-argument form takes a flat list
+of `axes` and is equivalent to an empty domain.
 """
 function project(raw, codomain_axes, domain_axes; kwargs...)
     dest = unchecked_project(raw, codomain_axes, domain_axes)
