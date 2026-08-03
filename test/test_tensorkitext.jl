@@ -1,9 +1,9 @@
 using Base.Broadcast: broadcasted
 using LinearAlgebra: LinearAlgebra, norm
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, contract, matricize, project, projectto!, rand_map,
-    randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project, unmatricize,
-    zeros_map
+using TensorAlgebra: TensorAlgebra, contract, matricize, project, project_aux, projectto!,
+    rand_map, randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project,
+    unmatricize, zeros_map
 using TensorKit: @tensor, AbstractTensorMap, DiagonalTensorMap, Irrep, Rep, SU₂, TensorMap,
     U₁, dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
@@ -180,55 +180,58 @@ using Test: @test, @test_throws, @testset
         @test_throws DimensionMismatch project(elt[0, 1], (W, Rep[U₁](-1 => 3)))
     end
 
-    # When `raw` has one trailing axis more than the given codomain/domain account for, that
-    # surplus axis is an auxiliary leg (appended as the last domain axis, matching the shape of
-    # `raw`) whose space `project` derives, so the result is symmetry-allowed. The derivation
-    # scans the aux axis against the operator content and works for non-abelian symmetries and
-    # multi-sector (direct-sum) auxes; the abelian single-charge case falls out.
-    @testset "project derives the auxiliary space" begin
+    # `project_aux` appends a derived auxiliary leg (as the last domain axis, matching the shape
+    # of `raw`) whose space it derives, so the result is symmetry-allowed. `project` itself is
+    # strict and rejects the surplus axis. The derivation scans the aux axis against the operator
+    # content and works for non-abelian symmetries and multi-sector (direct-sum) auxes; the
+    # abelian single-charge case falls out.
+    @testset "project_aux derives the auxiliary space" begin
         # SU(2): a spin operator (aux = spin-1, dim 3) is recovered from its dense components.
         Ws = Rep[SU₂](1 // 2 => 1)
         ts = randn(rng, elt, Ws, Ws ⊗ Rep[SU₂](1 => 1))
-        rs = project(convert(Array, ts), (Ws,), (Ws,))
+        rs = project_aux(convert(Array, ts), (Ws,), (Ws,))
         @test space(rs) == (Ws ← (Ws ⊗ Rep[SU₂](1 => 1)))
         @test rs ≈ ts
+
+        # strict `project` rejects that same surplus axis
+        @test_throws ArgumentError project(convert(Array, ts), (Ws,), (Ws,))
 
         # U(1): a charge-shifting operator (non-self-dual aux = charge +1) is recovered.
         Wu = Rep[U₁](0 => 1, 1 => 1)
         tu = randn(rng, elt, Wu, Wu ⊗ Rep[U₁](1 => 1))
-        ru = project(convert(Array, tu), (Wu,), (Wu,))
+        ru = project_aux(convert(Array, tu), (Wu,), (Wu,))
         @test space(ru) == (Wu ← (Wu ⊗ Rep[U₁](1 => 1)))
         @test ru ≈ tu
 
         # U(1) direct sum (an MPO-style virtual leg): each slice carries its own charge.
         tds = randn(rng, elt, Wu, Wu ⊗ Rep[U₁](1 => 1, -1 => 1))
-        rds = project(convert(Array, tds), (Wu,), (Wu,))
+        rds = project_aux(convert(Array, tds), (Wu,), (Wu,))
         @test space(rds) == (Wu ← (Wu ⊗ Rep[U₁](1 => 1, -1 => 1)))
         @test rds ≈ tds
 
         # SU(2) direct sum of different irreps (scalar ⊕ vector part, dim 4).
         tmx = randn(rng, elt, Ws, Ws ⊗ Rep[SU₂](0 => 1, 1 => 1))
-        rmx = project(convert(Array, tmx), (Ws,), (Ws,))
+        rmx = project_aux(convert(Array, tmx), (Ws,), (Ws,))
         @test space(rmx) == (Ws ← (Ws ⊗ Rep[SU₂](0 => 1, 1 => 1)))
         @test rmx ≈ tmx
 
         # SU(2) multiplicity > 1: two spin-1 copies (dim 6).
         tm2 = randn(rng, elt, Ws, Ws ⊗ Rep[SU₂](1 => 2))
-        rm2 = project(convert(Array, tm2), (Ws,), (Ws,))
+        rm2 = project_aux(convert(Array, tm2), (Ws,), (Ws,))
         @test space(rm2) == (Ws ← (Ws ⊗ Rep[SU₂](1 => 2)))
         @test rm2 ≈ tm2
 
         # data not covariant with any aux decomposition of the surplus axis is rejected
-        @test_throws ArgumentError project(randn(rng, elt, 2, 2, 3), (Ws,), (Ws,))
+        @test_throws ArgumentError project_aux(randn(rng, elt, 2, 2, 3), (Ws,), (Ws,))
 
         # only one trailing surplus axis is supported: more is an error, not a flattening
-        @test_throws ArgumentError project(
+        @test_throws ArgumentError project_aux(
             reshape(convert(Array, ts), 2, 2, 3, 1), (Ws,), (Ws,)
         )
 
         # a lower-rank `raw` that omits explicitly-given trailing length-1 axes is the
-        # trailing-axes tolerance, not a surplus axis: it pads, it does not derive. A domain
-        # aux of charge +1 admits the charge-1 component.
+        # trailing-axes tolerance handled by plain `project`, not a surplus axis: it pads, it
+        # does not derive. A domain aux of charge +1 admits the charge-1 component.
         aux1 = Rep[U₁](1 => 1)
         po = project(elt[0, 1], (Wu,), (aux1,))
         @test space(po) == (Wu ← aux1)
@@ -236,11 +239,11 @@ using Test: @test, @test_throws, @testset
 
         # the flat all-codomain (state) form also derives: a stack of basis states with
         # different charges gets a multi-sector aux
-        ps = project(elt[1 0; 0 1], (Wu,))
+        ps = project_aux(elt[1 0; 0 1], (Wu,))
         @test space(ps) == (Wu ← Rep[U₁](0 => 1, 1 => 1))
 
-        # `tryproject` gives `nothing` instead of throwing when the data is not invariant
-        # in the given (all-given) axes — the branch-and-fall-back-to-derivation idiom
+        # `tryproject` gives `nothing` instead of throwing when the data is not invariant in the
+        # given (all-given) axes — the branch-and-fall-back-to-`project_aux` idiom
         @test isnothing(tryproject(elt[0, 1], (Wu,)))
         @test tryproject(elt[1, 0], (Wu,)) isa AbstractTensorMap
     end
