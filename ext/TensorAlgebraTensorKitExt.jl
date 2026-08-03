@@ -162,38 +162,20 @@ function TensorAlgebra.unproject(t::AbstractTensorMap, ::Val{K}) where {K}
     return convert(Array, t)
 end
 
-# =============================  allocate_project (aux-leg derivation)  =====================
-# `allocate_project` for `TensorMap` spaces routes both the codomain-led and the (empty-codomain)
-# domain-led cases to `allocate_project_tensormap`, reading the elementary space type `S` from
-# whichever side is non-empty, the same two-entry split `similar_map` uses.
-function TensorAlgebra.allocate_project(
+# =============================  infer_aux_space (project_aux derivation)  ===================
+# `infer_aux_space` for `TensorMap` spaces routes both the codomain-led and the (empty-codomain)
+# domain-led cases to `infer_aux_space_tensormap`, reading the elementary space type `S` from
+# whichever side is non-empty, the same two-entry split `similar_map` uses. `project`'s allocation
+# stays generic (strict `similar_map`); only the `project_aux` derivation is `TensorMap`-specific.
+function TensorAlgebra.infer_aux_space(
         raw::AbstractArray, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
     ) where {S <: ElementarySpace}
-    return allocate_project_tensormap(raw, S, codomain_axes, domain_axes)
+    return infer_aux_space_tensormap(raw, S, codomain_axes, domain_axes)
 end
-function TensorAlgebra.allocate_project(
+function TensorAlgebra.infer_aux_space(
         raw::AbstractArray, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
     ) where {S <: ElementarySpace}
-    return allocate_project_tensormap(raw, S, codomain_axes, domain_axes)
-end
-
-# With no surplus axis this is plain `similar_map`; a single trailing surplus axis in `raw` is an
-# auxiliary leg whose space is derived (see `infer_aux_space`) and appended as the last domain axis
-# so the result is symmetry-allowed.
-function allocate_project_tensormap(
-        raw, ::Type{S}, codomain_axes, domain_axes
-    ) where {S <: ElementarySpace}
-    nphys = length(codomain_axes) + length(domain_axes)
-    ndims(raw) <= nphys &&
-        return TensorAlgebra.similar_map(raw, codomain_axes, domain_axes)
-    ndims(raw) == nphys + 1 || throw(
-        ArgumentError(
-            "`project`: expected at most one trailing auxiliary axis beyond the $nphys \
-            given axes, got a rank-$(ndims(raw)) input"
-        )
-    )
-    aux = infer_aux_space(raw, S, codomain_axes, domain_axes)
-    return TensorAlgebra.similar_map(raw, codomain_axes, (domain_axes..., aux))
+    return infer_aux_space_tensormap(raw, S, codomain_axes, domain_axes)
 end
 
 # The space of `raw`'s trailing auxiliary axis, derived so the projected result is
@@ -201,7 +183,7 @@ end
 # canonical (sorted) sector order — a `GradedSpace` sorts its sectors and the dense layout
 # follows, so the aux slices must appear in that order. The result may span several sectors (a
 # direct-sum, MPO-style virtual leg).
-function infer_aux_space(
+function infer_aux_space_tensormap(
         raw, ::Type{S}, codomain_axes, domain_axes
     ) where {S <: ElementarySpace}
     aux_dim = length(codomain_axes) + length(domain_axes) + 1

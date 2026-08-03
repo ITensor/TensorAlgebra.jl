@@ -1,5 +1,6 @@
-using TensorAlgebra: TensorAlgebra, is_projected, project, project!, projectto!, tryproject,
-    unchecked_project, unproject
+using TensorAlgebra: TensorAlgebra, is_projected, project, project!, project_aux,
+    projectto!, tryproject, tryproject_aux, unchecked_project, unchecked_project_aux,
+    unproject
 using Test: @test, @test_throws, @testset
 
 const elts = (Float32, Float64, ComplexF32, ComplexF64)
@@ -110,25 +111,36 @@ end
     @test vec(Msplit) == vec(flat)
 end
 
-@testset "project keeps a trailing surplus axis ($T)" for T in elts
-    # The dual of the padding case: when `raw` carries one axis *more* than the given axes
-    # account for, that trailing surplus axis is an auxiliary leg (e.g. a flux-canceling leg a
-    # codomain/domain split introduces on a symmetric state/operator), and its space is taken
-    # from `raw`. The result keeps the axis rather than reshaping it away, so its rank matches
-    # `raw`'s, matching the symmetric backends. Here the aux leg is the dim-1 leg a caller adds
-    # with `reshape(a, (size(a)..., 1))`.
+@testset "project rejects a surplus axis; project_aux derives one ($T)" for T in elts
+    # `project` projects into exactly the given axes: a surplus axis is an error, not a silent
+    # auxiliary leg. `project_aux` is the deriving entry point that appends that leg (e.g. a
+    # flux-canceling leg a codomain/domain split introduces on a symmetric state/operator). On a
+    # dense backend the aux space is taken from `raw`, and the result keeps the axis rather than
+    # reshaping it away, so its rank matches `raw`'s (matching the symmetric backends).
     raw = randn(T, 2, 3, 1)
+    @test_throws ArgumentError project(raw, (Base.OneTo(2), Base.OneTo(3)))
+    @test_throws ArgumentError project(raw, (Base.OneTo(2),), (Base.OneTo(3),))
 
     # all-codomain (state) form
-    M = project(raw, (Base.OneTo(2), Base.OneTo(3)))
+    M = project_aux(raw, (Base.OneTo(2), Base.OneTo(3)))
     @test size(M) == (2, 3, 1)
     @test M == raw
 
-    # explicit split: the surplus axis lands past the codomain/domain axes given
-    Msplit = project(raw, (Base.OneTo(2),), (Base.OneTo(3),))
+    # explicit split: the aux lands past the codomain/domain axes given
+    Msplit = project_aux(raw, (Base.OneTo(2),), (Base.OneTo(3),))
     @test size(Msplit) == (2, 3, 1)
     @test Msplit == raw
 
-    # more than one surplus axis is rejected
+    # a physical-rank input is reshaped up to a length-1 aux
+    flat = randn(T, 2, 3)
+    Mflat = project_aux(flat, (Base.OneTo(2),), (Base.OneTo(3),))
+    @test size(Mflat) == (2, 3, 1)
+    @test vec(Mflat) == vec(flat)
+
+    # more than one surplus axis is rejected by both
     @test_throws ArgumentError project(randn(T, 2, 3, 1, 1), (Base.OneTo(2), Base.OneTo(3)))
+    @test_throws ArgumentError project_aux(
+        randn(T, 2, 3, 1, 1),
+        (Base.OneTo(2), Base.OneTo(3))
+    )
 end
