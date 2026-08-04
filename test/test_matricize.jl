@@ -1,11 +1,11 @@
 using LinearAlgebra: Transpose
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, PermuteMatricizeKind, ReshapeFusion,
+using TensorAlgebra: TensorAlgebra, PermuteMatricizeKind, ReshapeMatricize,
     ReshapeMatricizeKind, TransposeMatricizeKind, matricizeopperm, matricizeperm
 using Test: @test, @testset
 
-# A non-`ReshapeFusion` style, to check the always-safe generic fallback.
-struct DummyFusion <: TensorAlgebra.FusionStyle end
+# A non-`ReshapeMatricize` style, to check the always-safe generic fallback.
+struct DummyMatricize <: TensorAlgebra.MatricizeStyle end
 
 # Ground-truth matricization: permute into `(codomain..., domain...)` order, then reshape.
 function matricize_ref(a, perm_codomain, perm_domain)
@@ -16,7 +16,7 @@ function matricize_ref(a, perm_codomain, perm_domain)
 end
 
 @testset "matricizekind classifier" begin
-    style = ReshapeFusion()
+    style = ReshapeMatricize()
     # Already in storage order → plain reshape view.
     @test TensorAlgebra.matricizekind(style, (1,), (2, 3)) == ReshapeMatricizeKind
     @test TensorAlgebra.matricizekind(style, (1, 2), (3,)) == ReshapeMatricizeKind
@@ -29,12 +29,16 @@ end
     @test TensorAlgebra.matricizekind(style, (3, 1), (2,)) == PermuteMatricizeKind
     @test TensorAlgebra.matricizekind(style, (2,), (1, 3)) == PermuteMatricizeKind
     @test TensorAlgebra.matricizekind(style, (1, 3), (2,)) == PermuteMatricizeKind
-    # Generic fusion styles recognize the always-safe reshape (no-op permute) but never
+    # Generic matricize styles recognize the always-safe reshape (no-op permute) but never
     # claim a transpose (which only styles with a lazy `transpose` can realize).
-    @test TensorAlgebra.matricizekind(DummyFusion(), (1,), (2, 3)) == ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(DummyFusion(), (1, 2, 3), ()) == ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(DummyFusion(), (2, 3), (1,)) == PermuteMatricizeKind
-    @test TensorAlgebra.matricizekind(DummyFusion(), (3, 1), (2,)) == PermuteMatricizeKind
+    @test TensorAlgebra.matricizekind(DummyMatricize(), (1,), (2, 3)) ==
+        ReshapeMatricizeKind
+    @test TensorAlgebra.matricizekind(DummyMatricize(), (1, 2, 3), ()) ==
+        ReshapeMatricizeKind
+    @test TensorAlgebra.matricizekind(DummyMatricize(), (2, 3), (1,)) ==
+        PermuteMatricizeKind
+    @test TensorAlgebra.matricizekind(DummyMatricize(), (3, 1), (2,)) ==
+        PermuteMatricizeKind
 end
 
 @testset "maybe-view matricizeopperm (eltype=$elt)" for elt in (Float64, ComplexF64)

@@ -15,7 +15,7 @@ for f in (
         :left_polar, :right_polar, :left_orth, :right_orth,
     )
     @eval begin
-        function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             X, Y = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
@@ -23,7 +23,7 @@ for f in (
                 unmatricize(style, Y, (axes(Y, 1),), axes_domain)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
-            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+            return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
         end
     end
 end
@@ -38,7 +38,7 @@ for f in (
     )
     @eval begin
         function $f(
-                style::FusionStyle, A,
+                style::MatricizeStyle, A,
                 perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
                 kwargs...
             )
@@ -55,7 +55,7 @@ for f in (
         end
 
         function $f(
-                style::FusionStyle, A,
+                style::MatricizeStyle, A,
                 labels_A, labels_codomain, labels_domain; kwargs...
             )
             perm_codomain, perm_domain =
@@ -96,11 +96,11 @@ julia> TensorAlgebra.tr(A, (:i, :j, :k, :l), (:i, :k), (:j, :l)) ≈
 true
 ```
 """
-function tr(style::FusionStyle, A, ndims_codomain::Val)
+function tr(style::MatricizeStyle, A, ndims_codomain::Val)
     return LinearAlgebra.tr(matricize(style, A, ndims_codomain))
 end
 function tr(A, ndims_codomain::Val)
-    return tr(FusionStyle(A), A, ndims_codomain)
+    return tr(MatricizeStyle(A), A, ndims_codomain)
 end
 function tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
     A_perm = bipermutedims(A, perm_codomain, perm_domain)
@@ -256,7 +256,7 @@ right_orth
 # rank × rank spectrum, and `Vᴴ` carries a leading rank axis plus the domain axes.
 for f in (:svd_compact, :svd_full)
     @eval begin
-        function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             U, S, Vᴴ = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
@@ -265,7 +265,7 @@ for f in (:svd_compact, :svd_full)
                 unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
-            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+            return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
         end
     end
 end
@@ -273,7 +273,7 @@ end
 # `svd_trunc` matches the three-output SVD but additionally surfaces the truncation error
 # `ϵ` (the 2-norm of the discarded singular values, computed by MatrixAlgebraKit without
 # catastrophic cancellation), so it is spelled out here rather than sharing the loop above.
-function svd_trunc(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function svd_trunc(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc(A_mat; kwargs...)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
@@ -283,21 +283,21 @@ function svd_trunc(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
         ϵ
 end
 function svd_trunc(A, ndims_codomain::Val; kwargs...)
-    return svd_trunc(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return svd_trunc(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
 # Eigendecomposition: `D` is the rank × rank spectrum, left as a matrix, while `V` carries
 # the codomain axes plus a trailing rank axis.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
-        function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             D, V = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain = first(bipartition(axes(A), ndims_codomain))
             return D, unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
         end
         function $f(A, ndims_codomain::Val; kwargs...)
-            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+            return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
         end
     end
 end
@@ -305,12 +305,12 @@ end
 # Spectrum-only factorizations returning a vector of singular values / eigenvalues.
 for f in (:svd_vals, :eigh_vals, :eig_vals)
     @eval begin
-        function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             return MatrixAlgebraKit.$f(A_mat; kwargs...)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
-            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+            return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
         end
     end
 end
@@ -487,17 +487,17 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 """
 left_null
 
-function left_null!!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function left_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
     return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
 end
 function left_null!!(A, ndims_codomain::Val; kwargs...)
-    return left_null!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return left_null!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-function left_null(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function left_null(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     return left_null!!(style, copy(A), ndims_codomain; kwargs...)
 end
 function left_null(A, ndims_codomain::Val; kwargs...)
@@ -524,17 +524,17 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 """
 right_null
 
-function right_null!!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function right_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     _, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, Nᴴ, (axes(Nᴴ, 1),), axes_domain)
 end
 function right_null!!(A, ndims_codomain::Val; kwargs...)
-    return right_null!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return right_null!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-function right_null(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function right_null(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     return right_null!!(style, copy(A), ndims_codomain; kwargs...)
 end
 function right_null(A, ndims_codomain::Val; kwargs...)
@@ -579,7 +579,7 @@ See also [`gram_eigh_full_with_pinv`](@ref) and
 gram_eigh_full
 
 function gram_eigh_full!!(
-        style::FusionStyle, A, ndims_codomain::Val; kwargs...
+        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
     )
     A_mat = matricize(style, A, ndims_codomain)
     X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
@@ -587,11 +587,11 @@ function gram_eigh_full!!(
     return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
 end
 function gram_eigh_full!!(A, ndims_codomain::Val; kwargs...)
-    return gram_eigh_full!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return gram_eigh_full!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
 function gram_eigh_full(
-        style::FusionStyle, A, ndims_codomain::Val; kwargs...
+        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
     )
     return gram_eigh_full!!(style, copy(A), ndims_codomain; kwargs...)
 end
@@ -640,7 +640,7 @@ See also [`MatrixAlgebra.gram_eigh_full_with_pinv`](@ref).
 gram_eigh_full_with_pinv
 
 function gram_eigh_full_with_pinv!!(
-        style::FusionStyle, A, ndims_codomain::Val; kwargs...
+        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
     )
     A_mat = matricize(style, A, ndims_codomain)
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
@@ -649,11 +649,11 @@ function gram_eigh_full_with_pinv!!(
         unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
 end
 function gram_eigh_full_with_pinv!!(A, ndims_codomain::Val; kwargs...)
-    return gram_eigh_full_with_pinv!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return gram_eigh_full_with_pinv!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
 function gram_eigh_full_with_pinv(
-        style::FusionStyle, A, ndims_codomain::Val; kwargs...
+        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
     )
     return gram_eigh_full_with_pinv!!(style, copy(A), ndims_codomain; kwargs...)
 end
@@ -709,14 +709,14 @@ invsqrth_safe
 
 for f in (:sqrth_safe, :invsqrth_safe)
     @eval begin
-        function $f(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             P_mat = MatrixAlgebra.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
             return unmatricize(style, P_mat, axes_codomain, axes_domain)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
-            return $f(FusionStyle(A), A, ndims_codomain; kwargs...)
+            return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
         end
     end
 end
@@ -734,14 +734,14 @@ See also `MatrixAlgebraKit.project_hermitian`.
 """
 project_hermitian
 
-function project_hermitian(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function project_hermitian(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     H_mat = MatrixAlgebraKit.project_hermitian(A_mat; kwargs...)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, H_mat, axes_codomain, axes_domain)
 end
 function project_hermitian(A, ndims_codomain::Val; kwargs...)
-    return project_hermitian(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return project_hermitian(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """
@@ -764,7 +764,7 @@ See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
 """
 sqrth_invsqrth_safe
 
-function sqrth_invsqrth_safe(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function sqrth_invsqrth_safe(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     P_mat, Pinv_mat = MatrixAlgebra.sqrth_invsqrth_safe(A_mat; kwargs...)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
@@ -772,7 +772,7 @@ function sqrth_invsqrth_safe(style::FusionStyle, A, ndims_codomain::Val; kwargs.
         unmatricize(style, Pinv_mat, axes_codomain, axes_domain)
 end
 function sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...)
-    return sqrth_invsqrth_safe(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return sqrth_invsqrth_safe(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
 """
@@ -808,30 +808,30 @@ true
 """
 one
 
-function one!!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
     codomain_axes, domain_axes = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, A_mat, codomain_axes, domain_axes)
 end
 function one!!(A, ndims_codomain::Val; kwargs...)
-    return one!!(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return one!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
 # In-place identity fill: writes the identity into `A` and returns it. Matricizes `A`, fills the
 # fused matrix with the identity, and — when the matricized form is a detached copy (a graded
 # gather) rather than a view aliasing `A` (a dense reshape) — scatters it back with `unmatricize!`.
-function one!(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
     Base.mightalias(A_mat, A) && return A
     return unmatricize!(A, A_mat, ndims_codomain)
 end
 function one!(A, ndims_codomain::Val; kwargs...)
-    return one!(FusionStyle(A), A, ndims_codomain; kwargs...)
+    return one!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-function one(style::FusionStyle, A, ndims_codomain::Val; kwargs...)
+function one(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     return one!!(style, copy(A), ndims_codomain; kwargs...)
 end
 function one(A, ndims_codomain::Val; kwargs...)

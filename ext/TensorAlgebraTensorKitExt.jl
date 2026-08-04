@@ -240,11 +240,11 @@ end
 # A `TensorMap` is already a linear map codomain ← domain, so "matricizing" is just regrouping
 # its indices into the requested codomain/domain bipartition (`permute`). No fusion or copy of
 # the array vocabulary is needed: MatrixAlgebraKit factorizes the regrouped `TensorMap` directly.
-struct TensorKitFusion <: TensorAlgebra.FusionStyle end
-TensorAlgebra.FusionStyle(::Type{<:AbstractTensorMap}) = TensorKitFusion()
+struct TensorKitMatricize <: TensorAlgebra.MatricizeStyle end
+TensorAlgebra.MatricizeStyle(::Type{<:AbstractTensorMap}) = TensorKitMatricize()
 
 function TensorAlgebra.matricize(
-        ::TensorKitFusion, t::AbstractTensorMap, ndims_codomain::Val{K}
+        ::TensorKitMatricize, t::AbstractTensorMap, ndims_codomain::Val{K}
     ) where {K}
     N = numind(t)
     return permute(t, (ntuple(identity, Val(K)), ntuple(i -> K + i, Val(N - K))))
@@ -253,7 +253,7 @@ end
 # The identity fill on the regrouped map is TensorKit's own `one!` (MatrixAlgebraKit's
 # `one!` speaks `AbstractMatrix` only).
 function TensorAlgebra.one!!(
-        style::TensorKitFusion, A::AbstractTensorMap, ndims_codomain::Val; kwargs...
+        style::TensorKitMatricize, A::AbstractTensorMap, ndims_codomain::Val; kwargs...
     )
     return TensorKit.one!(TensorAlgebra.matricize(style, A, ndims_codomain))
 end
@@ -264,7 +264,7 @@ end
 # codomain-facing (un-dualized), which is exactly TensorKit's domain convention, so they build the
 # domain `ProductSpace` directly.
 function TensorAlgebra.unmatricize(
-        ::TensorKitFusion, m::AbstractTensorMap, codomain_axes, domain_axes
+        ::TensorKitMatricize, m::AbstractTensorMap, codomain_axes, domain_axes
     )
     S = spacetype(m)
     dest = ProductSpace{S}(codomain_axes...) ← ProductSpace{S}(domain_axes...)
