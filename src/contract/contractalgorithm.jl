@@ -4,12 +4,12 @@ ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 struct DefaultContractAlgorithm <: ContractAlgorithm end
 
 struct Matricize{LeftStyle, RightStyle, OutputStyle} <: ContractAlgorithm
-    left_fusion_style::LeftStyle
-    right_fusion_style::RightStyle
-    output_fusion_style::OutputStyle
+    left_matricize_style::LeftStyle
+    right_matricize_style::RightStyle
+    output_matricize_style::OutputStyle
 end
-Matricize(fusion_style) = Matricize(fusion_style, fusion_style, fusion_style)
-Matricize() = Matricize(ReshapeFusion())
+Matricize(matricize_style) = Matricize(matricize_style, matricize_style, matricize_style)
+Matricize() = Matricize(ReshapeMatricize())
 
 """
     TensorOperationsAlgorithm(; backend = nothing, allocator = nothing)
@@ -36,5 +36,5 @@ function default_contract_algorithm(a1, a2)
     return default_contract_algorithm(typeof(a1), typeof(a2))
 end
 function default_contract_algorithm(A1::Type{<:AbstractArray}, A2::Type{<:AbstractArray})
-    return Matricize(FusionStyle(FusionStyle(A1), FusionStyle(A2)))
+    return Matricize(MatricizeStyle(MatricizeStyle(A1), MatricizeStyle(A2)))
 end

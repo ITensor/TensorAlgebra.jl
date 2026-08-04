@@ -41,13 +41,13 @@ using Test: @test, @testset
     end
 
     @testset "matricize(1, 1) is the identity reshape" begin
-        m = TensorAlgebra.matricize(TensorAlgebra.ReshapeFusion(), d, Val(1))
+        m = TensorAlgebra.matricize(TensorAlgebra.ReshapeMatricize(), d, Val(1))
         @test m === d
     end
 
     @testset "unmatricize round-trips a Diagonal" begin
         ax = axes(d, 1)
-        back = TensorAlgebra.unmatricize(TensorAlgebra.ReshapeFusion(), d, (ax,), (ax,))
+        back = TensorAlgebra.unmatricize(TensorAlgebra.ReshapeMatricize(), d, (ax,), (ax,))
         @test back === d
     end
 

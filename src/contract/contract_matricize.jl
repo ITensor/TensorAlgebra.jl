@@ -17,12 +17,12 @@ function contractopadd!(
         a2, biperm2_codomain, biperm2_domain
     )
     a1_mat = matricizeopperm(
-        algorithm.left_fusion_style, op1, a1, biperm1_codomain, biperm1_domain
+        algorithm.left_matricize_style, op1, a1, biperm1_codomain, biperm1_domain
     )
     a2_mat = matricizeopperm(
-        algorithm.right_fusion_style, op2, a2, biperm2_codomain, biperm2_domain
+        algorithm.right_matricize_style, op2, a2, biperm2_codomain, biperm2_domain
     )
-    output_style = algorithm.output_fusion_style
+    output_style = algorithm.output_matricize_style
     if iszero(β) && !matricizepermaliases(output_style, invperm_codomain, invperm_domain)
         # `β` is a strong zero and matricizing `a_dest` would only build a detached copy that
         # `mul!` immediately overwrites, so skip that gather: let the matmul allocate its matrix

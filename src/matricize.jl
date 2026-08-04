@@ -1,13 +1,13 @@
 using EllipsisNotation: Ellipsis
 using LinearAlgebra: Diagonal
 
-# =====================================  FusionStyle  ======================================
-abstract type FusionStyle end
+# =====================================  MatricizeStyle  ======================================
+abstract type MatricizeStyle end
 
-FusionStyle(x) = FusionStyle(typeof(x))
-FusionStyle(T::Type) = throw(MethodError(FusionStyle, (T,)))
-FusionStyle(style1::Style, style2::Style) where {Style <: FusionStyle} = Style()
-FusionStyle(style1::FusionStyle, style2::FusionStyle) = ReshapeFusion()
+MatricizeStyle(x) = MatricizeStyle(typeof(x))
+MatricizeStyle(T::Type) = throw(MethodError(MatricizeStyle, (T,)))
+MatricizeStyle(style1::Style, style2::Style) where {Style <: MatricizeStyle} = Style()
+MatricizeStyle(style1::MatricizeStyle, style2::MatricizeStyle) = ReshapeMatricize()
 
 # =======================================  misc  ========================================
 
@@ -72,28 +72,28 @@ end
 # matrix factorizations assume copy
 # maybe: copy=false kwarg
 
-# This is the primary function that should be overloaded for new fusion styles.
+# This is the primary function that should be overloaded for new matricize styles.
 # This assumes the permutation was already performed.
 function matricize(
-        style::FusionStyle, a, ndims_codomain::Val
+        style::MatricizeStyle, a, ndims_codomain::Val
     )
     return throw(MethodError(matricize, (style, a, ndims_codomain)))
 end
 function matricize(a, ndims_codomain::Val)
-    return matricize(FusionStyle(a), a, ndims_codomain)
+    return matricize(MatricizeStyle(a), a, ndims_codomain)
 end
 
 function matricizeperm(
         a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return matricizeperm(FusionStyle(a), a, perm_codomain, perm_domain)
+    return matricizeperm(MatricizeStyle(a), a, perm_codomain, perm_domain)
 end
 # Thin wrapper around `matricizeopperm` with identity op — the actual matricization logic
-# (and the fusion-style overload point for folding ops into matricization) lives in
+# (and the matricize-style overload point for folding ops into matricization) lives in
 # `matricizeopperm`.
 function matricizeperm(
-        style::FusionStyle, a,
+        style::MatricizeStyle, a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     return matricizeopperm(style, identity, a, perm_codomain, perm_domain)
@@ -124,10 +124,10 @@ function to_permblocks(
 end
 
 function matricizeperm(a, perm_codomain, perm_domain)
-    return matricizeperm(FusionStyle(a), a, perm_codomain, perm_domain)
+    return matricizeperm(MatricizeStyle(a), a, perm_codomain, perm_domain)
 end
 function matricizeperm(
-        style::FusionStyle, a, perm_codomain, perm_domain
+        style::MatricizeStyle, a, perm_codomain, perm_domain
     )
     return matricizeperm(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
@@ -141,14 +141,14 @@ Matricize `a` with element-wise operation `op` folded in. Returns a matrix repre
 `op.(matricizeperm(a, perm_codomain, perm_domain))`.
 
 Has "maybe alias" semantics: the result may be a view/wrapper aliasing `a` or a fresh
-copy, depending on the fusion style and array type. The caller should treat the result
+copy, depending on the matricize style and array type. The caller should treat the result
 as read-only.
 """
 function matricizeopperm(op, a, perm_codomain, perm_domain)
-    return matricizeopperm(FusionStyle(a), op, a, perm_codomain, perm_domain)
+    return matricizeopperm(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
 end
 function matricizeopperm(
-        style::FusionStyle, op, a, perm_codomain, perm_domain
+        style::MatricizeStyle, op, a, perm_codomain, perm_domain
     )
     return matricizeopperm(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
@@ -162,17 +162,17 @@ end
 #                            array realizes as a `transpose` of a `reshape` (a view gemm
 #                            reads via BLAS' transpose flag).
 #   PermuteMatricizeKind   — the groups interleave storage, so a permuted copy is required.
-# Pure: depends only on the index pattern, not on `a`'s data. Dispatched on `FusionStyle`.
+# Pure: depends only on the index pattern, not on `a`'s data. Dispatched on `MatricizeStyle`.
 # The generic classifier only recognizes the always-safe `ReshapeMatricizeKind` (skipping a
 # no-op permute is valid for any style); `TransposeMatricizeKind` is opt-in for styles whose
-# `matricize` composes with a lazy `transpose`, currently only `ReshapeFusion`.
+# `matricize` composes with a lazy `transpose`, currently only `ReshapeMatricize`.
 @enum MatricizeKind ReshapeMatricizeKind TransposeMatricizeKind PermuteMatricizeKind
 
 # Whether `perm` is the identity permutation `(1, …, n)`.
 isidentityperm(perm::Tuple{Vararg{Int}}) = perm == ntuple(identity, length(perm))
 
 function matricizekind(
-        ::FusionStyle, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        ::MatricizeStyle, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     # Already in storage order: the permute is a no-op, so `matricize` can run directly.
     isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
@@ -184,7 +184,7 @@ end
 # `matricize` is itself a view (a dense reshape) can alias, and only when the bipermutation needs
 # no permuted copy. Defaults to `false`: a style that gathers into new storage, such as a graded
 # array, never aliases its input.
-matricizepermaliases(::FusionStyle, perm_codomain, perm_domain) = false
+matricizepermaliases(::MatricizeStyle, perm_codomain, perm_domain) = false
 
 # Skip the permuted copy when the classifier says it is unnecessary. `ReshapeMatricizeKind`
 # calls `matricize` directly on `a` (a view for dense, a gather without the extra permute
@@ -192,7 +192,7 @@ matricizepermaliases(::FusionStyle, perm_codomain, perm_domain) = false
 # fast paths require `op === identity`, since a plain view cannot carry a fused `op` like
 # `conj`. The result may alias `a` and must be treated as read-only, matching the docstring.
 function matricizeopperm(
-        style::FusionStyle, op, a,
+        style::MatricizeStyle, op, a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
@@ -211,16 +211,16 @@ end
 # ====================================  unmatricize  =======================================
 # Split form: `codomain_axes` and `domain_axes` are the destination axes for the codomain and
 # domain groups, given codomain-facing (un-dualized), the same convention as `similar_map`. A
-# fusion style stores the domain axes dualized, so its overload re-dualizes them with `conj`
-# (a no-op on a dense axis). This is the primary overload point for new fusion styles.
+# matricize style stores the domain axes dualized, so its overload re-dualizes them with `conj`
+# (a no-op on a dense axis). This is the primary overload point for new matricize styles.
 # Permutation is handled separately by `unmatricizeperm`, so `unmatricize` never has to
 # disambiguate axis tuples from permutation tuples regardless of how unconstrained `m` and the
 # axes are.
-function unmatricize(style::FusionStyle, m, codomain_axes, domain_axes)
+function unmatricize(style::MatricizeStyle, m, codomain_axes, domain_axes)
     return throw(MethodError(unmatricize, (style, m, codomain_axes, domain_axes)))
 end
 function unmatricize(m, codomain_axes, domain_axes)
-    return unmatricize(FusionStyle(m), m, codomain_axes, domain_axes)
+    return unmatricize(MatricizeStyle(m), m, codomain_axes, domain_axes)
 end
 
 # Split `axes` into its codomain and domain groups like `bipartition`, but present the domain
@@ -238,10 +238,16 @@ function unmatricizeperm(
         m, axes_dest,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
-    return unmatricizeperm(FusionStyle(m), m, axes_dest, invperm_codomain, invperm_domain)
+    return unmatricizeperm(
+        MatricizeStyle(m),
+        m,
+        axes_dest,
+        invperm_codomain,
+        invperm_domain
+    )
 end
 function unmatricizeperm(
-        style::FusionStyle, m, axes_dest,
+        style::MatricizeStyle, m, axes_dest,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
@@ -257,10 +263,10 @@ function unmatricizeperm!(
         a_dest, m,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
-    return unmatricizeperm!(FusionStyle(m), a_dest, m, invperm_codomain, invperm_domain)
+    return unmatricizeperm!(MatricizeStyle(m), a_dest, m, invperm_codomain, invperm_domain)
 end
 function unmatricizeperm!(
-        style::FusionStyle, a_dest, m,
+        style::MatricizeStyle, a_dest, m,
         invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
     )
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
@@ -287,10 +293,10 @@ function unmatricize!(a_dest, m, ndims_codomain::Val)
     )
 end
 
-# Defaults to ReshapeFusion, a simple reshape
-struct ReshapeFusion <: FusionStyle end
-FusionStyle(::Type{<:AbstractArray}) = ReshapeFusion()
-function matricize(::ReshapeFusion, a, ndims_codomain::Val)
+# Defaults to ReshapeMatricize, a simple reshape
+struct ReshapeMatricize <: MatricizeStyle end
+MatricizeStyle(::Type{<:AbstractArray}) = ReshapeMatricize()
+function matricize(::ReshapeMatricize, a, ndims_codomain::Val)
     unval(ndims_codomain) ≤ ndims(a) ||
         throw(ArgumentError("Codomain length exceeds number of dimensions."))
     size_codomain, size_domain = bipartition(size(a), ndims_codomain)
@@ -300,7 +306,7 @@ end
 # reshape (a view), so it opts into `TransposeMatricizeKind` on top of the generic
 # reshape/permute classification.
 function matricizekind(
-        ::ReshapeFusion, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        ::ReshapeMatricize, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
     isidentityperm((perm_domain..., perm_codomain...)) && return TransposeMatricizeKind
@@ -308,11 +314,11 @@ function matricizekind(
 end
 # A dense reshape/transpose is a view of `a`; only a permuted copy detaches. So the matricized
 # output aliases `a` for every kind except `PermuteMatricizeKind`.
-function matricizepermaliases(style::ReshapeFusion, perm_codomain, perm_domain)
+function matricizepermaliases(style::ReshapeMatricize, perm_codomain, perm_domain)
     return matricizekind(style, perm_codomain, perm_domain) != PermuteMatricizeKind
 end
 # A dense reshape ignores the codomain/domain split: it just reshapes to the concatenated axes.
 # `conj` re-dualizes the codomain-facing `domain_axes` into stored form, a no-op on a dense axis.
-function unmatricize(style::ReshapeFusion, m, codomain_axes, domain_axes)
+function unmatricize(style::ReshapeMatricize, m, codomain_axes, domain_axes)
     return reshape(m, (codomain_axes..., conj.(domain_axes)...))
 end

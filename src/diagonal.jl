@@ -1,6 +1,6 @@
 using LinearAlgebra: Diagonal
 
-# `Diagonal` participates in the `ReshapeFusion` interface like a dense matrix (it fuses with
+# `Diagonal` participates in the `ReshapeMatricize` interface like a dense matrix (it fuses with
 # the same row/column reshape order), but its structure is preserved wherever the result of
 # an operation is still diagonal. These methods hook the lowest-level primitives, so the
 # convenience wrappers built on them (`bipermutedims`, `permutedimsadd!`, `add!`, and the
@@ -44,9 +44,9 @@ end
 
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
 # reshape, so return it directly (maybe-alias, matching `matricize`'s general contract).
-matricize(::ReshapeFusion, a::Diagonal, ::Val{1}) = a
+matricize(::ReshapeMatricize, a::Diagonal, ::Val{1}) = a
 function unmatricize(
-        ::ReshapeFusion, m::Diagonal,
+        ::ReshapeMatricize, m::Diagonal,
         ::Tuple{<:AbstractUnitRange}, ::Tuple{<:AbstractUnitRange}
     )
     return m
