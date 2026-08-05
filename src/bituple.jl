@@ -40,10 +40,9 @@ Base.hash(bt::BiTuple, h::UInt) = hash(Tuple(bt), h)
 
 Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
 
-# An `AbstractArray` whose `axes` is a `BiTuple` reaches a range of generic machinery (Base indexing,
-# Base broadcasting/shape, and the matricize/permute helpers here) that assumes a flat tuple of axes.
-# Index sets, bounds, shapes, and permutations all ignore the codomain/domain split, so flatten the
-# `BiTuple` first. This is the same collapse-to-flat behavior mixed operations fall back to.
+# An `AbstractArray` whose `axes` is a `BiTuple` reaches Base indexing and the matricize/permute
+# helpers here, which assume a flat tuple of axes. Index sets, bounds, and permutations all ignore the
+# codomain/domain split, so flatten the `BiTuple` first.
 Base.LinearIndices(bt::BiTuple) = LinearIndices(Tuple(bt))
 Base.CartesianIndices(bt::BiTuple) = CartesianIndices(Tuple(bt))
 function Base.checkbounds_indices(::Type{Bool}, bt::BiTuple, I::Tuple)
@@ -52,13 +51,6 @@ end
 function Base.PermutedDimsArrays.genperm(bt::BiTuple, perm::NTuple{N, Int}) where {N}
     return Base.PermutedDimsArrays.genperm(Tuple(bt), perm)
 end
-Base.tail(bt::BiTuple) = Base.tail(Tuple(bt))
-Base.front(bt::BiTuple) = Base.front(Tuple(bt))
-Base.lastindex(bt::BiTuple) = Base.lastindex(Tuple(bt))
-Base.safe_tail(bt::BiTuple) = Base.safe_tail(Tuple(bt))
-# In-place `dest .= src` into a `BiTuple`-axed destination carries those axes on the `Broadcasted`;
-# report the flat tuple so the generic element-wise `copyto!` can consume them.
-Base.Broadcast._axes(bc::Base.Broadcast.Broadcasted, axs::BiTuple) = Tuple(axs)
 # A single-argument `map` preserves the split, mapping each block: with one operand there is no
 # ambiguity about which split to keep. (The multi-argument case is the ambiguous one and is left to
 # collapse to the flat tuple.)
