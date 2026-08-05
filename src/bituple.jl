@@ -45,6 +45,8 @@ Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
 # codomain/domain split, so flatten the `BiTuple` first.
 Base.LinearIndices(bt::BiTuple) = LinearIndices(Tuple(bt))
 Base.CartesianIndices(bt::BiTuple) = CartesianIndices(Tuple(bt))
+# `checkbounds_indices` is Base's extension point for a custom axes container: it dispatches on the
+# axes tuple, so a `BiTuple` (not a `Tuple`) never competes with Base's index-type specializations.
 function Base.checkbounds_indices(::Type{Bool}, bt::BiTuple, I::Tuple)
     return Base.checkbounds_indices(Bool, Tuple(bt), I)
 end
