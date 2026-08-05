@@ -30,9 +30,71 @@ function Base.show(io::IO, bt::BiTuple)
 end
 
 Base.:(==)(a::BiTuple, b::BiTuple) = a.t1 == b.t1 && a.t2 == b.t2
+# Compare flat against a plain tuple, so `axes(a) == (r1, r2)` works when `axes` returns a `BiTuple`.
+Base.:(==)(bt::BiTuple, t::Tuple) = Tuple(bt) == t
+Base.:(==)(t::Tuple, bt::BiTuple) = t == Tuple(bt)
 Base.hash(bt::BiTuple, h::UInt) = hash(bt.t2, hash(bt.t1, hash(:BiTuple, h)))
 
 Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
+
+# An `AbstractArray` whose `axes` is a `BiTuple` reaches a range of generic machinery (Base indexing,
+# Base broadcasting/shape, and the matricize/permute helpers here) that assumes a flat tuple of axes.
+# Index sets, bounds, shapes, and permutations all ignore the codomain/domain split, so flatten the
+# `BiTuple` first. This is the same collapse-to-flat behavior mixed operations fall back to.
+Base.LinearIndices(bt::BiTuple) = LinearIndices(Tuple(bt))
+Base.CartesianIndices(bt::BiTuple) = CartesianIndices(Tuple(bt))
+function Base.checkbounds_indices(::Type{Bool}, bt::BiTuple, I::Tuple)
+    return Base.checkbounds_indices(Bool, Tuple(bt), I)
+end
+Base.promote_shape(a::BiTuple, b::Tuple) = Base.promote_shape(Tuple(a), b)
+Base.promote_shape(a::Tuple, b::BiTuple) = Base.promote_shape(a, Tuple(b))
+Base.promote_shape(a::BiTuple, b::BiTuple) = Base.promote_shape(Tuple(a), Tuple(b))
+function Base.Broadcast.broadcast_shape(a::BiTuple, shapes...)
+    return Base.Broadcast.broadcast_shape(Tuple(a), shapes...)
+end
+function Base.Broadcast.broadcast_shape(a::Tuple, b::BiTuple, shapes...)
+    return Base.Broadcast.broadcast_shape(a, Tuple(b), shapes...)
+end
+function Base.Broadcast.check_broadcast_shape(a::BiTuple, b::Tuple{})
+    return Base.Broadcast.check_broadcast_shape(Tuple(a), b)
+end
+function Base.Broadcast.check_broadcast_shape(a::BiTuple, b::Tuple)
+    return Base.Broadcast.check_broadcast_shape(Tuple(a), b)
+end
+function Base.Broadcast.check_broadcast_shape(a, b::BiTuple)
+    return Base.Broadcast.check_broadcast_shape(a, Tuple(b))
+end
+function Base.Broadcast.check_broadcast_shape(a::BiTuple, b::BiTuple)
+    return Base.Broadcast.check_broadcast_shape(Tuple(a), Tuple(b))
+end
+function Base._show_nonempty(
+        io::IO,
+        X::AbstractMatrix,
+        prefix::String,
+        drop::Bool,
+        axs::BiTuple
+    )
+    return Base._show_nonempty(io, X, prefix, drop, Tuple(axs))
+end
+function Base.PermutedDimsArrays.genperm(bt::BiTuple, perm::NTuple{N, Int}) where {N}
+    return Base.PermutedDimsArrays.genperm(Tuple(bt), perm)
+end
+Base.tail(bt::BiTuple) = Base.tail(Tuple(bt))
+Base.front(bt::BiTuple) = Base.front(Tuple(bt))
+Base.lastindex(bt::BiTuple) = Base.lastindex(Tuple(bt))
+# A single-argument `map` preserves the split, mapping each block: with one operand there is no
+# ambiguity about which split to keep. (The multi-argument case is the ambiguous one and is left to
+# collapse to the flat tuple.)
+Base.map(f, bt::BiTuple) = BiTuple(map(f, bt.t1), map(f, bt.t2))
+Base.safe_tail(bt::BiTuple) = Base.safe_tail(Tuple(bt))
+Base.rdims(out::Val{N}, bt::BiTuple) where {N} = Base.rdims(out, Tuple(bt))
+Base.offset_if_vec(i::Integer, axs::BiTuple) = Base.offset_if_vec(i, Tuple(axs))
+Base.Broadcast._axes(bc::Base.Broadcast.Broadcasted, axs::BiTuple) = Tuple(axs)
+bipartition_axes(bt::BiTuple, split...) = bipartition_axes(Tuple(bt), split...)
+bipartition(bt::BiTuple, length1::Val) = bipartition(Tuple(bt), length1)
+function bipartition(bt::BiTuple, group1::Tuple, group2::Tuple)
+    return bipartition(Tuple(bt), group1, group2)
+end
 
 """
     bipartition(t::Tuple, length1::Val) -> (t1, t2)

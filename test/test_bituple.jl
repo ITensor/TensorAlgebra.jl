@@ -28,6 +28,16 @@ using TestExtras: @constinferred
     # Equality compares the two blocks.
     @test BiTuple((1, 2), (3,)) == BiTuple((1, 2), (3,))
     @test BiTuple((1, 2), (3,)) != BiTuple((1,), (2, 3))
+
+    # Equality against a plain tuple compares the flattened form.
+    @test BiTuple((1, 2), (3,)) == (1, 2, 3)
+    @test (1, 2, 3) == BiTuple((1, 2), (3,))
+    @test BiTuple((1, 2), (3,)) != (1, 2)
+    # A plain-tuple comparison ignores the split, unlike a `BiTuple`-vs-`BiTuple` comparison.
+    @test BiTuple((1, 2), (3,)) == (1, 2, 3) == BiTuple((1,), (2, 3))
+
+    # Single-argument `map` preserves the split (no ambiguity with one operand).
+    @test (@constinferred map(x -> x + 1, BiTuple((1, 2), (3,)))) == BiTuple((2, 3), (4,))
 end
 
 @testset "biperm" begin
