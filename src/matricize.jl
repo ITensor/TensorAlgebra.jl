@@ -255,7 +255,7 @@ function unmatricizeperm(
         throw(ArgumentError("axes do not match permutation"))
     codomain_axes, domain_axes = bipartition_axes(axes_dest, invbiperm)
     a12 = unmatricize(style, m, codomain_axes, domain_axes)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes_dest)))
+    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
     return bipermutedims(a12, biperm_dest)
 end
 
@@ -274,7 +274,7 @@ function unmatricizeperm!(
         throw(ArgumentError("destination does not match permutation"))
     codomain_axes, domain_axes = bipartition_axes(axes(a_dest), invbiperm)
     a_perm = unmatricize(style, m, codomain_axes, domain_axes)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(axes(a_dest))))
+    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
