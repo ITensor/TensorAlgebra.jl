@@ -29,10 +29,26 @@ function Base.show(io::IO, bt::BiTuple)
     return print(io, "BiTuple(", bt.t1, ", ", bt.t2, ")")
 end
 
-Base.:(==)(a::BiTuple, b::BiTuple) = a.t1 == b.t1 && a.t2 == b.t2
-Base.hash(bt::BiTuple, h::UInt) = hash(bt.t2, hash(bt.t1, hash(:BiTuple, h)))
+# Equality ignores the split: it compares the flattened contents, so a `(2, 0)` and a `(1, 1)` split
+# with the same flat entries are equal, and a `BiTuple` equals the plain tuple it flattens to. This
+# mirrors how comparing arrays ignores how they are partitioned into blocks. `hash` matches, hashing
+# the flat form so the equality relation stays hash-consistent.
+Base.:(==)(a::BiTuple, b::BiTuple) = Tuple(a) == Tuple(b)
+Base.:(==)(bt::BiTuple, t::Tuple) = Tuple(bt) == t
+Base.:(==)(t::Tuple, bt::BiTuple) = t == Tuple(bt)
+Base.hash(bt::BiTuple, h::UInt) = hash(Tuple(bt), h)
 
 Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
+
+# A single-argument `map` preserves the split, mapping each block: with one operand there is no
+# ambiguity about which split to keep. (The multi-argument case is the ambiguous one and is left to
+# collapse to the flat tuple.)
+Base.map(f, bt::BiTuple) = BiTuple(map(f, bt.t1), map(f, bt.t2))
+bipartition_axes(bt::BiTuple, split...) = bipartition_axes(Tuple(bt), split...)
+bipartition(bt::BiTuple, length1::Val) = bipartition(Tuple(bt), length1)
+function bipartition(bt::BiTuple, group1::Tuple, group2::Tuple)
+    return bipartition(Tuple(bt), group1, group2)
+end
 
 """
     bipartition(t::Tuple, length1::Val) -> (t1, t2)

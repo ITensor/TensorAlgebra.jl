@@ -128,11 +128,13 @@ addends(a::AddBroadcasted) = a.args
 # differing shapes), so combine by verifying equality through `axes` (TensorAlgebra's, which
 # works for a non-`AbstractArray` backend like a `TensorMap`) rather than Base's `combine_axes`,
 # which would call `Base.axes`/`Base.size` on the operands. A mismatch (e.g. a half-conjugated
-# `conj.(a) .- b`, whose dualized and non-dualized axes differ) throws here.
+# `conj.(a) .- b`, whose dualized and non-dualized axes differ) throws here. Axis equality ignores
+# the codomain/domain split, so operands that agree on the flat legs but differ in split still
+# combine, matching the split-collapsing result.
 function Base.axes(a::AddBroadcasted)
     axs = map(axes, addends(a))
     ax = first(axs)
-    all(x -> x == ax, axs) ||
+    all(==(ax), axs) ||
         throw(DimensionMismatch("linear-combination operands have mismatched axes: $axs"))
     return ax
 end

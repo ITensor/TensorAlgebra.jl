@@ -25,9 +25,22 @@ using TestExtras: @constinferred
     # Split constructor: split a flat tuple at the given codomain length.
     @test (@constinferred BiTuple((3, 4, 5, 2, 1), Val(3))) == BiTuple((3, 4, 5), (2, 1))
 
-    # Equality compares the two blocks.
+    # Equality ignores the split, comparing the flattened contents: same flat entries compare equal
+    # even under a different codomain/domain split, the way array equality ignores block partitioning.
     @test BiTuple((1, 2), (3,)) == BiTuple((1, 2), (3,))
-    @test BiTuple((1, 2), (3,)) != BiTuple((1,), (2, 3))
+    @test BiTuple((1, 2), (3,)) == BiTuple((1,), (2, 3))
+    @test BiTuple((1, 2), (3,)) != BiTuple((1, 3), (2,))
+
+    # A `BiTuple` also equals the plain tuple it flattens to.
+    @test BiTuple((1, 2), (3,)) == (1, 2, 3)
+    @test (1, 2, 3) == BiTuple((1, 2), (3,))
+    @test BiTuple((1, 2), (3,)) != (1, 2)
+    # `hash` matches equality (hashes the flat form).
+    @test hash(BiTuple((1, 2), (3,))) == hash(BiTuple((1,), (2, 3))) == hash((1, 2, 3))
+
+    # Single-argument `map` preserves the split (no ambiguity with one operand). Checked with `===`
+    # since `==` ignores the split and so would not catch a collapse to the flat form.
+    @test (@constinferred map(x -> x + 1, BiTuple((1, 2), (3,)))) === BiTuple((2, 3), (4,))
 end
 
 @testset "biperm" begin
