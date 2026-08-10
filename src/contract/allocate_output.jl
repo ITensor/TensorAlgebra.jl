@@ -11,9 +11,25 @@ function check_input(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    # TODO: FIXME: Check that contracted axes match.
     check_biperm(a1, perm1_codomain, perm1_domain)
     check_biperm(a2, perm2_codomain, perm2_domain)
+    # The contracted axes of `a1` (its domain) pair with the contracted axes of `a2` (its codomain),
+    # and each pair must be a dual pair: `dual(ax1) == ax2`. `dual` falls back to the identity for
+    # plain ranges, so this reduces to `ax1 == ax2` for non-graded arrays.
+    length(perm1_domain) == length(perm2_codomain) || throw(
+        ArgumentError(
+            "Number of contracted axes do not match: `a1` has $(length(perm1_domain)), `a2` has $(length(perm2_codomain))"
+        )
+    )
+    for (i, j) in zip(perm1_domain, perm2_codomain)
+        ax1 = axes(a1, i)
+        ax2 = axes(a2, j)
+        dual(ax1) == ax2 || throw(
+            ArgumentError(
+                "Contracted axes do not match: `axes(a1, $i) = $ax1` and `axes(a2, $j) = $ax2`"
+            )
+        )
+    end
     return nothing
 end
 
