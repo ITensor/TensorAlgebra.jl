@@ -315,11 +315,31 @@ function Base.copyto!(dest::AbstractTensorMap, src::TensorAlgebra.LinearBroadcas
     return TensorAlgebra.add!(dest, src, true, false)
 end
 
-function Base.copy(::Base.Broadcast.Broadcasted{TensorMapStyle})
-    return error(
+# Allocation for a linear-combination `copy`/`copyto!`: seed the result off a `TensorMap` operand
+# (`broadcast_prototype`) so it inherits that operand's storage type, and take the axes from the
+# flattened expression, which carry the conj-dualization that Base's `combine_axes` drops.
+function Base.similar(bc::Base.Broadcast.Broadcasted{TensorMapStyle}, ::Type{T}) where {T}
+    lb = TensorAlgebra.flattenlinear(bc)
+    return TensorAlgebra.similar_map(broadcast_prototype(lb), T, axes(lb), ())
+end
+# The first `TensorMap` operand in a broadcast expression, unwrapping the linear-fold leaves.
+broadcast_prototype(a::AbstractTensorMap) = a
+broadcast_prototype(a::TensorAlgebra.PermutedDims) = broadcast_prototype(parent(a))
+function broadcast_prototype(a::TensorAlgebra.ScaledBroadcasted)
+    return broadcast_prototype(TensorAlgebra.unscaled(a))
+end
+broadcast_prototype(a::TensorAlgebra.ConjBroadcasted) = broadcast_prototype(parent(a))
+function broadcast_prototype(a::TensorAlgebra.AddBroadcasted)
+    return broadcast_prototype(first(TensorAlgebra.addends(a)))
+end
+
+function Base.copy(bc::Base.Broadcast.Broadcasted{TensorMapStyle})
+    lb = TensorAlgebra.tryflattenlinear(bc)
+    isnothing(lb) && error(
         "element-wise broadcast is not supported for a `TensorMap`; only linear combinations \
         such as `a .+ b` and `2 .* a` are supported"
     )
+    return copy(lb)
 end
 
 # ====================================  pow_diag_safe  ======================================

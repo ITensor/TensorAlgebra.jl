@@ -25,7 +25,8 @@ abstract type LinearBroadcasted end
 # Generic interface for LinearBroadcasted subtypes.
 Base.axes(a::LinearBroadcasted, d::Int) = axes(a)[d]
 Base.similar(a::LinearBroadcasted) = similar(a, eltype(a))
-Base.similar(a::LinearBroadcasted, elt::Type) = similar(a, elt, axes(a))
+# Forward to 2-arg broadcast `similar` so the result preserves the operands' backend type.
+Base.similar(a::LinearBroadcasted, elt::Type) = similar(BC.Broadcasted(a), elt)
 function Base.show(io::IO, a::LinearBroadcasted)
     print(io, operation(a), "(", join(arguments(a), ", "), ")")
     return nothing
@@ -40,10 +41,6 @@ function BC.Broadcasted(a::LinearBroadcasted)
         return arg isa LinearBroadcasted ? BC.Broadcasted(arg) : arg
     end
     return BC.Broadcasted(BC.combine_styles(args...), operation(a), args)
-end
-
-function Base.similar(a::LinearBroadcasted, elt::Type, ax)
-    return similar(BC.Broadcasted(a), elt, ax)
 end
 
 # --- ScaledBroadcasted --------------------------------------------------------
