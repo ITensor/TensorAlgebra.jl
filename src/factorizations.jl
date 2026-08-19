@@ -286,15 +286,16 @@ function svd_trunc(A, ndims_codomain::Val; kwargs...)
     return svd_trunc(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-# Eigendecomposition: `D` is the rank × rank spectrum, left as a matrix, while `V` carries
-# the codomain axes plus a trailing rank axis.
+# Eigendecomposition: `D` is the rank × rank spectrum and `V` carries the codomain axes plus a
+# trailing rank axis. Both are unmatricized back to the array type, as in `svd_*`.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
         function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             D, V = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain = first(bipartition(axes(A), ndims_codomain))
-            return D, unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
+            return unmatricize(style, D, (axes(D, 1),), (conj(axes(D, 2)),)),
+                unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
         end
         function $f(A, ndims_codomain::Val; kwargs...)
             return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
