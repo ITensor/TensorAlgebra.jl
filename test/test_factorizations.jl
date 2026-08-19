@@ -1,4 +1,4 @@
-using LinearAlgebra: LinearAlgebra, I, diag, norm
+using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, norm
 using MatrixAlgebraKit: truncrank
 using TensorAlgebra: TensorAlgebra, contract, eig_full, eig_vals, eigh_full, eigh_vals,
     gram_eigh_full, gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq_compact,
@@ -90,6 +90,8 @@ end
     D, V = eig_full(A, labels_A, labels_V, labels_V′)
     @test A == Acopy # should not have altered initial array
     @test eltype(D) == eltype(V) && eltype(D) <: Complex
+    # `D` is unmatricized like the other factors; the `(1, 1)` unmatricize preserves `Diagonal`.
+    @test D isa Diagonal
 
     AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
     VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
@@ -112,6 +114,7 @@ end
     @test A == Acopy # should not have altered initial array
     @test eltype(D) <: Real
     @test eltype(V) == eltype(A)
+    @test D isa Diagonal
 
     AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
     VD = contract((:a, :b, :D), V, (labels_V..., :D′), D, (:D′, :D))
@@ -167,6 +170,7 @@ end
     Acopy = copy(A)
     U, S, Vᴴ = @constinferred svd_compact(A, labels_A, labels_U, labels_Vᴴ)
     @test A == Acopy # should not have altered initial array
+    @test S isa Diagonal
     US, labels_US = contract(U, (labels_U..., :u), S, (:u, :v))
     A′ = contract(labels_A, US, labels_US, Vᴴ, (:v, labels_Vᴴ...))
     @test A ≈ A′
