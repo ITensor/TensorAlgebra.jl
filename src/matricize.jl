@@ -317,14 +317,15 @@ end
 function matricizepermaliases(style::ReshapeMatricize, perm_codomain, perm_domain)
     return matricizekind(style, perm_codomain, perm_domain) != PermuteMatricizeKind
 end
-# Check the matricized input's shape matches the requested split: the row count must be the fused
-# codomain length and the column count the fused domain length. `reshape` alone only checks the total
-# element count, so a split with the right total but the wrong boundary would reshape silently.
+# A dense `unmatricize` is a `reshape` to the concatenated axes, so the only requirement is that the
+# total element count matches. `reshape` checks this itself, but reports it against the flattened
+# dimensions, so check here to name the codomain/domain split that did not fit.
 function check_input(::typeof(unmatricize), m, codomain_axes, domain_axes)
-    (
-        size(m, 1) == prod(length, codomain_axes; init = 1) &&
-            size(m, 2) == prod(length, domain_axes; init = 1)
-    ) || throw(DimensionMismatch("`unmatricize` axes do not match the matrix size"))
+    prod_codomain = prod(length, codomain_axes; init = 1)
+    prod_domain = prod(length, domain_axes; init = 1)
+    length(m) == prod_codomain * prod_domain || throw(
+        DimensionMismatch("`unmatricize` axes do not match the matrix element count")
+    )
     return nothing
 end
 # A dense reshape ignores the codomain/domain split: it just reshapes to the concatenated axes.
