@@ -87,7 +87,7 @@ function allocate_output(
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return diagonal_contract_output(
-        a1, T, codomain_axes_dest, domain_axes_dest,
+        a1, a2, T, codomain_axes_dest, domain_axes_dest,
         Val(length(perm_dest_codomain)), Val(length(perm_dest_domain))
     )
 end
@@ -97,13 +97,14 @@ end
 # contraction) densifies through `similar_map`. `similar_map` dualizes the domain axes itself, and
 # for a dense `Diagonal` those axes are `Base.OneTo`, where dualizing is a no-op anyway.
 function diagonal_contract_output(
-        a1::Diagonal, T, codomain_axes, domain_axes, ndims_codomain::Val{1},
-        ndims_domain::Val{1}
+        a1::Diagonal, a2::Diagonal, T, codomain_axes, domain_axes,
+        ndims_codomain::Val{1}, ndims_domain::Val{1}
     )
     return Diagonal(zero!(similar(a1.diag, T, length(only(codomain_axes)))))
 end
 function diagonal_contract_output(
-        a1::Diagonal, T, codomain_axes, domain_axes, ndims_codomain::Val, ndims_domain::Val
+        a1::Diagonal, a2::Diagonal, T, codomain_axes, domain_axes,
+        ndims_codomain::Val, ndims_domain::Val
     )
     return zero!(similar_map(a1, T, codomain_axes, domain_axes))
 end
