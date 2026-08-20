@@ -90,7 +90,7 @@ function allocate_output(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    T = promote_type(eltype(a1), eltype(a2))
+    T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     # `domain_axes_dest` come straight from `axes(a2)` (stored/dualized convention), so
     # un-dualize them into `similar_map`'s codomain-facing convention.
     return zero!(similar_map(a1, T, codomain_axes_dest, conj.(domain_axes_dest)))

@@ -85,21 +85,24 @@ function allocate_output(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    T = promote_type(eltype(a1), eltype(a2))
+    T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return diagonal_contract_output(
         a1, T, codomain_axes_dest, domain_axes_dest,
-        perm_dest_codomain, perm_dest_domain, perm1_domain
+        Val(length(perm_dest_codomain)), Val(length(perm_dest_domain))
     )
 end
 
-# A `{1,1}` output from the single-contracted-leg matmul pattern stays `Diagonal`; the length-1 dest
-# and contracted-leg perms select it by dispatch. Every other pattern (outer product, full
-# contraction, vectorized output) densifies through `similar_map`.
+# A `{1,1}` output (one codomain leg, one domain leg) stays `Diagonal`: for two diagonals that is the
+# single-contracted-leg matmul pattern. Every other output shape (rank-4 outer product, scalar full
+# contraction) densifies through `similar_map`. `similar_map` dualizes the domain axes itself, and
+# for a dense `Diagonal` those axes are `Base.OneTo`, where dualizing is a no-op anyway.
 function diagonal_contract_output(
-        a1, T, codomain_axes, domain_axes, ::Tuple{Any}, ::Tuple{Any}, ::Tuple{Any}
+        a1, T, codomain_axes, domain_axes, ndims_codomain::Val{1}, ndims_domain::Val{1}
     )
     return Diagonal(zero!(similar(a1.diag, T, length(only(codomain_axes)))))
 end
-function diagonal_contract_output(a1, T, codomain_axes, domain_axes, ::Any, ::Any, ::Any)
-    return zero!(similar_map(a1, T, codomain_axes, conj.(domain_axes)))
+function diagonal_contract_output(
+        a1, T, codomain_axes, domain_axes, ndims_codomain::Val, ndims_domain::Val
+    )
+    return zero!(similar_map(a1, T, codomain_axes, domain_axes))
 end
