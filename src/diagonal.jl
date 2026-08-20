@@ -44,17 +44,9 @@ end
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
 # reshape, so return it directly (maybe-alias, matching `matricize`'s general contract).
 matricize(::ReshapeMatricize, a::Diagonal, ::Val{1}) = a
-# A `{1,1}` unmatricize (one codomain axis, one domain axis) must reproduce the diagonal's own
-# two axes, and doing so is the endomorphism identity: the result stays `Diagonal`. `check_input`
-# rejects a mismatched single-axis split rather than silently densifying it.
-function check_input(
-        ::typeof(unmatricize), m::Diagonal, codomain_axes, domain_axes
-    )
-    (codomain_axes == (axes(m, 1),) && domain_axes == (axes(m, 2),)) || throw(
-        DimensionMismatch("`unmatricize` axes do not match the diagonal's own axes")
-    )
-    return nothing
-end
+# A `{1,1}` unmatricize (one codomain axis, one domain axis) is the endomorphism identity: the
+# result stays `Diagonal`, so return `m` directly. The generic `check_input(unmatricize, ...)`
+# validates the axis lengths against `m`'s size.
 function unmatricize(
         ::ReshapeMatricize, m::Diagonal,
         codomain_axes::Tuple{<:AbstractUnitRange}, domain_axes::Tuple{<:AbstractUnitRange}
@@ -94,9 +86,20 @@ function allocate_output(
         a2, perm2_codomain, perm2_domain
     )
     T = promote_type(eltype(a1), eltype(a2))
-    if length(perm1_domain) == 1 &&
-            length(perm_dest_codomain) == 1 && length(perm_dest_domain) == 1
-        return Diagonal(zero!(similar(a1.diag, T, length(only(codomain_axes_dest)))))
-    end
-    return zero!(similar_map(a1, T, codomain_axes_dest, conj.(domain_axes_dest)))
+    return diagonal_contract_output(
+        a1, T, codomain_axes_dest, domain_axes_dest,
+        perm_dest_codomain, perm_dest_domain, perm1_domain
+    )
+end
+
+# A `{1,1}` output from the single-contracted-leg matmul pattern stays `Diagonal`; the length-1 dest
+# and contracted-leg perms select it by dispatch. Every other pattern (outer product, full
+# contraction, vectorized output) densifies through `similar_map`.
+function diagonal_contract_output(
+        a1, T, codomain_axes, domain_axes, ::Tuple{Any}, ::Tuple{Any}, ::Tuple{Any}
+    )
+    return Diagonal(zero!(similar(a1.diag, T, length(only(codomain_axes)))))
+end
+function diagonal_contract_output(a1, T, codomain_axes, domain_axes, ::Any, ::Any, ::Any)
+    return zero!(similar_map(a1, T, codomain_axes, conj.(domain_axes)))
 end
