@@ -1,6 +1,6 @@
 using LinearAlgebra: Diagonal, diag
 using TensorAlgebra: TensorAlgebra
-using Test: @test, @testset
+using Test: @test, @test_throws, @testset
 
 @testset "Diagonal TensorAlgebra interface (eltype=$elt)" for elt in (Float64, ComplexF64)
     d = Diagonal(elt[2, 3, 4])
@@ -45,10 +45,28 @@ using Test: @test, @testset
         @test m === d
     end
 
-    @testset "unmatricize round-trips a Diagonal" begin
+    @testset "unmatricize round-trips a Diagonal on its own {1,1} axes" begin
         ax = axes(d, 1)
         back = TensorAlgebra.unmatricize(TensorAlgebra.ReshapeMatricize(), d, (ax,), (ax,))
         @test back === d
+    end
+
+    @testset "unmatricize densifies a genuine bond-split" begin
+        d4 = Diagonal(elt[1, 2, 3, 4])
+        codomain_axes = (Base.OneTo(2), Base.OneTo(2))
+        domain_axes = (Base.OneTo(4),)
+        t = TensorAlgebra.unmatricize(
+            TensorAlgebra.ReshapeMatricize(), d4, codomain_axes, domain_axes
+        )
+        @test !(t isa Diagonal)
+        @test t == reshape(Array(d4), 2, 2, 4)
+    end
+
+    @testset "unmatricize errors on a mismatched {1,1} split" begin
+        wrong = Base.OneTo(length(diag(d)) + 1)
+        @test_throws DimensionMismatch TensorAlgebra.unmatricize(
+            TensorAlgebra.ReshapeMatricize(), d, (wrong,), (wrong,)
+        )
     end
 
     @testset "matrix functions preserve Diagonal" begin
@@ -61,18 +79,34 @@ using Test: @test, @testset
         @test e ≈ exp(dp)
     end
 
-    @testset "contract densifies (Diagonal is an input structure, not an output one)" begin
+    @testset "contract stays Diagonal on the matmul pattern, densifies otherwise" begin
         d2 = Diagonal(elt[10, 20, 30])
-        # One contracted leg: a matrix product, materialized dense.
+        # One contracted leg: the matmul/endomorphism pattern stays Diagonal.
         c2, = TensorAlgebra.contract(d, ("i", "k"), d2, ("k", "j"))
-        @test !(c2 isa Diagonal)
+        @test c2 isa Diagonal
         @test c2 ≈ d * d2
+        # All transpose variants of the single-contracted-leg pattern stay Diagonal.
+        for (l1, l2) in (
+                (("i", "k"), ("j", "k")),
+                (("k", "i"), ("k", "j")),
+                (("k", "i"), ("j", "k")),
+            )
+            ct, = TensorAlgebra.contract(d, l1, d2, l2)
+            @test ct isa Diagonal
+            @test ct ≈ d * d2
+        end
         # Both legs contracted: a scalar.
         c0, = TensorAlgebra.contract(d, ("i", "j"), d2, ("i", "j"))
         @test ndims(c0) == 0
         @test c0[] ≈ sum(diag(d) .* diag(d2))
-        # No contracted legs: a rank-4 outer product.
+        # No contracted legs: a rank-4 outer product, densified.
         c4, = TensorAlgebra.contract(d, ("i", "j"), d2, ("k", "l"))
+        @test !(c4 isa Diagonal)
         @test ndims(c4) == 4
+        # Diagonal times dense: densifies.
+        a = reshape(elt[1:9;], 3, 3)
+        cda, = TensorAlgebra.contract(d, ("i", "k"), a, ("k", "j"))
+        @test !(cda isa Diagonal)
+        @test cda ≈ d * a
     end
 end

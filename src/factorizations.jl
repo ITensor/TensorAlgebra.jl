@@ -261,7 +261,7 @@ for f in (:svd_compact, :svd_full)
             U, S, Vᴴ = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
             return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
-                unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
+                S,
                 unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
@@ -278,7 +278,7 @@ function svd_trunc(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc(A_mat; kwargs...)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
-        unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
+        S,
         unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain),
         ϵ
 end
@@ -287,14 +287,15 @@ function svd_trunc(A, ndims_codomain::Val; kwargs...)
 end
 
 # Eigendecomposition: `D` is the rank × rank spectrum and `V` carries the codomain axes plus a
-# trailing rank axis. Both are unmatricized back to the array type, as in `svd_*`.
+# trailing rank axis. `D` is returned bare (its axis is the internal bond, so there is nothing to
+# unfold); `V` is unmatricized back to the array type, as in `svd_*`.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
         function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             D, V = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain = first(bipartition(axes(A), ndims_codomain))
-            return unmatricize(style, D, (axes(D, 1),), (conj(axes(D, 2)),)),
+            return D,
                 unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
         end
         function $f(A, ndims_codomain::Val; kwargs...)
