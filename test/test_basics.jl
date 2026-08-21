@@ -156,13 +156,18 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         unmatricizeperm!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
 
-        a = unmatricize(m, (), axes0)
+        a = unmatricize(reshape(a0, 1, 120), (), axes0)
         @test eltype(a) === elt
         @test a ≈ a0
 
-        a = unmatricize(m, axes0, ())
+        a = unmatricize(reshape(a0, 120, 1), axes0, ())
         @test eltype(a) === elt
         @test a ≈ a0
+
+        # The rows must be the fused codomain and the columns the fused domain, so a
+        # matrix with the right element count but the wrong split is rejected.
+        @test_throws DimensionMismatch unmatricize(m, (), axes0)
+        @test_throws DimensionMismatch unmatricize(m, axes0, ())
 
         m = randn(elt, 1, 1)
         a = unmatricize(m, (), ())
