@@ -813,8 +813,8 @@ one
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
-    codomain_axes, domain_axes = bipartition_axes(axes(A), ndims_codomain)
-    return unmatricize(style, A_mat, codomain_axes, domain_axes)
+    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+    return unmatricize(style, A_mat, axes_codomain, axes_domain)
 end
 function one!!(A, ndims_codomain::Val; kwargs...)
     return one!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)

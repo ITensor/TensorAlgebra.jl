@@ -209,18 +209,18 @@ function matricizeopperm(
 end
 
 # ====================================  unmatricize  =======================================
-# Split form: `codomain_axes` and `domain_axes` are the destination axes for the codomain and
+# Split form: `axes_codomain` and `axes_domain` are the destination axes for the codomain and
 # domain groups, given codomain-facing (un-dualized), the same convention as `similar_map`. A
 # matricize style stores the domain axes dualized, so its overload re-dualizes them with `conj`
 # (a no-op on a dense axis). This is the primary overload point for new matricize styles.
 # Permutation is handled separately by `unmatricizeperm`, so `unmatricize` never has to
 # disambiguate axis tuples from permutation tuples regardless of how unconstrained `m` and the
 # axes are.
-function unmatricize(style::MatricizeStyle, m, codomain_axes, domain_axes)
-    return throw(MethodError(unmatricize, (style, m, codomain_axes, domain_axes)))
+function unmatricize(style::MatricizeStyle, m, axes_codomain, axes_domain)
+    return throw(MethodError(unmatricize, (style, m, axes_codomain, axes_domain)))
 end
-function unmatricize(m, codomain_axes, domain_axes)
-    return unmatricize(MatricizeStyle(m), m, codomain_axes, domain_axes)
+function unmatricize(m, axes_codomain, axes_domain)
+    return unmatricize(MatricizeStyle(m), m, axes_codomain, axes_domain)
 end
 
 # Split `axes` into its codomain and domain groups like `bipartition`, but present the domain
@@ -228,8 +228,8 @@ end
 # take. The domain axes `bipartition` reads off `axes(a)` are in the stored (dualized) form, so
 # this bridges from `axes(a)` to the `unmatricize` axis convention (a no-op on dense axes).
 function bipartition_axes(t::Tuple, split...)
-    codomain_axes, domain_axes = bipartition(t, split...)
-    return codomain_axes, conj.(domain_axes)
+    axes_codomain, axes_domain = bipartition(t, split...)
+    return axes_codomain, conj.(axes_domain)
 end
 
 # Inverse-bipermutation form: split `axes_dest` into codomain/domain groups reordered by the
@@ -253,8 +253,8 @@ function unmatricizeperm(
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
     length(axes_dest) == length(invbiperm) ||
         throw(ArgumentError("axes do not match permutation"))
-    codomain_axes, domain_axes = bipartition_axes(axes_dest, invbiperm)
-    a12 = unmatricize(style, m, codomain_axes, domain_axes)
+    axes_codomain, axes_domain = bipartition_axes(axes_dest, invbiperm)
+    a12 = unmatricize(style, m, axes_codomain, axes_domain)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
     return bipermutedims(a12, biperm_dest)
 end
@@ -272,8 +272,8 @@ function unmatricizeperm!(
     invbiperm = BiTuple(invperm_codomain, invperm_domain)
     ndims(a_dest) == length(invbiperm) ||
         throw(ArgumentError("destination does not match permutation"))
-    codomain_axes, domain_axes = bipartition_axes(axes(a_dest), invbiperm)
-    a_perm = unmatricize(style, m, codomain_axes, domain_axes)
+    axes_codomain, axes_domain = bipartition_axes(axes(a_dest), invbiperm)
+    a_perm = unmatricize(style, m, axes_codomain, axes_domain)
     biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
@@ -320,16 +320,16 @@ end
 # The matricized input's rows must be the fused codomain and its columns the fused domain.
 # `reshape` alone only checks the total element count, so a wrong split with the right total
 # would reshape silently.
-function check_input(::typeof(unmatricize), m, codomain_axes, domain_axes)
+function check_input(::typeof(unmatricize), m, axes_codomain, axes_domain)
     (
-        size(m, 1) == prod(length, codomain_axes; init = 1) &&
-            size(m, 2) == prod(length, domain_axes; init = 1)
+        size(m, 1) == prod(length, axes_codomain; init = 1) &&
+            size(m, 2) == prod(length, axes_domain; init = 1)
     ) || throw(DimensionMismatch("`unmatricize` axes do not match the matrix size"))
     return nothing
 end
 # A dense reshape ignores the codomain/domain split: it just reshapes to the concatenated axes.
-# `conj` re-dualizes the codomain-facing `domain_axes` into stored form, a no-op on a dense axis.
-function unmatricize(style::ReshapeMatricize, m, codomain_axes, domain_axes)
-    check_input(unmatricize, m, codomain_axes, domain_axes)
-    return reshape(m, (codomain_axes..., conj.(domain_axes)...))
+# `conj` re-dualizes the codomain-facing `axes_domain` into stored form, a no-op on a dense axis.
+function unmatricize(style::ReshapeMatricize, m, axes_codomain, axes_domain)
+    check_input(unmatricize, m, axes_codomain, axes_domain)
+    return reshape(m, (axes_codomain..., conj.(axes_domain)...))
 end

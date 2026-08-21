@@ -56,13 +56,13 @@ using Test: @test, @test_throws, @testset
         B = Rep[U₁](0 => 1, -1 => 2)
         C1 = Rep[U₁](0 => 2)
         t = randn(rng, elt, A1 ⊗ A2, B ⊗ C1)
-        codomain_axes = (space(t, 1), space(t, 2))
+        axes_codomain = (space(t, 1), space(t, 2))
         # `unmatricize` takes the domain axes codomain-facing (un-dualized), so pass `B`, `C1`
         # directly rather than the dualized `space(t, 3)`, `space(t, 4)`.
-        domain_axes = (B, C1)
+        axes_domain = (B, C1)
         m = matricize(t, Val(2))
         @test space(m) == space(t)
-        back = unmatricize(m, codomain_axes, domain_axes)
+        back = unmatricize(m, axes_codomain, axes_domain)
         @test back ≈ t
     end
 

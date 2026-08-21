@@ -36,8 +36,8 @@ for f in MATRIX_FUNCTIONS
         function $f(style::MatricizeStyle, a, ndims_codomain::Val; kwargs...)
             a_mat = matricize(style, a, ndims_codomain)
             fa_mat = Base.$f(a_mat; kwargs...)
-            codomain_axes, domain_axes = bipartition_axes(axes(a), ndims_codomain)
-            return unmatricize(style, fa_mat, codomain_axes, domain_axes)
+            axes_codomain, axes_domain = bipartition_axes(axes(a), ndims_codomain)
+            return unmatricize(style, fa_mat, axes_codomain, axes_domain)
         end
         function $f(a, ndims_codomain::Val; kwargs...)
             return $f(MatricizeStyle(a), a, ndims_codomain; kwargs...)

@@ -84,14 +84,14 @@ function allocate_output(
         perm2_codomain,
         perm2_domain
     )
-    codomain_axes_dest, domain_axes_dest = output_axes(
+    axes_codomain_dest, axes_domain_dest = output_axes(
         contract,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
-    # `domain_axes_dest` come straight from `axes(a2)` (stored/dualized convention), so
+    # `axes_domain_dest` come straight from `axes(a2)` (stored/dualized convention), so
     # un-dualize them into `similar_map`'s codomain-facing convention.
-    return zero!(similar_map(a1, T, codomain_axes_dest, conj.(domain_axes_dest)))
+    return zero!(similar_map(a1, T, axes_codomain_dest, conj.(axes_domain_dest)))
 end

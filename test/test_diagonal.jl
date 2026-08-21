@@ -53,10 +53,10 @@ using Test: @test, @test_throws, @testset
 
     @testset "unmatricize densifies a genuine bond-split" begin
         d4 = Diagonal(elt[1, 2, 3, 4])
-        codomain_axes = (Base.OneTo(2), Base.OneTo(2))
-        domain_axes = (Base.OneTo(4),)
+        axes_codomain = (Base.OneTo(2), Base.OneTo(2))
+        axes_domain = (Base.OneTo(4),)
         t = TensorAlgebra.unmatricize(
-            TensorAlgebra.ReshapeMatricize(), d4, codomain_axes, domain_axes
+            TensorAlgebra.ReshapeMatricize(), d4, axes_codomain, axes_domain
         )
         @test !(t isa Diagonal)
         @test t == reshape(Array(d4), 2, 2, 4)

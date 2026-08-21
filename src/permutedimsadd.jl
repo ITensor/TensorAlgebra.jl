@@ -227,10 +227,10 @@ function permutedims(a, perm)
     return permutedims!(dest, a, perm)
 end
 function permutedims(a, perm_codomain, perm_domain)
-    codomain_axes = map(p -> axes(a, p), perm_codomain)
+    axes_codomain = map(p -> axes(a, p), perm_codomain)
     # `similar_map` dualizes the domain axes it is given (as it does for `similar_map`
     # itself), so pass them pre-conjugated to land back on the source's own axes.
-    domain_axes = map(p -> conj(axes(a, p)), perm_domain)
-    dest = similar_map(a, eltype(a), codomain_axes, domain_axes)
+    axes_domain = map(p -> conj(axes(a, p)), perm_domain)
+    dest = similar_map(a, eltype(a), axes_codomain, axes_domain)
     return permutedims!(dest, a, perm_codomain, perm_domain)
 end

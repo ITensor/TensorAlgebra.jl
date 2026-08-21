@@ -49,9 +49,9 @@ matricize(::ReshapeMatricize, a::Diagonal, ::Val{1}) = a
 # validates the axis lengths against `m`'s size.
 function unmatricize(
         ::ReshapeMatricize, m::Diagonal,
-        codomain_axes::Tuple{<:AbstractUnitRange}, domain_axes::Tuple{<:AbstractUnitRange}
+        axes_codomain::Tuple{<:AbstractUnitRange}, axes_domain::Tuple{<:AbstractUnitRange}
     )
-    check_input(unmatricize, m, codomain_axes, domain_axes)
+    check_input(unmatricize, m, axes_codomain, axes_domain)
     return m
 end
 # Any other split is a genuine bond-split (for example `unmatricize(D[4×4], (2, 2), (4,))`) whose
@@ -59,9 +59,9 @@ end
 # `copyto!(similar(m, axes(m)), m)` densifies while preserving `m`'s array backend (a plain
 # `Array` would force the result onto the CPU).
 function unmatricize(
-        style::ReshapeMatricize, m::Diagonal, codomain_axes::Tuple, domain_axes::Tuple
+        style::ReshapeMatricize, m::Diagonal, axes_codomain::Tuple, axes_domain::Tuple
     )
-    return unmatricize(style, copyto!(similar(m, axes(m)), m), codomain_axes, domain_axes)
+    return unmatricize(style, copyto!(similar(m, axes(m)), m), axes_codomain, axes_domain)
 end
 
 # Contracting two `Diagonal`s over a single leg is the matmul/endomorphism pattern
@@ -79,7 +79,7 @@ function allocate_output(
     check_input(
         contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain
     )
-    codomain_axes_dest, domain_axes_dest = output_axes(
+    axes_codomain_dest, axes_domain_dest = output_axes(
         contract,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
@@ -87,7 +87,7 @@ function allocate_output(
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return allocate_output_contract_diagonal(
-        a1, a2, T, codomain_axes_dest, domain_axes_dest,
+        a1, a2, T, axes_codomain_dest, axes_domain_dest,
         Val(length(perm_dest_codomain)), Val(length(perm_dest_domain))
     )
 end
@@ -97,14 +97,14 @@ end
 # contraction) densifies through `similar_map`. `similar_map` dualizes the domain axes itself, and
 # for a dense `Diagonal` those axes are `Base.OneTo`, where dualizing is a no-op anyway.
 function allocate_output_contract_diagonal(
-        a1::Diagonal, a2::Diagonal, T, codomain_axes, domain_axes,
+        a1::Diagonal, a2::Diagonal, T, axes_codomain, axes_domain,
         ndims_codomain::Val{1}, ndims_domain::Val{1}
     )
-    return Diagonal(zero!(similar(a1.diag, T, length(only(codomain_axes)))))
+    return Diagonal(zero!(similar(a1.diag, T, length(only(axes_codomain)))))
 end
 function allocate_output_contract_diagonal(
-        a1::Diagonal, a2::Diagonal, T, codomain_axes, domain_axes,
+        a1::Diagonal, a2::Diagonal, T, axes_codomain, axes_domain,
         ndims_codomain::Val, ndims_domain::Val
     )
-    return zero!(similar_map(a1, T, codomain_axes, domain_axes))
+    return zero!(similar_map(a1, T, axes_codomain, axes_domain))
 end

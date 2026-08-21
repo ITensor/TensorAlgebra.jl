@@ -46,7 +46,7 @@ end
     end
 end
 
-# The dense map constructors flatten `(codomain_axes..., conj.(domain_axes)...)`; `conj` is a
+# The dense map constructors flatten `(axes_codomain..., conj.(axes_domain)...)`; `conj` is a
 # no-op on a dense axis, so the shape is the concatenation of codomain and domain lengths.
 @testset "map construction ($T)" for T in (Float32, Float64, ComplexF32, ComplexF64)
     cod = (Base.OneTo(2), Base.OneTo(3))
