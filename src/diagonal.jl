@@ -66,45 +66,11 @@ end
 
 # Contracting two `Diagonal`s over a single leg is the matmul/endomorphism pattern
 # `Diagonal * Diagonal = Diagonal` (all transpose variants `[i,j]*[j,k]`, `[i,j]*[k,j]`, ...),
-# whose result is again a `Diagonal`, so allocate one. Every other pattern is not representable
-# as a `Diagonal`: an outer product (no contracted leg) is rank 4, a full contraction (both
-# legs) is a scalar, and a non-`{1,1}` output split vectorizes the result; those fall back to
-# the generic dense allocation, matching `Diagonal`/dense mixing.
-function allocate_output(
-        ::typeof(contract),
-        perm_dest_codomain, perm_dest_domain,
-        a1::Diagonal, perm1_codomain, perm1_domain,
-        a2::Diagonal, perm2_codomain, perm2_domain
-    )
-    check_input(
-        contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain
-    )
-    axes_codomain_dest, axes_domain_dest = output_axes(
-        contract,
-        perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
-    )
-    T = Base.promote_op(matprod, eltype(a1), eltype(a2))
-    return allocate_output_contract_diagonal(
-        a1, a2, T, axes_codomain_dest, axes_domain_dest,
-        Val(length(perm_dest_codomain)), Val(length(perm_dest_domain))
-    )
-end
-
-# A `{1,1}` output (one codomain leg, one domain leg) stays `Diagonal`: for two diagonals that is the
-# single-contracted-leg matmul pattern. Every other output shape (rank-4 outer product, scalar full
-# contraction) densifies through `similar_map`. `similar_map` dualizes the domain axes itself, and
-# for a dense `Diagonal` those axes are `Base.OneTo`, where dualizing is a no-op anyway.
-function allocate_output_contract_diagonal(
-        a1::Diagonal, a2::Diagonal, T, axes_codomain, axes_domain,
-        ndims_codomain::Val{1}, ndims_domain::Val{1}
+# whose `{1,1}` output stays `Diagonal`, so allocate one. Every other output shape (rank-4 outer
+# product, scalar full contraction) is not representable as a `Diagonal` and falls back to the
+# generic dense allocation, matching `Diagonal`/dense mixing.
+function allocate_contract_output(
+        a1::Diagonal, a2::Diagonal, T, axes_codomain::Tuple{Any}, axes_domain::Tuple{Any}
     )
     return Diagonal(zero!(similar(a1.diag, T, length(only(axes_codomain)))))
-end
-function allocate_output_contract_diagonal(
-        a1::Diagonal, a2::Diagonal, T, axes_codomain, axes_domain,
-        ndims_codomain::Val, ndims_domain::Val
-    )
-    return zero!(similar_map(a1, T, axes_codomain, axes_domain))
 end
