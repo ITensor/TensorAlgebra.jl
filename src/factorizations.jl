@@ -1,8 +1,9 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-# Each factorization reconstructs its factors with `unmatricize`, reading the freshly created
-# bond axis off the factor itself: it is the factor's last axis on a codomain factor
+# Each factorization reconstructs its outer factors with `unmatricize`, while a spectrum factor
+# (`S`, `D`) is returned bare at the matrix level. The freshly created bond axis is read off the
+# factor itself: it is the factor's last axis on a codomain factor
 # (`[group…, bond]`) and its first axis on a domain factor (`[bond, group…]`), on every backend
 # (a fusing backend returns a rank-2 factor, a `TensorMap` keeps the group's original legs). The
 # bond is dualized to codomain-facing form (`conj`, a no-op on a dense axis) when it lands on the
@@ -261,7 +262,7 @@ for f in (:svd_compact, :svd_full)
             U, S, Vᴴ = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
             return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
-                unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
+                S,
                 unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain)
         end
         function $f(A, ndims_codomain::Val; kwargs...)
@@ -278,7 +279,7 @@ function svd_trunc(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc(A_mat; kwargs...)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
-        unmatricize(style, S, (axes(S, 1),), (conj(axes(S, 2)),)),
+        S,
         unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain),
         ϵ
 end
@@ -287,14 +288,15 @@ function svd_trunc(A, ndims_codomain::Val; kwargs...)
 end
 
 # Eigendecomposition: `D` is the rank × rank spectrum and `V` carries the codomain axes plus a
-# trailing rank axis. Both are unmatricized back to the array type, as in `svd_*`.
+# trailing rank axis. `D` is returned bare (its axis is the internal bond, so there is nothing to
+# unfold); `V` is unmatricized back to the array type, as in `svd_*`.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
         function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             A_mat = matricize(style, A, ndims_codomain)
             D, V = MatrixAlgebraKit.$f(A_mat; kwargs...)
             axes_codomain = first(bipartition(axes(A), ndims_codomain))
-            return unmatricize(style, D, (axes(D, 1),), (conj(axes(D, 2)),)),
+            return D,
                 unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
         end
         function $f(A, ndims_codomain::Val; kwargs...)
@@ -812,8 +814,8 @@ one
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
-    codomain_axes, domain_axes = bipartition_axes(axes(A), ndims_codomain)
-    return unmatricize(style, A_mat, codomain_axes, domain_axes)
+    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
+    return unmatricize(style, A_mat, axes_codomain, axes_domain)
 end
 function one!!(A, ndims_codomain::Val; kwargs...)
     return one!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)

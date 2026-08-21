@@ -28,20 +28,20 @@ function projectto!(dest, src)
 end
 
 """
-    allocate_project(raw, codomain_axes, domain_axes) -> dest
+    allocate_project(raw, axes_codomain, axes_domain) -> dest
 
 Allocate the destination that projecting `raw` onto
-`codomain_axes`/`domain_axes` fills. This is a backend customization point
+`axes_codomain`/`axes_domain` fills. This is a backend customization point
 (with [`projectto!`](@ref) and [`is_projected`](@ref)); the default is plain
-`similar_map(raw, codomain_axes, domain_axes)`.
+`similar_map(raw, axes_codomain, axes_domain)`.
 
 `project` projects into exactly the given axes, so `raw` must not have more
 axes than they account for. To append a derived flux-carrying auxiliary axis
 for a charge-shifting operator or a non-invariant state, use
 [`project_aux`](@ref) instead.
 """
-function allocate_project(raw, codomain_axes, domain_axes)
-    nphys = length(codomain_axes) + length(domain_axes)
+function allocate_project(raw, axes_codomain, axes_domain)
+    nphys = length(axes_codomain) + length(axes_domain)
     ndims(raw) <= nphys || throw(
         ArgumentError(
             "`project` projects into exactly the given axes and does not derive an auxiliary \
@@ -49,25 +49,25 @@ function allocate_project(raw, codomain_axes, domain_axes)
             append a derived flux-carrying leg, or pass the axis explicitly."
         )
     )
-    return similar_map(raw, codomain_axes, domain_axes)
+    return similar_map(raw, axes_codomain, axes_domain)
 end
 
 """
-    unchecked_project(raw, codomain_axes, domain_axes) -> dest
+    unchecked_project(raw, axes_codomain, axes_domain) -> dest
     unchecked_project(raw, axes) -> dest
 
 Project `raw` into a symmetry-restricted array shaped as a map from
-`domain_axes` to `codomain_axes`, without checking which components are
+`axes_domain` to `axes_codomain`, without checking which components are
 discarded: entries of `raw` outside the symmetry-allowed structure are
 dropped without inspection. Most callers want [`project`](@ref), which
 verifies that nothing was discarded, or [`tryproject`](@ref), its nullable
 sibling. All three derive from the backend customization points: this one is
-`projectto!(allocate_project(raw, codomain_axes, domain_axes), raw)`. The
+`projectto!(allocate_project(raw, axes_codomain, axes_domain), raw)`. The
 two-argument form takes a flat list of `axes` and is equivalent to an empty
 domain.
 """
-function unchecked_project(raw, codomain_axes, domain_axes)
-    return projectto!(allocate_project(raw, codomain_axes, domain_axes), raw)
+function unchecked_project(raw, axes_codomain, axes_domain)
+    return projectto!(allocate_project(raw, axes_codomain, axes_domain), raw)
 end
 # The flat all-codomain (state) form: a list of `axes` with an empty domain.
 unchecked_project(raw, axes) = unchecked_project(raw, axes, ())
@@ -103,7 +103,7 @@ Inverse of [`project`](@ref): recover the dense array that `project` maps to `a`
 codomain/domain split `ndims_codomain` as a `Val`. The default is `convert(Array, a)`; a backend
 that changes basis in `project` overloads this to undo that change, so that
 
-    unproject(project(raw, codomain_axes, domain_axes), Val(length(codomain_axes))) ≈ raw
+    unproject(project(raw, axes_codomain, axes_domain), Val(length(axes_codomain))) ≈ raw
 """
 unproject(a, ::Val) = convert(Array, a)
 
@@ -126,33 +126,33 @@ function project!(dest, src; kwargs...)
 end
 
 """
-    project(raw, codomain_axes, domain_axes; kwargs...) -> dest
+    project(raw, axes_codomain, axes_domain; kwargs...) -> dest
     project(raw, axes; kwargs...) -> dest
 
 Project `raw` into a symmetry-restricted array shaped as a map from
-`domain_axes` to `codomain_axes`, verifying that only a negligible component
+`axes_domain` to `axes_codomain`, verifying that only a negligible component
 of `raw` is discarded and throwing an `InexactError` otherwise (keyword
 arguments are forwarded to the `isapprox` tolerance check; the default
 tolerances are subject to change in future versions). See
 [`tryproject`](@ref) for a nullable version and [`unchecked_project`](@ref)
 for the unchecked projection this derives from.
 
-`raw` must not have more axes than `codomain_axes`/`domain_axes` account for:
+`raw` must not have more axes than `axes_codomain`/`axes_domain` account for:
 `project` projects into exactly the given axes. To append a derived
 flux-carrying auxiliary axis (for a charge-shifting operator or a
 non-invariant state), use [`project_aux`](@ref). The two-argument form takes a
 flat list of `axes` and is equivalent to an empty domain.
 """
-function project(raw, codomain_axes, domain_axes; kwargs...)
-    dest = unchecked_project(raw, codomain_axes, domain_axes)
-    is_projected(dest, raw, Val(length(codomain_axes)); kwargs...) ||
+function project(raw, axes_codomain, axes_domain; kwargs...)
+    dest = unchecked_project(raw, axes_codomain, axes_domain)
+    is_projected(dest, raw, Val(length(axes_codomain)); kwargs...) ||
         throw(InexactError(:project, typeof(dest), raw))
     return dest
 end
 project(raw, axes; kwargs...) = project(raw, axes, (); kwargs...)
 
 """
-    tryproject(raw, codomain_axes, domain_axes; kwargs...) -> Union{dest, Nothing}
+    tryproject(raw, axes_codomain, axes_domain; kwargs...) -> Union{dest, Nothing}
     tryproject(raw, axes; kwargs...) -> Union{dest, Nothing}
 
 Like [`project`](@ref), but return `nothing` instead of throwing when more
@@ -165,14 +165,14 @@ flux-carrying leg:
 
 Keyword arguments are forwarded to the `isapprox` tolerance check.
 """
-function tryproject(raw, codomain_axes, domain_axes; kwargs...)
-    dest = unchecked_project(raw, codomain_axes, domain_axes)
-    return is_projected(dest, raw, Val(length(codomain_axes)); kwargs...) ? dest : nothing
+function tryproject(raw, axes_codomain, axes_domain; kwargs...)
+    dest = unchecked_project(raw, axes_codomain, axes_domain)
+    return is_projected(dest, raw, Val(length(axes_codomain)); kwargs...) ? dest : nothing
 end
 tryproject(raw, axes; kwargs...) = tryproject(raw, axes, (); kwargs...)
 
 """
-    infer_aux_space(raw, codomain_axes, domain_axes) -> aux
+    infer_aux_space(raw, axes_codomain, axes_domain) -> aux
 
 Derive the auxiliary axis the `*_aux` projection verbs append as the last
 domain axis, so the projected result is symmetry-allowed. `raw` carries the
@@ -182,16 +182,16 @@ from `raw`, while a symmetric backend reads it from the sector structure (a
 graded backend derives per-slice sectors, the `TensorMap` backend scans the
 `codomain ⊗ conj(domain)` content).
 """
-function infer_aux_space(raw, codomain_axes, domain_axes)
-    return axes(raw, length(codomain_axes) + length(domain_axes) + 1)
+function infer_aux_space(raw, axes_codomain, axes_domain)
+    return axes(raw, length(axes_codomain) + length(axes_domain) + 1)
 end
 
 # Reshape a physical-rank `raw` up to one trailing slice axis, derive the auxiliary space, and
-# return the `(raw, codomain_axes, domain_axes)` triple to forward to a projection verb, with the
+# return the `(raw, axes_codomain, axes_domain)` triple to forward to a projection verb, with the
 # aux appended to the domain. A rank beyond one surplus axis is an error. Shared by the three
 # `*_aux` verbs below.
-function project_aux_args(raw, codomain_axes, domain_axes)
-    nphys = length(codomain_axes) + length(domain_axes)
+function project_aux_args(raw, axes_codomain, axes_domain)
+    nphys = length(axes_codomain) + length(axes_domain)
     nphys <= ndims(raw) <= nphys + 1 || throw(
         ArgumentError(
             "`project_aux` expected a rank-$nphys or rank-$(nphys + 1) input for $nphys given \
@@ -199,12 +199,12 @@ function project_aux_args(raw, codomain_axes, domain_axes)
         )
     )
     slices = ndims(raw) == nphys ? reshape(raw, (size(raw)..., 1)) : raw
-    aux = infer_aux_space(slices, codomain_axes, domain_axes)
-    return slices, codomain_axes, (domain_axes..., aux)
+    aux = infer_aux_space(slices, axes_codomain, axes_domain)
+    return slices, axes_codomain, (axes_domain..., aux)
 end
 
 """
-    project_aux(raw, codomain_axes, domain_axes; kwargs...) -> dest
+    project_aux(raw, axes_codomain, axes_domain; kwargs...) -> dest
     project_aux(raw, axes; kwargs...) -> dest
 
 Project `raw` and append a derived auxiliary domain axis carrying its flux,
@@ -217,32 +217,32 @@ multiplet as laid out by `stack`). Like `project`, it verifies that only a
 negligible component is discarded; see [`unchecked_project_aux`](@ref) and
 [`tryproject_aux`](@ref) for the unchecked and nullable siblings.
 """
-function project_aux(raw, codomain_axes, domain_axes; kwargs...)
-    return project(project_aux_args(raw, codomain_axes, domain_axes)...; kwargs...)
+function project_aux(raw, axes_codomain, axes_domain; kwargs...)
+    return project(project_aux_args(raw, axes_codomain, axes_domain)...; kwargs...)
 end
 project_aux(raw, axes; kwargs...) = project_aux(raw, axes, (); kwargs...)
 
 """
-    unchecked_project_aux(raw, codomain_axes, domain_axes) -> dest
+    unchecked_project_aux(raw, axes_codomain, axes_domain) -> dest
     unchecked_project_aux(raw, axes) -> dest
 
 The unchecked sibling of [`project_aux`](@ref): derive and append the auxiliary
 axis, then project without verifying which components are discarded.
 """
-function unchecked_project_aux(raw, codomain_axes, domain_axes)
-    return unchecked_project(project_aux_args(raw, codomain_axes, domain_axes)...)
+function unchecked_project_aux(raw, axes_codomain, axes_domain)
+    return unchecked_project(project_aux_args(raw, axes_codomain, axes_domain)...)
 end
 unchecked_project_aux(raw, axes) = unchecked_project_aux(raw, axes, ())
 
 """
-    tryproject_aux(raw, codomain_axes, domain_axes; kwargs...) -> Union{dest, Nothing}
+    tryproject_aux(raw, axes_codomain, axes_domain; kwargs...) -> Union{dest, Nothing}
     tryproject_aux(raw, axes; kwargs...) -> Union{dest, Nothing}
 
 The nullable sibling of [`project_aux`](@ref): derive and append the auxiliary
 axis, returning `nothing` instead of throwing when more than a negligible
 component of `raw` would be discarded.
 """
-function tryproject_aux(raw, codomain_axes, domain_axes; kwargs...)
-    return tryproject(project_aux_args(raw, codomain_axes, domain_axes)...; kwargs...)
+function tryproject_aux(raw, axes_codomain, axes_domain; kwargs...)
+    return tryproject(project_aux_args(raw, axes_codomain, axes_domain)...; kwargs...)
 end
 tryproject_aux(raw, axes; kwargs...) = tryproject_aux(raw, axes, (); kwargs...)

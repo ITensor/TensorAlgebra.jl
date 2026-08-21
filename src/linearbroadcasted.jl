@@ -145,7 +145,9 @@ arguments(a::AddBroadcasted) = addends(a)
 # Mul — lazy matrix multiplication (standalone, not LinearBroadcasted)
 # ---------------------------------------------------------------------------- #
 
-# Same as `LinearAlgebra.matprod`, but duplicated here since it is private.
+# The element type of a matrix-product accumulation, modeled on `LinearAlgebra.matprod` (private
+# there, so inlined): a sum of products, so `promote_op(matprod, ...)` widens exactly as an
+# accumulating inner loop would.
 matprod(x, y) = x * y + x * y
 
 struct Mul{A, B}

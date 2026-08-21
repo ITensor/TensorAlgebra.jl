@@ -64,7 +64,13 @@ function output_axes(
     axes_codomain, _ = bipartition(axes(a1), perm1_codomain, perm1_domain)
     _, axes_domain = bipartition(axes(a2), perm2_codomain, perm2_domain)
     axes_uncontracted = (axes_codomain..., axes_domain...)
-    return bipartition(axes_uncontracted, perm_dest_codomain, perm_dest_domain)
+    axes_codomain_dest, axes_domain_dest = bipartition(
+        axes_uncontracted, perm_dest_codomain, perm_dest_domain
+    )
+    # The operand axes are stored/dualized, so un-dualize the domain axes into the codomain-facing
+    # construction convention shared by `allocate_contract_output`, `similar_map`, and `unmatricize`
+    # (a no-op on dense axes).
+    return axes_codomain_dest, conj.(axes_domain_dest)
 end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
@@ -84,14 +90,21 @@ function allocate_output(
         perm2_codomain,
         perm2_domain
     )
-    codomain_axes_dest, domain_axes_dest = output_axes(
+    axes_codomain_dest, axes_domain_dest = output_axes(
         contract,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    T = promote_type(eltype(a1), eltype(a2))
-    # `domain_axes_dest` come straight from `axes(a2)` (stored/dualized convention), so
-    # un-dualize them into `similar_map`'s codomain-facing convention.
-    return zero!(similar_map(a1, T, codomain_axes_dest, conj.(domain_axes_dest)))
+    T = Base.promote_op(matprod, eltype(a1), eltype(a2))
+    return allocate_contract_output(a1, a2, T, axes_codomain_dest, axes_domain_dest)
+end
+
+# Allocate the output container for `contract`: the operand types, the output element type and
+# axes (domain codomain-facing), and the output's codomain/domain leg counts (the axes tuple
+# lengths) select the container type. Internal to TensorAlgebra, not a public extension point:
+# the leg counts identify the contraction pattern only for matrix-shaped operands (see the
+# `Diagonal` method in `diagonal.jl`), so external structured types should not overload it.
+function allocate_contract_output(a1, a2, T, axes_codomain::Tuple, axes_domain::Tuple)
+    return zero!(similar_map(a1, T, axes_codomain, axes_domain))
 end

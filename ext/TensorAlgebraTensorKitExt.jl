@@ -66,10 +66,10 @@ TensorAlgebra.sum(t::AbstractTensorMap; kwargs...) = Base.sum(convert(Array, t);
 # exactly what TensorKit's `similar(t, T, codomain, domain)` wants, so build the two
 # `ProductSpace`s directly.
 function TensorAlgebra.similar_map(
-        a::AbstractTensorMap, ::Type{T}, codomain_axes, domain_axes
+        a::AbstractTensorMap, ::Type{T}, axes_codomain, axes_domain
     ) where {T}
     S = spacetype(a)
-    return similar(a, T, ProductSpace{S}(codomain_axes...), ProductSpace{S}(domain_axes...))
+    return similar(a, T, ProductSpace{S}(axes_codomain...), ProductSpace{S}(axes_domain...))
 end
 
 # A plain-array prototype with native (space) axes is the operator/state construction case: `raw`
@@ -81,22 +81,22 @@ end
 # entries below can read it from whichever of codomain/domain is non-empty and share one builder,
 # mirroring `_map_homspace` and the map constructors.
 function similar_tensormap(
-        raw::AbstractArray, ::Type{T}, ::Type{S}, codomain_axes, domain_axes
+        raw::AbstractArray, ::Type{T}, ::Type{S}, axes_codomain, axes_domain
     ) where {T, S <: ElementarySpace}
     A = Base.promote_op(similar, typeof(raw), Type{T}, Int)
-    return TensorMapWithStorage{T, A}(undef, _map_homspace(S, codomain_axes, domain_axes))
+    return TensorMapWithStorage{T, A}(undef, _map_homspace(S, axes_codomain, axes_domain))
 end
 function TensorAlgebra.similar_map(
         raw::AbstractArray, ::Type{T},
-        codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+        axes_codomain::Tuple{S, Vararg{S}}, axes_domain::Tuple{Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    return similar_tensormap(raw, T, S, codomain_axes, domain_axes)
+    return similar_tensormap(raw, T, S, axes_codomain, axes_domain)
 end
 function TensorAlgebra.similar_map(
         raw::AbstractArray, ::Type{T},
-        codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+        axes_codomain::Tuple{}, axes_domain::Tuple{S, Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    return similar_tensormap(raw, T, S, codomain_axes, domain_axes)
+    return similar_tensormap(raw, T, S, axes_codomain, axes_domain)
 end
 
 # ===============================  zeros_map / randn_map / rand_map  ========================
@@ -107,32 +107,32 @@ end
 # `S` is passed to `_map_homspace` explicitly so the two dispatch entries per constructor can
 # read it from whichever of the codomain/domain is non-empty and share one builder; an empty
 # axis tuple gives the unit space `ProductSpace{S}()`.
-function _map_homspace(::Type{S}, codomain_axes, domain_axes) where {S <: ElementarySpace}
-    return ProductSpace{S}(codomain_axes...) ← ProductSpace{S}(domain_axes...)
+function _map_homspace(::Type{S}, axes_codomain, axes_domain) where {S <: ElementarySpace}
+    return ProductSpace{S}(axes_codomain...) ← ProductSpace{S}(axes_domain...)
 end
 function TensorAlgebra.zeros_map(
-        ::Type{T}, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+        ::Type{T}, axes_codomain::Tuple{S, Vararg{S}}, axes_domain::Tuple{Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    return TensorKit.zeros(T, _map_homspace(S, codomain_axes, domain_axes))
+    return TensorKit.zeros(T, _map_homspace(S, axes_codomain, axes_domain))
 end
 function TensorAlgebra.zeros_map(
-        ::Type{T}, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+        ::Type{T}, axes_codomain::Tuple{}, axes_domain::Tuple{S, Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    return TensorKit.zeros(T, _map_homspace(S, codomain_axes, domain_axes))
+    return TensorKit.zeros(T, _map_homspace(S, axes_codomain, axes_domain))
 end
 for (f, g) in ((:randn_map, :randn), (:rand_map, :rand))
     @eval begin
         function TensorAlgebra.$f(
                 rng::AbstractRNG, ::Type{T},
-                codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+                axes_codomain::Tuple{S, Vararg{S}}, axes_domain::Tuple{Vararg{S}}
             ) where {T, S <: ElementarySpace}
-            return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
+            return TensorKit.$g(rng, T, _map_homspace(S, axes_codomain, axes_domain))
         end
         function TensorAlgebra.$f(
                 rng::AbstractRNG, ::Type{T},
-                codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+                axes_codomain::Tuple{}, axes_domain::Tuple{S, Vararg{S}}
             ) where {T, S <: ElementarySpace}
-            return TensorKit.$g(rng, T, _map_homspace(S, codomain_axes, domain_axes))
+            return TensorKit.$g(rng, T, _map_homspace(S, axes_codomain, axes_domain))
         end
     end
 end
@@ -142,7 +142,7 @@ end
 # `TensorMap` is not an `AbstractArray`, so the generic `copyto!` default does not apply; delegate
 # to TensorKit's `project_symmetric!`, which fills the symmetry-allowed blocks from the dense data
 # and discards any component outside the block structure. Composed with the map constructors above,
-# this makes `project(dense, codomain_axes, domain_axes)` build a `TensorMap` from a dense matrix.
+# this makes `project(dense, axes_codomain, axes_domain)` build a `TensorMap` from a dense matrix.
 # `project_symmetric!` requires a matching dense size, so reshape `src` to `size(dest)` first (a
 # no-op when the ranks already match); this lets a lower-rank `src` omit trailing length-1 axes,
 # matching the generic `projectto!`, and rejects a genuine shape mismatch.
@@ -168,14 +168,14 @@ end
 # whichever side is non-empty, the same two-entry split `similar_map` uses. `project`'s allocation
 # stays generic (strict `similar_map`); only the `project_aux` derivation is `TensorMap`-specific.
 function TensorAlgebra.infer_aux_space(
-        raw::AbstractArray, codomain_axes::Tuple{S, Vararg{S}}, domain_axes::Tuple{Vararg{S}}
+        raw::AbstractArray, axes_codomain::Tuple{S, Vararg{S}}, axes_domain::Tuple{Vararg{S}}
     ) where {S <: ElementarySpace}
-    return infer_aux_space_tensormap(raw, S, codomain_axes, domain_axes)
+    return infer_aux_space_tensormap(raw, S, axes_codomain, axes_domain)
 end
 function TensorAlgebra.infer_aux_space(
-        raw::AbstractArray, codomain_axes::Tuple{}, domain_axes::Tuple{S, Vararg{S}}
+        raw::AbstractArray, axes_codomain::Tuple{}, axes_domain::Tuple{S, Vararg{S}}
     ) where {S <: ElementarySpace}
-    return infer_aux_space_tensormap(raw, S, codomain_axes, domain_axes)
+    return infer_aux_space_tensormap(raw, S, axes_codomain, axes_domain)
 end
 
 # The space of `raw`'s trailing auxiliary axis, derived so the projected result is
@@ -184,11 +184,11 @@ end
 # follows, so the aux slices must appear in that order. The result may span several sectors (a
 # direct-sum, MPO-style virtual leg).
 function infer_aux_space_tensormap(
-        raw, ::Type{S}, codomain_axes, domain_axes
+        raw, ::Type{S}, axes_codomain, axes_domain
     ) where {S <: ElementarySpace}
-    aux_dim = length(codomain_axes) + length(domain_axes) + 1
+    aux_dim = length(axes_codomain) + length(axes_domain) + 1
     aux_length = size(raw, aux_dim)
-    content = fuse(codomain_axes..., dual.(domain_axes)...)
+    content = fuse(axes_codomain..., dual.(axes_domain)...)
     # Probe the surplus axis slice by slice: a slice keeps the aux axis (width `dim(s)`), so its
     # rank matches the candidate axes exactly and `tryproject` allocates, fills, and round-trip-
     # verifies without re-entering the derivation branch. This builds one `TensorMap` per candidate
@@ -197,7 +197,7 @@ function infer_aux_space_tensormap(
     function slice_is_covariant(r, s)
         slice = selectdim(raw, aux_dim, r)
         return !isnothing(
-            TensorAlgebra.tryproject(slice, codomain_axes, (domain_axes..., S(s => 1)))
+            TensorAlgebra.tryproject(slice, axes_codomain, (axes_domain..., S(s => 1)))
         )
     end
     seccounts = Pair{TensorKit.sectortype(S), Int}[]
@@ -264,10 +264,10 @@ end
 # codomain-facing (un-dualized), which is exactly TensorKit's domain convention, so they build the
 # domain `ProductSpace` directly.
 function TensorAlgebra.unmatricize(
-        ::TensorKitMatricize, m::AbstractTensorMap, codomain_axes, domain_axes
+        ::TensorKitMatricize, m::AbstractTensorMap, axes_codomain, axes_domain
     )
     S = spacetype(m)
-    dest = ProductSpace{S}(codomain_axes...) ← ProductSpace{S}(domain_axes...)
+    dest = ProductSpace{S}(axes_codomain...) ← ProductSpace{S}(axes_domain...)
     space(m) == dest ||
         throw(ArgumentError("`unmatricize` space `$dest` does not match `$(space(m))`"))
     return m

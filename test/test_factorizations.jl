@@ -90,7 +90,7 @@ end
     D, V = eig_full(A, labels_A, labels_V, labels_V′)
     @test A == Acopy # should not have altered initial array
     @test eltype(D) == eltype(V) && eltype(D) <: Complex
-    # `D` is unmatricized like the other factors; the `(1, 1)` unmatricize preserves `Diagonal`.
+    # `D` is returned bare (the spectrum over the internal bond), which is a `Diagonal`.
     @test D isa Diagonal
 
     AV = contract((:a, :b, :D), A, labels_A, V, (labels_V′..., :D))
