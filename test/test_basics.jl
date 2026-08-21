@@ -178,6 +178,14 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test_throws ArgumentError unmatricizeperm!(m, m, (1, 2), (3,))
     end
 
+    @testset "contract eltype widens like a matrix product" begin
+        a1 = ones(Bool, (2, 2))
+        a2 = ones(Bool, (2, 2))
+        a_dest, = contract(a1, ("i", "k"), a2, ("k", "j"))
+        @test eltype(a_dest) === Int
+        @test a_dest == fill(2, (2, 2))
+    end
+
     alg_tensoroperations = ContractAlgorithm(TensorOperations.StridedBLAS())
     @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
         elt_dest = promote_type(elt1, elt2)

@@ -72,5 +72,5 @@ end
 function allocate_contract_output(
         a1::Diagonal, a2::Diagonal, T, axes_codomain::Tuple{Any}, axes_domain::Tuple{Any}
     )
-    return Diagonal(zero!(similar(a1.diag, T, length(only(axes_codomain)))))
+    return Diagonal(zero!(similar(a1.diag, T, (only(axes_codomain),))))
 end

@@ -108,5 +108,11 @@ using Test: @test, @test_throws, @testset
         cda, = TensorAlgebra.contract(d, ("i", "k"), a, ("k", "j"))
         @test !(cda isa Diagonal)
         @test cda ≈ d * a
+        # Mixed element types promote through the product.
+        dc = Diagonal(ComplexF64[1 + im, 2, 3im])
+        cmix, = TensorAlgebra.contract(d, ("i", "k"), dc, ("k", "j"))
+        @test cmix isa Diagonal
+        @test eltype(cmix) === ComplexF64
+        @test cmix ≈ d * dc
     end
 end

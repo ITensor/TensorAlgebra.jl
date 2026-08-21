@@ -322,7 +322,8 @@ end
 # would reshape silently.
 function check_input(::typeof(unmatricize), m, axes_codomain, axes_domain)
     (
-        size(m, 1) == prod(length, axes_codomain; init = 1) &&
+        ndims(m) == 2 &&
+            size(m, 1) == prod(length, axes_codomain; init = 1) &&
             size(m, 2) == prod(length, axes_domain; init = 1)
     ) || throw(DimensionMismatch("`unmatricize` axes do not match the matrix size"))
     return nothing

@@ -1,8 +1,9 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-# Each factorization reconstructs its factors with `unmatricize`, reading the freshly created
-# bond axis off the factor itself: it is the factor's last axis on a codomain factor
+# Each factorization reconstructs its outer factors with `unmatricize`, while a spectrum factor
+# (`S`, `D`) is returned bare at the matrix level. The freshly created bond axis is read off the
+# factor itself: it is the factor's last axis on a codomain factor
 # (`[group…, bond]`) and its first axis on a domain factor (`[bond, group…]`), on every backend
 # (a fusing backend returns a rank-2 factor, a `TensorMap` keeps the group's original legs). The
 # bond is dualized to codomain-facing form (`conj`, a no-op on a dense axis) when it lands on the
