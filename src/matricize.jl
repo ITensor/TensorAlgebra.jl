@@ -68,9 +68,12 @@ function bipermutedims!(
 end
 
 # =====================================  matricize  ========================================
-# TBD settle copy/not copy convention
-# matrix factorizations assume copy
-# maybe: copy=false kwarg
+# Copy convention: `bipermutedims`/`permutedims` always copy (Base `permutedims` semantics).
+# `matricize`/`matricizeperm`/`matricizeopperm` are the maybe-alias tier — the result may be a
+# view of the input or a fresh gather, and callers must treat it as read-only. A consumer that
+# mutates takes an explicit copy (`MatrixAlgebraKit.copy_input` or `copy`); the factorization
+# wrappers donate a provably owned matricization to the mutating matrix-level entries (see
+# `maybe_donate` in `factorizations.jl`).
 
 # This is the primary function that should be overloaded for new matricize styles.
 # This assumes the permutation was already performed.
@@ -130,6 +133,23 @@ function matricizeperm(
         style::MatricizeStyle, a, perm_codomain, perm_domain
     )
     return matricizeperm(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
+end
+
+# `matricizeperm` for the factorization and matrix-function wrappers: same maybe-alias
+# contract, but a codomain/domain swap takes the permuted copy instead of the lazy `transpose`
+# view — matrix-level backends (LAPACK through MatrixAlgebraKit) require the matricized layout
+# itself, not just any matrix-shaped view.
+function matricize_input(
+        style::MatricizeStyle, a,
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+    )
+    ndims(a) == length(perm_codomain) + length(perm_domain) ||
+        throw(ArgumentError("Invalid bipermutation"))
+    kind = matricizekind(style, perm_codomain, perm_domain)
+    kind == ReshapeMatricizeKind &&
+        return matricize(style, a, Val(length(perm_codomain)))
+    a_perm = bipermutedims(a, perm_codomain, perm_domain)
+    return matricize(style, a_perm, Val(length(perm_codomain)))
 end
 
 # ==================================  matricizeopperm  =====================================

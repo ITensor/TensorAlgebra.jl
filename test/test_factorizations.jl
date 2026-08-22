@@ -418,3 +418,45 @@ end
     @test TensorAlgebra.tr(A, (1, 2), (3, 4)) ≈ LinearAlgebra.tr(m)
     @test TensorAlgebra.tr(A, Val(2)) ≈ LinearAlgebra.tr(m)
 end
+
+# Permuted entry points: matricization and buffer donation
+# --------------------------------------------------------
+# The permuted forms matricize directly (`matricize_input`, no eager `bipermutedims` copy)
+# and donate an owned matricization to the mutating MatrixAlgebraKit entries, so pin them
+# to the reference permute-then-`Val` path and check the caller's array is never mutated,
+# through the identity, permuted-copy, and codomain/domain-swap matricizations alike.
+@testset "Permuted forms match permute-then-matricize ($T)" for T in elts
+    A = randn(T, 2, 3, 4)
+    Acopy = copy(A)
+    for (perm_codomain, perm_domain) in
+        (((1, 2), (3,)), ((3, 1), (2,)), ((3,), (1, 2)), ((2,), (3, 1)))
+        A_perm = TensorAlgebra.bipermutedims(A, perm_codomain, perm_domain)
+        for f in (
+                qr_compact, lq_compact, left_orth, right_orth,
+                svd_compact, svd_trunc, svd_vals, left_null, right_null,
+            )
+            F = f(A, perm_codomain, perm_domain)
+            F_ref = f(A_perm, Val(length(perm_codomain)))
+            Fs = F isa Tuple ? F : (F,)
+            F_refs = F_ref isa Tuple ? F_ref : (F_ref,)
+            @test all(map(==, Fs, F_refs))
+            @test A == Acopy
+        end
+    end
+    B = randn(T, 2, 3, 2, 3)
+    Bcopy = copy(B)
+    for (perm_codomain, perm_domain) in
+        (((1, 2), (3, 4)), ((3, 4), (1, 2)), ((2, 3), (4, 1)))
+        B_perm = TensorAlgebra.bipermutedims(B, perm_codomain, perm_domain)
+        for f in (eig_full, eig_vals)
+            F = f(B, perm_codomain, perm_domain)
+            F_ref = f(B_perm, Val(2))
+            Fs = F isa Tuple ? F : (F,)
+            F_refs = F_ref isa Tuple ? F_ref : (F_ref,)
+            @test all(map(==, Fs, F_refs))
+            @test B == Bcopy
+        end
+        @test TensorAlgebra.tr(B, perm_codomain, perm_domain) ≈
+            TensorAlgebra.tr(B_perm, Val(2))
+    end
+end
