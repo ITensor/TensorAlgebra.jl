@@ -1,8 +1,7 @@
-using LinearAlgebra: Transpose
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, PermuteMatricizeKind, ReshapeMatricize,
-    ReshapeMatricizeKind, TransposeMatricizeKind, matricizeopperm, matricizeperm
-using Test: @test, @testset
+using TensorAlgebra:
+    TensorAlgebra, ReshapeMatricize, matricizeopperm, matricizeperm, trymatricizeview
+using Test: @test, @test_throws, @testset
 
 # A non-`ReshapeMatricize` style, to check the always-safe generic fallback.
 struct DummyMatricize <: TensorAlgebra.MatricizeStyle end
@@ -15,52 +14,25 @@ function matricize_ref(a, perm_codomain, perm_domain)
     return reshape(a_perm, (nrow, ncol))
 end
 
-@testset "matricizekind classifier" begin
-    style = ReshapeMatricize()
-    # Already in storage order → plain reshape view.
-    @test TensorAlgebra.matricizekind(style, (1,), (2, 3)) == ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(style, (1, 2), (3,)) == ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(style, (1, 2, 3), ()) == ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(style, (), (1, 2, 3)) == ReshapeMatricizeKind
-    # Pure codomain/domain swap → transpose of a reshape view.
-    @test TensorAlgebra.matricizekind(style, (2, 3), (1,)) == TransposeMatricizeKind
-    @test TensorAlgebra.matricizekind(style, (3,), (1, 2)) == TransposeMatricizeKind
-    # Interleaved → permuted copy.
-    @test TensorAlgebra.matricizekind(style, (3, 1), (2,)) == PermuteMatricizeKind
-    @test TensorAlgebra.matricizekind(style, (2,), (1, 3)) == PermuteMatricizeKind
-    @test TensorAlgebra.matricizekind(style, (1, 3), (2,)) == PermuteMatricizeKind
-    # Generic matricize styles recognize the always-safe reshape (no-op permute) but never
-    # claim a transpose (which only styles with a lazy `transpose` can realize).
-    @test TensorAlgebra.matricizekind(DummyMatricize(), (1,), (2, 3)) ==
-        ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(DummyMatricize(), (1, 2, 3), ()) ==
-        ReshapeMatricizeKind
-    @test TensorAlgebra.matricizekind(DummyMatricize(), (2, 3), (1,)) ==
-        PermuteMatricizeKind
-    @test TensorAlgebra.matricizekind(DummyMatricize(), (3, 1), (2,)) ==
-        PermuteMatricizeKind
-end
-
-@testset "maybe-view matricizeopperm (eltype=$elt)" for elt in (Float64, ComplexF64)
+@testset "maybe-view matricizeperm (eltype=$elt)" for elt in (Float64, ComplexF64)
     a = randn(StableRNG(123), elt, 2, 3, 4)
 
-    # Reshape branch: correct values and a view aliasing `a`.
+    # Identity bipermutation: correct values and a view aliasing `a`.
     m = matricizeperm(a, (1,), (2, 3))
     @test m ≈ matricize_ref(a, (1,), (2, 3))
     @test Base.mightalias(m, a)
 
-    # Transpose branch: correct values and a transpose view aliasing `a`.
-    m = matricizeperm(a, (2, 3), (1,))
-    @test m ≈ matricize_ref(a, (2, 3), (1,))
-    @test m isa Transpose
-    @test Base.mightalias(m, a)
+    # Every other bipermutation is a fresh permuted copy in matricized layout (no lazy
+    # wrappers), including the codomain/domain swap.
+    for (pc, pd) in (((2, 3), (1,)), ((3, 1), (2,)))
+        m = matricizeperm(a, pc, pd)
+        @test m ≈ matricize_ref(a, pc, pd)
+        @test m isa Matrix
+        @test !Base.mightalias(m, a)
+    end
+    @test_throws ArgumentError matricizeperm(a, (1,), (2,))
 
-    # Permute branch: correct values, but a fresh copy (no aliasing).
-    m = matricizeperm(a, (3, 1), (2,))
-    @test m ≈ matricize_ref(a, (3, 1), (2,))
-    @test !Base.mightalias(m, a)
-
-    # `conj` cannot ride a view, so it copies even on the reshape/transpose patterns.
+    # `conj` cannot ride a view, so it copies even on the identity bipermutation.
     m = matricizeopperm(conj, a, (1,), (2, 3))
     @test m ≈ conj.(matricize_ref(a, (1,), (2, 3)))
     @test !Base.mightalias(m, a)
@@ -69,25 +41,48 @@ end
     @test !Base.mightalias(m, a)
 end
 
-@testset "view branches track source mutations, copy branch does not" begin
+@testset "trymatricizeview" begin
+    a = randn(StableRNG(321), 2, 3, 4)
+    style = ReshapeMatricize()
+
+    # Order-preserving splits share memory: a reshape view for the identity bipermutation,
+    # a lazy transpose of it for the codomain/domain swap.
+    m = trymatricizeview(style, a, (1,), (2, 3))
+    @test m == matricize_ref(a, (1,), (2, 3))
+    @test Base.mightalias(m, a)
+    @test trymatricizeview(style, a, Val(1)) == m
+    m = trymatricizeview(style, a, (2, 3), (1,))
+    @test m == matricize_ref(a, (2, 3), (1,))
+    @test Base.mightalias(m, a)
+
+    # An interleaving split would move data, so no memory-sharing matricization exists.
+    @test isnothing(trymatricizeview(style, a, (3, 1), (2,)))
+
+    # A generic style declares nothing.
+    @test isnothing(trymatricizeview(DummyMatricize(), a, Val(1)))
+    @test isnothing(trymatricizeview(DummyMatricize(), a, (1,), (2, 3)))
+
+    # Writes to the shared matricization are writes to `a`.
+    m = trymatricizeview(style, a, (1,), (2, 3))
+    m[1, 1] = 42
+    @test a[1, 1, 1] == 42
+end
+
+@testset "view branch tracks source mutations, copy branch does not" begin
     rng = StableRNG(7)
 
-    # Reshape view tracks an in-place update of `a`.
+    # Identity-bipermutation view tracks an in-place update of `a`.
     a = randn(rng, 2, 3, 4)
     m = matricizeperm(a, (1,), (2, 3))
     a .= randn(rng, 2, 3, 4)
     @test m ≈ matricize_ref(a, (1,), (2, 3))
 
-    # Transpose view tracks an in-place update of `a`.
-    a = randn(rng, 2, 3, 4)
-    m = matricizeperm(a, (2, 3), (1,))
-    a .= randn(rng, 2, 3, 4)
-    @test m ≈ matricize_ref(a, (2, 3), (1,))
-
-    # Permute copy is independent of later updates to `a`.
-    a = randn(rng, 2, 3, 4)
-    m = matricizeperm(a, (3, 1), (2,))
-    snapshot = copy(m)
-    a .= a .+ 1
-    @test m == snapshot
+    # Permuted copies are independent of later updates to `a`.
+    for (pc, pd) in (((2, 3), (1,)), ((3, 1), (2,)))
+        a = randn(rng, 2, 3, 4)
+        m = matricizeperm(a, pc, pd)
+        snapshot = copy(m)
+        a .= a .+ 1
+        @test m == snapshot
+    end
 end

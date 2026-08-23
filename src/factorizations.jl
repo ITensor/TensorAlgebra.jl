@@ -9,28 +9,81 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # bond is dualized to codomain-facing form (`conj`, a no-op on a dense axis) when it lands on the
 # domain side of the reconstruction, matching the `unmatricize`/`similar_map` axis convention.
 
-# Whether the matricized form `A_mat` is detached from `A`: fresh storage the wrapper owns, so
-# a mutating consumer cannot corrupt the caller's data. Aliasing is only tracked (through
-# `Base.dataids`) for `AbstractArray`s; any other tensor type (such as a `TensorMap`, whose
-# trivial `permute` returns the input itself) is conservatively treated as attached.
-isdetached(A_mat::AbstractArray, A::AbstractArray) = !Base.mightalias(A_mat, A)
-isdetached(A_mat, A) = false
-
-# Skip the copy inside the non-mutating MatrixAlgebraKit entry (`f(A) = f!(copy_input(f, A))`)
-# when the wrapper owns `A_mat` and it already has the floating-point eltype `copy_input`
-# would produce. When `A_mat` may alias the caller's input (a dense reshape or a stored graded
-# matrix), the copying entry is required: mutating `A_mat` would corrupt that input.
-function maybe_donate(f, f!, A_mat, owned::Bool; kwargs...)
-    owned && eltype(A_mat) === float(eltype(A_mat)) && return f!(A_mat; kwargs...)
-    return f(A_mat; kwargs...)
+# `unmatricize_factors(f, style, A_mat, axes_codomain, axes_domain; kwargs...)` is the shared
+# matrix-level body of the wrapper `f`: apply the matrix-level function to the matricized input
+# `A_mat` and unfold the outputs with the bipartitioned axes (in the `unmatricize` convention,
+# domain axes un-dualized).
+#
+# Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
+# owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
+# a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
+# the gathered bipermutation is fresh by construction and is donated directly (with
+# `copy_input` still applied when the eltype must change) — and the cores call the mutating
+# entry unconditionally.
+for f in (
+        :qr_compact, :qr_full, :lq_compact, :lq_full,
+        :left_polar, :right_polar, :left_orth, :right_orth,
+        :svd_compact, :svd_full, :svd_trunc, :svd_vals,
+        :eigh_full, :eig_full, :eigh_trunc, :eig_trunc, :eigh_vals, :eig_vals,
+        :left_null, :right_null, :project_hermitian,
+    )
+    @eval begin
+        function $f(
+                style::MatricizeStyle, A,
+                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                kwargs...
+            )
+            ndims(A) == length(perm_codomain) + length(perm_domain) ||
+                throw(ArgumentError("Invalid bipermutation"))
+            A_shared = trymatricizeview(style, A, perm_codomain, perm_domain)
+            A_mat = if !isnothing(A_shared)
+                MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
+            else
+                A_perm = bipermutedims(A, perm_codomain, perm_domain)
+                A_gather = matricize(style, A_perm, Val(length(perm_codomain)))
+                if eltype(A_gather) === float(eltype(A_gather))
+                    A_gather
+                else
+                    MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_gather)
+                end
+            end
+            axes_codomain, axes_domain = bipartition_axes(
+                map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
+                Val(length(perm_codomain))
+            )
+            return unmatricize_factors(
+                $f, style, A_mat, axes_codomain, axes_domain; kwargs...
+            )
+        end
+    end
 end
 
-# `matricized(f, style, A_mat, owned, axes_codomain, axes_domain; kwargs...)` is the shared
-# matrix-level body of the wrapper `f`: apply the matrix-level `f` to the matricized input
-# `A_mat` and unfold the outputs with the bipartitioned axes (in the `unmatricize` convention,
-# domain axes un-dualized). `owned` (see `isdetached`) gates donating `A_mat` to the mutating
-# matrix-level entry. The wrappers produce `A_mat` with the maybe-alias `matricize`/
-# `matricize_input` spelling, so the permuted forms skip the eager `bipermutedims` copy.
+# Read-only tier: the matrix-level entries never mutate their input (they copy internally), so
+# the perm form consumes the maybe-alias `matricizeperm` matricization directly.
+for f in (
+        :gram_eigh_full, :gram_eigh_full_with_pinv,
+        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
+    )
+    @eval begin
+        function $f(
+                style::MatricizeStyle, A,
+                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                kwargs...
+            )
+            A_mat = matricizeperm(style, A, perm_codomain, perm_domain)
+            axes_codomain, axes_domain = bipartition_axes(
+                map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
+                Val(length(perm_codomain))
+            )
+            return unmatricize_factors(
+                $f, style, A_mat, axes_codomain, axes_domain; kwargs...
+            )
+        end
+    end
+end
+
+# The `Val`, style-inferring, and labels forms of both tiers are thin forwarders into the perm
+# form, at the identity bipermutation for the `Val` form.
 for f in (
         :qr_compact, :qr_full, :lq_compact, :lq_full,
         :left_polar, :right_polar, :left_orth, :right_orth,
@@ -40,32 +93,16 @@ for f in (
         :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe, :project_hermitian,
     )
     @eval begin
-        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-            A_mat = matricize(style, A, ndims_codomain)
-            axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
-            return matricized(
-                $f, style, A_mat, isdetached(A_mat, A),
-                axes_codomain, axes_domain; kwargs...
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val{K}; kwargs...) where {K}
+            return $f(
+                style, A,
+                ntuple(identity, ndims_codomain),
+                ntuple(i -> K + i, Val(ndims(A) - K));
+                kwargs...
             )
         end
         function $f(A, ndims_codomain::Val; kwargs...)
             return $f(MatricizeStyle(A), A, ndims_codomain; kwargs...)
-        end
-
-        function $f(
-                style::MatricizeStyle, A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
-                kwargs...
-            )
-            A_mat = matricize_input(style, A, perm_codomain, perm_domain)
-            axes_codomain, axes_domain = bipartition_axes(
-                map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
-                Val(length(perm_codomain))
-            )
-            return matricized(
-                $f, style, A_mat, isdetached(A_mat, A),
-                axes_codomain, axes_domain; kwargs...
-            )
         end
         function $f(
                 A,
@@ -74,7 +111,6 @@ for f in (
             )
             return $f(MatricizeStyle(A), A, perm_codomain, perm_domain; kwargs...)
         end
-
         function $f(
                 style::MatricizeStyle, A,
                 labels_A, labels_codomain, labels_domain; kwargs...
@@ -98,14 +134,11 @@ for f in (
         :left_polar, :right_polar, :left_orth, :right_orth,
     )
     @eval begin
-        function matricized(
-                ::typeof($f), style::MatricizeStyle, A_mat, owned::Bool,
+        function unmatricize_factors(
+                ::typeof($f), style::MatricizeStyle, A_mat,
                 axes_codomain, axes_domain; kwargs...
             )
-            X, Y = maybe_donate(
-                MatrixAlgebraKit.$f, MatrixAlgebraKit.$(Symbol(f, :!)), A_mat, owned;
-                kwargs...
-            )
+            X, Y = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
             return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
                 unmatricize(style, Y, (axes(Y, 1),), axes_domain)
         end
@@ -297,14 +330,11 @@ right_orth
 # rank × rank spectrum, and `Vᴴ` carries a leading rank axis plus the domain axes.
 for f in (:svd_compact, :svd_full)
     @eval begin
-        function matricized(
-                ::typeof($f), style::MatricizeStyle, A_mat, owned::Bool,
+        function unmatricize_factors(
+                ::typeof($f), style::MatricizeStyle, A_mat,
                 axes_codomain, axes_domain; kwargs...
             )
-            U, S, Vᴴ = maybe_donate(
-                MatrixAlgebraKit.$f, MatrixAlgebraKit.$(Symbol(f, :!)), A_mat, owned;
-                kwargs...
-            )
+            U, S, Vᴴ = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
             return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
                 S,
                 unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain)
@@ -315,13 +345,11 @@ end
 # `svd_trunc` matches the three-output SVD but additionally surfaces the truncation error
 # `ϵ` (the 2-norm of the discarded singular values, computed by MatrixAlgebraKit without
 # catastrophic cancellation), so it is spelled out here rather than sharing the loop above.
-function matricized(
-        ::typeof(svd_trunc), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(svd_trunc), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
-    U, S, Vᴴ, ϵ = maybe_donate(
-        MatrixAlgebraKit.svd_trunc, MatrixAlgebraKit.svd_trunc!, A_mat, owned; kwargs...
-    )
+    U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc!(A_mat; kwargs...)
     return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
         S,
         unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain),
@@ -333,14 +361,11 @@ end
 # unfold); `V` is unmatricized back to the array type, as in `svd_*`.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
-        function matricized(
-                ::typeof($f), style::MatricizeStyle, A_mat, owned::Bool,
+        function unmatricize_factors(
+                ::typeof($f), style::MatricizeStyle, A_mat,
                 axes_codomain, axes_domain; kwargs...
             )
-            D, V = maybe_donate(
-                MatrixAlgebraKit.$f, MatrixAlgebraKit.$(Symbol(f, :!)), A_mat, owned;
-                kwargs...
-            )
+            D, V = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
             return D,
                 unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
         end
@@ -350,11 +375,11 @@ end
 # Spectrum-only factorizations returning a vector of singular values / eigenvalues.
 for f in (:svd_vals, :eigh_vals, :eig_vals)
     @eval begin
-        function matricized(
-                ::typeof($f), style::MatricizeStyle, A_mat, owned::Bool,
+        function unmatricize_factors(
+                ::typeof($f), style::MatricizeStyle, A_mat,
                 axes_codomain, axes_domain; kwargs...
             )
-            return MatrixAlgebraKit.$f(A_mat; kwargs...)
+            return MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
         end
     end
 end
@@ -541,13 +566,11 @@ function left_null!!(A, ndims_codomain::Val; kwargs...)
     return left_null!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-function matricized(
-        ::typeof(left_null), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(left_null), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
-    N = maybe_donate(
-        MatrixAlgebraKit.left_null, MatrixAlgebraKit.left_null!, A_mat, owned; kwargs...
-    )
+    N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
 end
 
@@ -581,14 +604,11 @@ function right_null!!(A, ndims_codomain::Val; kwargs...)
     return right_null!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-function matricized(
-        ::typeof(right_null), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(right_null), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
-    Nᴴ = maybe_donate(
-        MatrixAlgebraKit.right_null, MatrixAlgebraKit.right_null!, A_mat, owned;
-        kwargs...
-    )
+    Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     return unmatricize(style, Nᴴ, (axes(Nᴴ, 1),), axes_domain)
 end
 
@@ -641,10 +661,8 @@ function gram_eigh_full!!(A, ndims_codomain::Val; kwargs...)
     return gram_eigh_full!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-# The non-mutating matrix-level `gram_eigh_full` copies its input internally (through
-# `MatrixAlgebraKit.eigh_full`), so the maybe-alias `A_mat` is consumed read-only.
-function matricized(
-        ::typeof(gram_eigh_full), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(gram_eigh_full), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
     X = MatrixAlgebra.gram_eigh_full(A_mat; kwargs...)
@@ -704,8 +722,8 @@ function gram_eigh_full_with_pinv!!(A, ndims_codomain::Val; kwargs...)
     return gram_eigh_full_with_pinv!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-function matricized(
-        ::typeof(gram_eigh_full_with_pinv), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(gram_eigh_full_with_pinv), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv(A_mat; kwargs...)
@@ -761,8 +779,8 @@ invsqrth_safe
 
 for f in (:sqrth_safe, :invsqrth_safe)
     @eval begin
-        function matricized(
-                ::typeof($f), style::MatricizeStyle, A_mat, owned::Bool,
+        function unmatricize_factors(
+                ::typeof($f), style::MatricizeStyle, A_mat,
                 axes_codomain, axes_domain; kwargs...
             )
             P_mat = MatrixAlgebra.$f(A_mat; kwargs...)
@@ -784,11 +802,11 @@ See also `MatrixAlgebraKit.project_hermitian`.
 """
 project_hermitian
 
-function matricized(
-        ::typeof(project_hermitian), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(project_hermitian), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
-    H_mat = MatrixAlgebraKit.project_hermitian(A_mat; kwargs...)
+    H_mat = MatrixAlgebraKit.project_hermitian!(A_mat; kwargs...)
     return unmatricize(style, H_mat, axes_codomain, axes_domain)
 end
 
@@ -812,8 +830,8 @@ See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
 """
 sqrth_invsqrth_safe
 
-function matricized(
-        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, A_mat, owned::Bool,
+function unmatricize_factors(
+        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, A_mat,
         axes_codomain, axes_domain; kwargs...
     )
     P_mat, Pinv_mat = MatrixAlgebra.sqrth_invsqrth_safe(A_mat; kwargs...)
@@ -864,13 +882,17 @@ function one!!(A, ndims_codomain::Val; kwargs...)
     return one!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-# In-place identity fill: writes the identity into `A` and returns it. Matricizes `A`, fills the
-# fused matrix with the identity, and — when the matricized form is a detached copy (a graded
-# gather) rather than a view aliasing `A` (a dense reshape) — scatters it back with `unmatricize!`.
+# In-place identity fill: writes the identity into `A` and returns it. Fills a memory-sharing
+# matricization directly when the style declares one at this split, and otherwise fills a
+# gathered matrix and scatters it back with `unmatricize!`.
 function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
+    A_mat = trymatricizeview(style, A, ndims_codomain)
+    if !isnothing(A_mat)
+        MatrixAlgebraKit.one!(A_mat)
+        return A
+    end
     A_mat = matricize(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
-    Base.mightalias(A_mat, A) && return A
     return unmatricize!(A, A_mat, ndims_codomain)
 end
 function one!(A, ndims_codomain::Val; kwargs...)
@@ -884,10 +906,8 @@ function one(A, ndims_codomain::Val; kwargs...)
     return one!!(copy(A), ndims_codomain; kwargs...)
 end
 
-# `one` stays off the shared `matricized` wrappers: `one!!` is its own overload point (a
-# `TensorMap` backend fills the identity through TensorKit rather than MatrixAlgebraKit), and
-# the prototype only supplies shape, so the permuted forms hand `one!!` the `bipermutedims`
-# result directly — always a fresh buffer, by the `bipermutedims` copy convention.
+# `one` stays off the shared factorization wrappers: `one!!` is its own overload point (a
+# `TensorMap` backend fills the identity through TensorKit rather than MatrixAlgebraKit).
 function one(
         style::MatricizeStyle, A,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};

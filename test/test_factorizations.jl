@@ -419,44 +419,102 @@ end
     @test TensorAlgebra.tr(A, Val(2)) ≈ LinearAlgebra.tr(m)
 end
 
-# Permuted entry points: matricization and buffer donation
-# --------------------------------------------------------
-# The permuted forms matricize directly (`matricize_input`, no eager `bipermutedims` copy)
-# and donate an owned matricization to the mutating MatrixAlgebraKit entries, so pin them
-# to the reference permute-then-`Val` path and check the caller's array is never mutated,
-# through the identity, permuted-copy, and codomain/domain-swap matricizations alike.
-@testset "Permuted forms match permute-then-matricize ($T)" for T in elts
+# Permuted entry points
+# ---------------------
+# The permuted entry points must not mutate the caller's array, through the identity,
+# permuted-copy, and codomain/domain-swap matricizations alike.
+@testset "Permuted forms: input preserved, factors reconstruct ($T)" for T in elts
     A = randn(T, 2, 3, 4)
     Acopy = copy(A)
     for (perm_codomain, perm_domain) in
         (((1, 2), (3,)), ((3, 1), (2,)), ((3,), (1, 2)), ((2,), (3, 1)))
+        k = length(perm_codomain)
         A_perm = TensorAlgebra.bipermutedims(A, perm_codomain, perm_domain)
-        for f in (
-                qr_compact, lq_compact, left_orth, right_orth,
-                svd_compact, svd_trunc, svd_vals, left_null, right_null,
-            )
-            F = f(A, perm_codomain, perm_domain)
-            F_ref = f(A_perm, Val(length(perm_codomain)))
-            Fs = F isa Tuple ? F : (F,)
-            F_refs = F_ref isa Tuple ? F_ref : (F_ref,)
-            @test all(map(==, Fs, F_refs))
-            @test A == Acopy
+        A_mat = TensorAlgebra.matricize(A_perm, Val(k))
+        for f in (qr_compact, lq_compact, left_orth, right_orth)
+            X, Y = f(A, perm_codomain, perm_domain)
+            @test TensorAlgebra.matricize(X, Val(k)) *
+                TensorAlgebra.matricize(Y, Val(1)) ≈ A_mat
         end
+        for f in (svd_compact, svd_trunc)
+            U, S, Vᴴ = f(A, perm_codomain, perm_domain)
+            U_mat = TensorAlgebra.matricize(U, Val(k))
+            @test U_mat * S * TensorAlgebra.matricize(Vᴴ, Val(1)) ≈ A_mat
+            @test U_mat' * U_mat ≈ I
+        end
+        @test svd_vals(A, perm_codomain, perm_domain) ≈ LinearAlgebra.svdvals(A_mat)
+        N = TensorAlgebra.matricize(left_null(A, perm_codomain, perm_domain), Val(k))
+        @test norm(N' * A_mat) ≈ 0 atol = 1.0e-13
+        @test N' * N ≈ I
+        Nᴴ = TensorAlgebra.matricize(right_null(A, perm_codomain, perm_domain), Val(1))
+        @test norm(A_mat * Nᴴ') ≈ 0 atol = 1.0e-13
+        @test Nᴴ * Nᴴ' ≈ I
+        @test A == Acopy
     end
     B = randn(T, 2, 3, 2, 3)
     Bcopy = copy(B)
     for (perm_codomain, perm_domain) in
         (((1, 2), (3, 4)), ((3, 4), (1, 2)), ((2, 3), (4, 1)))
         B_perm = TensorAlgebra.bipermutedims(B, perm_codomain, perm_domain)
-        for f in (eig_full, eig_vals)
-            F = f(B, perm_codomain, perm_domain)
-            F_ref = f(B_perm, Val(2))
-            Fs = F isa Tuple ? F : (F,)
-            F_refs = F_ref isa Tuple ? F_ref : (F_ref,)
-            @test all(map(==, Fs, F_refs))
-            @test B == Bcopy
-        end
-        @test TensorAlgebra.tr(B, perm_codomain, perm_domain) ≈
-            TensorAlgebra.tr(B_perm, Val(2))
+        B_mat = Matrix(TensorAlgebra.matricize(B_perm, Val(2)))
+        D, V = eig_full(B, perm_codomain, perm_domain)
+        V_mat = TensorAlgebra.matricize(V, Val(2))
+        @test B_mat * V_mat ≈ V_mat * D
+        sortvals(v) = sort(v; by = x -> (real(x), imag(x)))
+        @test sortvals(eig_vals(B, perm_codomain, perm_domain)) ≈
+            sortvals(LinearAlgebra.eigvals(B_mat))
+        @test TensorAlgebra.tr(B, perm_codomain, perm_domain) ≈ LinearAlgebra.tr(B_mat)
+        @test B == Bcopy
     end
+end
+
+# A wrapper whose `matricize` reshapes the parent's buffer but declares nothing about it (no
+# `Base.dataids` overload), so any ownership inference from aliasing checks misclassifies it.
+module FactorizationMatricizeTestUtils
+    using TensorAlgebra: TensorAlgebra as TA
+    struct AliasingArray{T, N, P <: AbstractArray{T, N}} <: AbstractArray{T, N}
+        parent::P
+    end
+    Base.size(a::AliasingArray) = size(a.parent)
+    function Base.getindex(a::AliasingArray{<:Any, N}, I::Vararg{Int, N}) where {N}
+        return a.parent[I...]
+    end
+    struct AliasingMatricize <: TA.MatricizeStyle end
+    TA.MatricizeStyle(::Type{<:AliasingArray}) = AliasingMatricize()
+    function TA.matricize(::AliasingMatricize, a::AliasingArray, ndims_codomain::Val)
+        return TA.matricize(TA.ReshapeMatricize(), a.parent, ndims_codomain)
+    end
+    function TA.matricize(::AliasingMatricize, a::AbstractArray, ndims_codomain::Val)
+        return TA.matricize(TA.ReshapeMatricize(), a, ndims_codomain)
+    end
+    function TA.unmatricize(::AliasingMatricize, m, axes_codomain, axes_domain)
+        return AliasingArray(
+            TA.unmatricize(TA.ReshapeMatricize(), m, axes_codomain, axes_domain)
+        )
+    end
+end
+using .FactorizationMatricizeTestUtils: AliasingArray
+
+@testset "Aliasing matricize wrapper: input preserved ($f)" for f in
+    (qr_compact, svd_compact)
+    parent = randn(2, 3, 4)
+    A = AliasingArray(parent)
+    parent_copy = copy(parent)
+    f(A, Val(1))
+    @test parent == parent_copy
+    f(A, (1,), (2, 3))
+    @test parent == parent_copy
+end
+
+@testset "Integer eltype through the wrappers" begin
+    parent = rand(-9:9, 2, 3, 4)
+    A = AliasingArray(parent)
+    parent_copy = copy(parent)
+    Q, R = qr_compact(A, Val(1))
+    @test parent == parent_copy
+    Q_mat = TensorAlgebra.matricize(Q, Val(1))
+    @test eltype(Q_mat) === Float64
+    @test Q_mat * TensorAlgebra.matricize(R, Val(1)) ≈ reshape(parent, 2, 12)
+    @test svd_vals(A, (1,), (2, 3)) ≈ LinearAlgebra.svdvals(reshape(float.(parent), 2, 12))
+    @test parent == parent_copy
 end

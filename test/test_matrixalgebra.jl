@@ -2,7 +2,7 @@ using LinearAlgebra: Diagonal, I, diag, norm
 using MatrixAlgebraKit: qr_compact, svd_trunc, truncrank
 using StableRNGs: StableRNG
 using TensorAlgebra.MatrixAlgebra: MatrixAlgebra, truncdegen
-using Test: @test, @testset
+using Test: @test, @test_throws, @testset
 
 elts = (Float32, Float64, ComplexF32, ComplexF64)
 

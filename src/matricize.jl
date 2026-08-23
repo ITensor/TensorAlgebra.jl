@@ -70,10 +70,11 @@ end
 # =====================================  matricize  ========================================
 # Copy convention: `bipermutedims`/`permutedims` always copy (Base `permutedims` semantics).
 # `matricize`/`matricizeperm`/`matricizeopperm` are the maybe-alias tier — the result may be a
-# view of the input or a fresh gather, and callers must treat it as read-only. A consumer that
-# mutates takes an explicit copy (`MatrixAlgebraKit.copy_input` or `copy`); the factorization
-# wrappers donate a provably owned matricization to the mutating matrix-level entries (see
-# `maybe_donate` in `factorizations.jl`).
+# view of the input or a fresh gather, and callers must treat it as read-only. Write access is
+# never inferred from the maybe-alias tier: a consumer that mutates materializes an owned matrix
+# (`MatrixAlgebraKit.copy_input` or an always-copy `bipermutedims` gather, see the owned tier in
+# `factorizations.jl`) and a consumer that writes into a destination asks the style for a
+# memory-sharing matricization (`trymatricizeview`).
 
 # This is the primary function that should be overloaded for new matricize styles.
 # This assumes the permutation was already performed.
@@ -135,23 +136,6 @@ function matricizeperm(
     return matricizeperm(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
 
-# `matricizeperm` for the factorization and matrix-function wrappers: same maybe-alias
-# contract, but a codomain/domain swap takes the permuted copy instead of the lazy `transpose`
-# view — matrix-level backends (LAPACK through MatrixAlgebraKit) require the matricized layout
-# itself, not just any matrix-shaped view.
-function matricize_input(
-        style::MatricizeStyle, a,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
-    )
-    ndims(a) == length(perm_codomain) + length(perm_domain) ||
-        throw(ArgumentError("Invalid bipermutation"))
-    kind = matricizekind(style, perm_codomain, perm_domain)
-    kind == ReshapeMatricizeKind &&
-        return matricize(style, a, Val(length(perm_codomain)))
-    a_perm = bipermutedims(a, perm_codomain, perm_domain)
-    return matricize(style, a_perm, Val(length(perm_codomain)))
-end
-
 # ==================================  matricizeopperm  =====================================
 
 """
@@ -172,60 +156,37 @@ function matricizeopperm(
     )
     return matricizeopperm(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
 end
-# Classifies how `matricize` realizes the bipermutation `(perm_codomain, perm_domain)`
-# against storage, so `matricizeopperm` can skip the redundant permuted copy:
-#   ReshapeMatricizeKind   — the groups are already in storage order, so the permute is a
-#                            no-op and `matricize(style, a, ...)` can be called directly.
-#                            For a dense array that is a `reshape` view; for a graded array
-#                            it still gathers blocks, but skips the extra permute copy.
-#   TransposeMatricizeKind — the only reordering is a codomain/domain swap, which a dense
-#                            array realizes as a `transpose` of a `reshape` (a view gemm
-#                            reads via BLAS' transpose flag).
-#   PermuteMatricizeKind   — the groups interleave storage, so a permuted copy is required.
-# Pure: depends only on the index pattern, not on `a`'s data. Dispatched on `MatricizeStyle`.
-# The generic classifier only recognizes the always-safe `ReshapeMatricizeKind` (skipping a
-# no-op permute is valid for any style); `TransposeMatricizeKind` is opt-in for styles whose
-# `matricize` composes with a lazy `transpose`, currently only `ReshapeMatricize`.
-@enum MatricizeKind ReshapeMatricizeKind TransposeMatricizeKind PermuteMatricizeKind
-
 # Whether `perm` is the identity permutation `(1, …, n)`.
 isidentityperm(perm::Tuple{Vararg{Int}}) = perm == ntuple(identity, length(perm))
 
-function matricizekind(
-        ::MatricizeStyle, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
-    )
-    # Already in storage order: the permute is a no-op, so `matricize` can run directly.
-    isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
-    return PermuteMatricizeKind
-end
-
-# Whether `matricizeperm(style, a, perm_codomain, perm_domain)` aliases `a` — returns a view (so a
-# `mul!` into it writes through to `a`) rather than freshly allocated storage. Only a style whose
-# `matricize` is itself a view (a dense reshape) can alias, and only when the bipermutation needs
-# no permuted copy. Defaults to `false`: a style that gathers into new storage, such as a graded
-# array, never aliases its input.
-matricizepermaliases(::MatricizeStyle, perm_codomain, perm_domain) = false
-
-# Skip the permuted copy when the classifier says it is unnecessary. `ReshapeMatricizeKind`
-# calls `matricize` directly on `a` (a view for dense, a gather without the extra permute
-# for graded); `TransposeMatricizeKind` returns a lazy `transpose` of the reshape. Both
-# fast paths require `op === identity`, since a plain view cannot carry a fused `op` like
-# `conj`. The result may alias `a` and must be treated as read-only, matching the docstring.
+# The identity bipermutation is a no-op permute, so `matricize` runs directly on `a` (a view
+# for dense, a gather without the extra permute copy for graded); the fast path requires
+# `op === identity`, since a plain view cannot carry a fused `op` like `conj`. The result may
+# alias `a` and must be treated as read-only, matching the docstring.
 function matricizeopperm(
         style::MatricizeStyle, op, a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipermutation"))
-    if op === identity
-        kind = matricizekind(style, perm_codomain, perm_domain)
-        kind == ReshapeMatricizeKind &&
-            return matricize(style, a, Val(length(perm_codomain)))
-        kind == TransposeMatricizeKind &&
-            return transpose(matricize(style, a, Val(length(perm_domain))))
-    end
+    op === identity && isidentityperm((perm_codomain..., perm_domain...)) &&
+        return matricize(style, a, Val(length(perm_codomain)))
     a_perm_op = permutedimsop(op, a, perm_codomain, perm_domain)
     return matricize(style, a_perm_op, Val(length(perm_codomain)))
+end
+
+# =================================  trymatricizeview  =====================================
+# Return a matricization sharing `a_dest`'s memory (writes to it are writes to `a_dest`), or
+# `nothing` when producing the matricization would move data (the try/`nothing` convention of
+# `tryflattenlinear`). Styles overload the `Val` (trivial split) form to declare which splits
+# share; the bipermutation form delegates to it at the identity.
+trymatricizeview(::MatricizeStyle, a_dest, ndims_codomain::Val) = nothing
+function trymatricizeview(
+        style::MatricizeStyle, a_dest,
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+    )
+    isidentityperm((invperm_codomain..., invperm_domain...)) || return nothing
+    return trymatricizeview(style, a_dest, Val(length(invperm_codomain)))
 end
 
 # ====================================  unmatricize  =======================================
@@ -322,20 +283,21 @@ function matricize(::ReshapeMatricize, a, ndims_codomain::Val)
     size_codomain, size_domain = bipartition(size(a), ndims_codomain)
     return reshape(a, (prod(size_codomain), prod(size_domain)))
 end
-# A dense array additionally realizes a codomain/domain swap as a lazy `transpose` of a
-# reshape (a view), so it opts into `TransposeMatricizeKind` on top of the generic
-# reshape/permute classification.
-function matricizekind(
-        ::ReshapeMatricize, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
-    )
-    isidentityperm((perm_codomain..., perm_domain...)) && return ReshapeMatricizeKind
-    isidentityperm((perm_domain..., perm_codomain...)) && return TransposeMatricizeKind
-    return PermuteMatricizeKind
+# A dense reshape matricization is a view of `a_dest` at any order-preserving split, and a
+# pure codomain/domain swap is a lazy `transpose` of that view (BLAS consumes it through the
+# transpose flag), so both share memory; an interleaving split needs a permuted copy.
+function trymatricizeview(style::ReshapeMatricize, a_dest, ndims_codomain::Val)
+    return matricize(style, a_dest, ndims_codomain)
 end
-# A dense reshape/transpose is a view of `a`; only a permuted copy detaches. So the matricized
-# output aliases `a` for every kind except `PermuteMatricizeKind`.
-function matricizepermaliases(style::ReshapeMatricize, perm_codomain, perm_domain)
-    return matricizekind(style, perm_codomain, perm_domain) != PermuteMatricizeKind
+function trymatricizeview(
+        style::ReshapeMatricize, a_dest,
+        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+    )
+    isidentityperm((invperm_codomain..., invperm_domain...)) &&
+        return trymatricizeview(style, a_dest, Val(length(invperm_codomain)))
+    isidentityperm((invperm_domain..., invperm_codomain...)) &&
+        return transpose(matricize(style, a_dest, Val(length(invperm_domain))))
+    return nothing
 end
 # The matricized input's rows must be the fused codomain and its columns the fused domain.
 # `reshape` alone only checks the total element count, so a wrong split with the right total
