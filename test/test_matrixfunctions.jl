@@ -20,6 +20,15 @@ using Test: @test, @testset
             fa = TensorAlgebra.$f(a, Val(2))
             fa′ = reshape($f(reshape(a, (4, 4))), (2, 2, 2, 2))
             @test fa ≈ fa′
+            # Codomain/domain swap and identity bipermutations: the storage-order fast
+            # paths of the wrapper's matricization, which must not touch `a`.
+            acopy = copy(a)
+            fa_swap = TensorAlgebra.$f(a, (3, 4), (1, 2))
+            fa_swap′ =
+                reshape($f(reshape(permutedims(a, (3, 4, 1, 2)), (4, 4))), (2, 2, 2, 2))
+            @test fa_swap ≈ fa_swap′
+            @test TensorAlgebra.$f(a, (1, 2), (3, 4)) ≈ fa
+            @test a == acopy
         end
     end
 end

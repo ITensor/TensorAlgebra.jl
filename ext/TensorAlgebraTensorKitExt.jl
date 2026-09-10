@@ -243,11 +243,29 @@ end
 struct TensorKitMatricize <: TensorAlgebra.MatricizeStyle end
 TensorAlgebra.MatricizeStyle(::Type{<:AbstractTensorMap}) = TensorKitMatricize()
 
-function TensorAlgebra.matricize(
+# `permute` at the tensor's own codomain/domain split is trivial and returns `t` itself, so
+# the matching split is the one memory-sharing matricization (TensorKit's own
+# `has_shared_permute` notion); any other split regroups into a fresh `TensorMap`.
+function TensorAlgebra.ismatricizeview(
+        ::TensorKitMatricize, ::AbstractTensorMap{<:Any, <:Any, K}, ::Val{K}
+    ) where {K}
+    return true
+end
+TensorAlgebra.ismatricizeview(::TensorKitMatricize, ::AbstractTensorMap, ::Val) = false
+function TensorAlgebra.matricizeview(
+        ::TensorKitMatricize, t::AbstractTensorMap{<:Any, <:Any, K}, ::Val{K}
+    ) where {K}
+    return t
+end
+function TensorAlgebra.matricizecopy(
         ::TensorKitMatricize, t::AbstractTensorMap, ndims_codomain::Val{K}
     ) where {K}
     N = numind(t)
-    return permute(t, (ntuple(identity, Val(K)), ntuple(i -> K + i, Val(N - K))))
+    return permute(
+        t,
+        (ntuple(identity, Val(K)), ntuple(i -> K + i, Val(N - K)));
+        copy = true
+    )
 end
 
 # The identity fill on the regrouped map is TensorKit's own `one!` (MatrixAlgebraKit's
