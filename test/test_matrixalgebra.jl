@@ -21,10 +21,13 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         @test size(ṽ) == (n, n)
         @test ũ * s̃ * ṽ ≈ a
 
+        # The absolute tolerance must sit above the BLAS-dependent noise in the recovered
+        # degenerate pair (about 1eps on some builds) while staying far below the smallest
+        # genuine gap in the spectrum.
         for kwargs in (
-                (; atol = eps(real(elt))),
+                (; atol = 100eps(real(elt))),
                 (; rtol = (√eps(real(elt)))),
-                (; atol = eps(real(elt)), rtol = (√eps(real(elt)))),
+                (; atol = 100eps(real(elt)), rtol = (√eps(real(elt)))),
             )
             ũ, s̃, ṽ = svd_trunc(a; trunc = truncdegen(truncrank(5); kwargs...))
             @test size(ũ) == (n, 4)
