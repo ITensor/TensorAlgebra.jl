@@ -1,6 +1,6 @@
 using StableRNGs: StableRNG
-using TensorAlgebra:
-    TensorAlgebra, ReshapeMatricize, matricizeopperm, matricizeperm, trymatricizeview
+using TensorAlgebra: TensorAlgebra, ReshapeMatricize, ismatricizeview, matricize,
+    matricizecopy, matricizeopperm, matricizeperm, matricizeview
 using Test: @test, @test_throws, @testset
 
 # A non-`ReshapeMatricize` style, to check the always-safe generic fallback.
@@ -41,31 +41,81 @@ end
     @test !Base.mightalias(m, a)
 end
 
-@testset "trymatricizeview" begin
+@testset "ismatricizeview" begin
     a = randn(StableRNG(321), 2, 3, 4)
     style = ReshapeMatricize()
 
-    # Order-preserving splits share memory: a reshape view for the identity bipermutation,
-    # a lazy transpose of it for the codomain/domain swap.
-    m = trymatricizeview(style, a, (1,), (2, 3))
-    @test m == matricize_ref(a, (1,), (2, 3))
-    @test Base.mightalias(m, a)
-    @test trymatricizeview(style, a, Val(1)) == m
-    m = trymatricizeview(style, a, (2, 3), (1,))
-    @test m == matricize_ref(a, (2, 3), (1,))
-    @test Base.mightalias(m, a)
+    # A dense reshape matricization shares memory at every trivial split.
+    @test ismatricizeview(style, a, Val(1))
+    @test ismatricizeview(style, a, (1,), (2, 3))
 
-    # An interleaving split would move data, so no memory-sharing matricization exists.
-    @test isnothing(trymatricizeview(style, a, (3, 1), (2,)))
+    # The bipermutation form declares sharing only at the identity: a swap or interleaving
+    # bipermutation routes through the consumers' gather branches.
+    @test !ismatricizeview(style, a, (2, 3), (1,))
+    @test !ismatricizeview(style, a, (3, 1), (2,))
 
-    # A generic style declares nothing.
-    @test isnothing(trymatricizeview(DummyMatricize(), a, Val(1)))
-    @test isnothing(trymatricizeview(DummyMatricize(), a, (1,), (2, 3)))
+    # A generic style declares nothing (fail-safe default).
+    @test !ismatricizeview(DummyMatricize(), a, Val(1))
+    @test !ismatricizeview(DummyMatricize(), a, (1,), (2, 3))
 
     # Writes to the shared matricization are writes to `a`.
-    m = trymatricizeview(style, a, (1,), (2, 3))
+    m = matricizeview(style, a, Val(1))
+    @test m == matricize_ref(a, (1,), (2, 3))
     m[1, 1] = 42
     @test a[1, 1, 1] == 42
+end
+
+@testset "ismatricizeview coherence" begin
+    rng = StableRNG(11)
+    a = randn(rng, 2, 3, 4)
+    style = ReshapeMatricize()
+
+    # A declared share means `matricizeview` (and so `matricize`) aliases `a`, while
+    # `matricizecopy` never does.
+    for K in 0:3
+        if ismatricizeview(style, a, Val(K))
+            m = matricizeview(style, a, Val(K))
+            @test Base.mightalias(m, a)
+            @test matricize(style, a, Val(K)) == m
+        end
+        @test !Base.mightalias(matricizecopy(style, a, Val(K)), a)
+
+        # The perm form of the copy leaf is owned too, and at the trivial bipermutation it
+        # matches the `Val` form.
+        pc = ntuple(identity, K)
+        pd = ntuple(i -> K + i, 3 - K)
+        m_perm = matricizecopy(style, a, pc, pd)
+        @test !Base.mightalias(m_perm, a)
+        @test m_perm == matricizecopy(style, a, Val(K))
+    end
+    for (pc, pd) in (((2, 3), (1,)), ((3, 1), (2,)))
+        m = matricizecopy(style, a, pc, pd)
+        @test m ≈ matricize_ref(a, pc, pd)
+        @test !Base.mightalias(m, a)
+    end
+    @test_throws ArgumentError matricizecopy(style, a, (1,), (2,))
+
+    # Both destination branches of a consumer (`contractadd!`) behave: the shared-view route
+    # for the identity destination bipermutation and the gather/scatter route otherwise.
+    a1 = randn(rng, 2, 3, 5)
+    a2 = randn(rng, 5, 3, 2)
+    ref = TensorAlgebra.contract((:i, :j, :k, :l), a1, (:i, :j, :m), a2, (:m, :k, :l))
+    for labels in ((:i, :j, :k, :l), (:k, :l, :i, :j), (:k, :i, :l, :j))
+        perm = map(l -> findfirst(==(l), (:i, :j, :k, :l)), labels)
+        dest = randn(rng, map(d -> size(ref, d), perm)...)
+        expected = permutedims(ref, perm) .+ 2.0 .* dest
+        TensorAlgebra.contractadd!(
+            dest,
+            labels,
+            a1,
+            (:i, :j, :m),
+            a2,
+            (:m, :k, :l),
+            1.0,
+            2.0
+        )
+        @test dest ≈ expected
+    end
 end
 
 @testset "view branch tracks source mutations, copy branch does not" begin

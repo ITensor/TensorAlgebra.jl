@@ -23,9 +23,9 @@ function contractopadd!(
         algorithm.right_matricize_style, op2, a2, biperm2_codomain, biperm2_domain
     )
     output_style = algorithm.output_matricize_style
-    a_dest_mat = trymatricizeview(output_style, a_dest, invperm_codomain, invperm_domain)
-    if !isnothing(a_dest_mat)
+    if ismatricizeview(output_style, a_dest, invperm_codomain, invperm_domain)
         # The matricization shares `a_dest`'s memory, so the matmul is the whole operation.
+        a_dest_mat = matricizeview(output_style, a_dest, Val(length(invperm_codomain)))
         mul!(a_dest_mat, a1_mat, a2_mat, α, β)
     elseif iszero(β)
         # `β` is a strong zero, so `a_dest`'s current data is irrelevant: let the matmul
@@ -38,7 +38,7 @@ function contractopadd!(
     else
         # `a_dest`'s data contributes through `β`, so gather it, multiply into the gathered
         # copy, and scatter back.
-        a_dest_mat = matricizeperm(output_style, a_dest, invperm_codomain, invperm_domain)
+        a_dest_mat = matricizecopy(output_style, a_dest, invperm_codomain, invperm_domain)
         mul!(a_dest_mat, a1_mat, a2_mat, α, β)
         unmatricizeperm!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
     end

@@ -17,7 +17,7 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
 # owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
 # a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
-# the gathered bipermutation is fresh by construction and is donated directly (with
+# the `matricizecopy` gather is owned by contract and is donated directly (with
 # `copy_input` still applied when the eltype must change) — and the cores call the mutating
 # entry unconditionally.
 for f in (
@@ -35,12 +35,11 @@ for f in (
             )
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
-            A_shared = trymatricizeview(style, A, perm_codomain, perm_domain)
-            A_mat = if !isnothing(A_shared)
+            A_mat = if ismatricizeview(style, A, perm_codomain, perm_domain)
+                A_shared = matricizeview(style, A, Val(length(perm_codomain)))
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
-                A_perm = bipermutedims(A, perm_codomain, perm_domain)
-                A_gather = matricize(style, A_perm, Val(length(perm_codomain)))
+                A_gather = matricizecopy(style, A, perm_codomain, perm_domain)
                 if eltype(A_gather) === float(eltype(A_gather))
                     A_gather
                 else
@@ -882,18 +881,17 @@ function one!!(A, ndims_codomain::Val; kwargs...)
     return one!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
 end
 
-# In-place identity fill: writes the identity into `A` and returns it. Fills a memory-sharing
+# In-place identity fill: writes the identity into `A` and returns it. Fills the memory-sharing
 # matricization directly when the style declares one at this split, and otherwise fills a
 # gathered matrix and scatters it back with `unmatricize!`.
 function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = trymatricizeview(style, A, ndims_codomain)
-    if !isnothing(A_mat)
-        MatrixAlgebraKit.one!(A_mat)
+    if ismatricizeview(style, A, ndims_codomain)
+        MatrixAlgebraKit.one!(matricizeview(style, A, ndims_codomain))
         return A
     end
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricizecopy(style, A, ndims_codomain)
     MatrixAlgebraKit.one!(A_mat)
-    return unmatricize!(A, A_mat, ndims_codomain)
+    return unmatricize!(style, A, A_mat, ndims_codomain)
 end
 function one!(A, ndims_codomain::Val; kwargs...)
     return one!(MatricizeStyle(A), A, ndims_codomain; kwargs...)

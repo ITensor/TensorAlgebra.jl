@@ -1,3 +1,4 @@
+using LinearAlgebra: I
 using TensorAlgebra: TensorAlgebra as TA, Matricize, MatricizeStyle, ReshapeMatricize
 using Test: @test, @testset
 
@@ -8,6 +9,22 @@ module MatricizeStyleTestUtils
     end
     struct MyArrayMatricize <: TA.MatricizeStyle end
     TA.MatricizeStyle(::Type{<:MyArray}) = MyArrayMatricize()
+    # Minimal fold/unfold leaves so a round-trip (`one!`) can run through the custom style:
+    # both dispatch on `MyArrayMatricize`, so an unfold whose style was re-derived from the
+    # plain fused matrix instead of threaded through would miss them and error.
+    TA.ismatricizeview(::MyArrayMatricize, a, ::Val) = false
+    function TA.matricizecopy(::MyArrayMatricize, a::MyArray, ndims_codomain::Val)
+        return TA.matricizecopy(TA.ReshapeMatricize(), a.parent, ndims_codomain)
+    end
+    function TA.unmatricizeperm!(
+            ::MyArrayMatricize, a_dest::MyArray, m,
+            invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        )
+        TA.unmatricizeperm!(
+            TA.ReshapeMatricize(), a_dest.parent, m, invperm_codomain, invperm_domain
+        )
+        return a_dest
+    end
 end
 using .MatricizeStyleTestUtils: MyArray, MyArrayMatricize
 
@@ -29,4 +46,13 @@ using .MatricizeStyleTestUtils: MyArray, MyArrayMatricize
         Matricize(ReshapeMatricize())
     @test TA.default_contract_algorithm(typeof(a2), typeof(a2)) ≡
         Matricize(MyArrayMatricize())
+end
+
+@testset "style threads through the unfold" begin
+    # `one!` folds with the caller-supplied style and must unfold with the same style, not one
+    # re-derived from the fused matrix (here a plain `Matrix`, whose derived style would be
+    # `ReshapeMatricize` and would not know how to scatter into a `MyArray`).
+    A = MyArray(randn(3, 3))
+    TA.one!(MyArrayMatricize(), A, Val(1))
+    @test A.parent ≈ I
 end
