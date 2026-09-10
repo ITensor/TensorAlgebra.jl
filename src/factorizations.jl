@@ -9,16 +9,15 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # bond is dualized to codomain-facing form (`conj`, a no-op on a dense axis) when it lands on the
 # domain side of the reconstruction, matching the `unmatricize`/`similar_map` axis convention.
 
-# `unmatricize_factors(f, style, A_mat, axes_codomain, axes_domain; kwargs...)` is the shared
-# matrix-level body of the wrapper `f`: apply the matrix-level function to the matricized input
-# `A_mat` and unfold the outputs with the bipartitioned axes (in the `unmatricize` convention,
-# domain axes un-dualized).
+# `unmatricize_factors(f, style, F, axes_codomain, axes_domain)` unfolds the matrix-level
+# factors `F` of `f` onto the split axes (in the `unmatricize` convention, domain axes
+# un-dualized).
 #
 # Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
 # owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
 # a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
 # the `matricizecopy` gather is owned by contract and is donated directly (with
-# `copy_input` still applied when the eltype must change) — and the cores call the mutating
+# `copy_input` still applied when the eltype must change) — and the wrapper calls the mutating
 # entry unconditionally.
 for f in (
         :qr_compact, :qr_full, :lq_compact, :lq_full,
@@ -46,13 +45,12 @@ for f in (
                     MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_gather)
                 end
             end
+            F = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
                 Val(length(perm_codomain))
             )
-            return unmatricize_factors(
-                $f, style, A_mat, axes_codomain, axes_domain; kwargs...
-            )
+            return unmatricize_factors($f, style, F, axes_codomain, axes_domain)
         end
     end
 end
@@ -70,13 +68,12 @@ for f in (
                 kwargs...
             )
             A_mat = matricizeperm(style, A, perm_codomain, perm_domain)
+            F = MatrixAlgebra.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
                 Val(length(perm_codomain))
             )
-            return unmatricize_factors(
-                $f, style, A_mat, axes_codomain, axes_domain; kwargs...
-            )
+            return unmatricize_factors($f, style, F, axes_codomain, axes_domain)
         end
     end
 end
@@ -134,10 +131,10 @@ for f in (
     )
     @eval begin
         function unmatricize_factors(
-                ::typeof($f), style::MatricizeStyle, A_mat,
-                axes_codomain, axes_domain; kwargs...
+                ::typeof($f), style::MatricizeStyle, F,
+                axes_codomain, axes_domain
             )
-            X, Y = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
+            X, Y = F
             return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
                 unmatricize(style, Y, (axes(Y, 1),), axes_domain)
         end
@@ -330,10 +327,10 @@ right_orth
 for f in (:svd_compact, :svd_full)
     @eval begin
         function unmatricize_factors(
-                ::typeof($f), style::MatricizeStyle, A_mat,
-                axes_codomain, axes_domain; kwargs...
+                ::typeof($f), style::MatricizeStyle, F,
+                axes_codomain, axes_domain
             )
-            U, S, Vᴴ = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
+            U, S, Vᴴ = F
             return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
                 S,
                 unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain)
@@ -345,10 +342,10 @@ end
 # `ϵ` (the 2-norm of the discarded singular values, computed by MatrixAlgebraKit without
 # catastrophic cancellation), so it is spelled out here rather than sharing the loop above.
 function unmatricize_factors(
-        ::typeof(svd_trunc), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(svd_trunc), style::MatricizeStyle, F,
+        axes_codomain, axes_domain
     )
-    U, S, Vᴴ, ϵ = MatrixAlgebraKit.svd_trunc!(A_mat; kwargs...)
+    U, S, Vᴴ, ϵ = F
     return unmatricize(style, U, axes_codomain, (conj(axes(U, ndims(U))),)),
         S,
         unmatricize(style, Vᴴ, (axes(Vᴴ, 1),), axes_domain),
@@ -361,24 +358,25 @@ end
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
         function unmatricize_factors(
-                ::typeof($f), style::MatricizeStyle, A_mat,
-                axes_codomain, axes_domain; kwargs...
+                ::typeof($f), style::MatricizeStyle, F,
+                axes_codomain, axes_domain
             )
-            D, V = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
+            D, V = F
             return D,
                 unmatricize(style, V, axes_codomain, (conj(axes(V, ndims(V))),))
         end
     end
 end
 
-# Spectrum-only factorizations returning a vector of singular values / eigenvalues.
+# Spectrum-only factorizations returning a vector of singular values / eigenvalues:
+# nothing to unfold.
 for f in (:svd_vals, :eigh_vals, :eig_vals)
     @eval begin
         function unmatricize_factors(
-                ::typeof($f), style::MatricizeStyle, A_mat,
-                axes_codomain, axes_domain; kwargs...
+                ::typeof($f), ::MatricizeStyle, F,
+                axes_codomain, axes_domain
             )
-            return MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
+            return F
         end
     end
 end
@@ -566,10 +564,9 @@ function left_null!!(A, ndims_codomain::Val; kwargs...)
 end
 
 function unmatricize_factors(
-        ::typeof(left_null), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(left_null), style::MatricizeStyle, N,
+        axes_codomain, axes_domain
     )
-    N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
 end
 
@@ -604,10 +601,9 @@ function right_null!!(A, ndims_codomain::Val; kwargs...)
 end
 
 function unmatricize_factors(
-        ::typeof(right_null), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(right_null), style::MatricizeStyle, Nᴴ,
+        axes_codomain, axes_domain
     )
-    Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     return unmatricize(style, Nᴴ, (axes(Nᴴ, 1),), axes_domain)
 end
 
@@ -661,10 +657,9 @@ function gram_eigh_full!!(A, ndims_codomain::Val; kwargs...)
 end
 
 function unmatricize_factors(
-        ::typeof(gram_eigh_full), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(gram_eigh_full), style::MatricizeStyle, X,
+        axes_codomain, axes_domain
     )
-    X = MatrixAlgebra.gram_eigh_full(A_mat; kwargs...)
     return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
 end
 
@@ -722,10 +717,10 @@ function gram_eigh_full_with_pinv!!(A, ndims_codomain::Val; kwargs...)
 end
 
 function unmatricize_factors(
-        ::typeof(gram_eigh_full_with_pinv), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(gram_eigh_full_with_pinv), style::MatricizeStyle, F,
+        axes_codomain, axes_domain
     )
-    X, Y = MatrixAlgebra.gram_eigh_full_with_pinv(A_mat; kwargs...)
+    X, Y = F
     return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
         unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
 end
@@ -779,10 +774,9 @@ invsqrth_safe
 for f in (:sqrth_safe, :invsqrth_safe)
     @eval begin
         function unmatricize_factors(
-                ::typeof($f), style::MatricizeStyle, A_mat,
-                axes_codomain, axes_domain; kwargs...
+                ::typeof($f), style::MatricizeStyle, P_mat,
+                axes_codomain, axes_domain
             )
-            P_mat = MatrixAlgebra.$f(A_mat; kwargs...)
             return unmatricize(style, P_mat, axes_codomain, axes_domain)
         end
     end
@@ -802,10 +796,9 @@ See also `MatrixAlgebraKit.project_hermitian`.
 project_hermitian
 
 function unmatricize_factors(
-        ::typeof(project_hermitian), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(project_hermitian), style::MatricizeStyle, H_mat,
+        axes_codomain, axes_domain
     )
-    H_mat = MatrixAlgebraKit.project_hermitian!(A_mat; kwargs...)
     return unmatricize(style, H_mat, axes_codomain, axes_domain)
 end
 
@@ -830,10 +823,10 @@ See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
 sqrth_invsqrth_safe
 
 function unmatricize_factors(
-        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, A_mat,
-        axes_codomain, axes_domain; kwargs...
+        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, F,
+        axes_codomain, axes_domain
     )
-    P_mat, Pinv_mat = MatrixAlgebra.sqrth_invsqrth_safe(A_mat; kwargs...)
+    P_mat, Pinv_mat = F
     return unmatricize(style, P_mat, axes_codomain, axes_domain),
         unmatricize(style, Pinv_mat, axes_codomain, axes_domain)
 end
