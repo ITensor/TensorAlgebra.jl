@@ -842,8 +842,8 @@ partition is specified either via labels or directly through a bi-permutation;
 fused codomain and domain sizes must match. `A` is treated as a shape prototype
 and is not mutated.
 
-Not exported, since exporting would clash with the implicit `Base.one`. Qualify
-as `TensorAlgebra.one(A, ...)`.
+A tensor generalization in its own right, not an extension of `Base.one`, so it is neither
+exported nor imported. Qualify as `TensorAlgebra.one(A, ...)`.
 
 See also `MatrixAlgebraKit.one!`.
 
@@ -862,7 +862,7 @@ julia> matricize(Id, Val(2)) ≈ I
 true
 ```
 """
-one
+function one end
 
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
     A_mat = matricize(style, A, ndims_codomain)
