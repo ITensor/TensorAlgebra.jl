@@ -70,3 +70,8 @@ function bipartition(t::Tuple, group1::Tuple, group2::Tuple)
 end
 # Split `t` by the two groups of a `BiTuple`.
 bipartition(t::Tuple, bt::BiTuple) = bipartition(t, bt.t1, bt.t2)
+
+# Whether `perm_codomain` and `perm_domain` together permute `1:n`, i.e. whether they are a valid
+# bipartitioned permutation. The two halves only make sense jointly, so this takes them as a pair
+# rather than leaving every caller to splat and call `isperm`.
+isbiperm(perm_codomain, perm_domain) = isperm((perm_codomain..., perm_domain...))

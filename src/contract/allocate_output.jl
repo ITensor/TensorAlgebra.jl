@@ -1,7 +1,7 @@
 function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipartitioned permutation"))
-    isperm((perm_codomain..., perm_domain...)) ||
+    isbiperm(perm_codomain, perm_domain) ||
         throw(ArgumentError("Invalid bipartitioned permutation"))
     return nothing
 end

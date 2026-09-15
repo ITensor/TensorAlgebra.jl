@@ -1,4 +1,3 @@
-using EllipsisNotation: Ellipsis
 using LinearAlgebra: Diagonal
 
 # =====================================  MatricizeStyle  ======================================
@@ -38,9 +37,7 @@ Non-mutating version of `bipermutedimsopadd!`: returns
 function permutedimsop(op, src, perm_codomain, perm_domain)
     # Validate against `src` here: `bipermutedimsopadd!`'s `check_input` compares against `dest`,
     # which `allocate_output` builds from the same perms, so it cannot catch a non-covering perm.
-    perm = (perm_codomain..., perm_domain...)
-    (ndims(src) == length(perm) && isperm(perm)) ||
-        throw(ArgumentError("Invalid bipermutation"))
+    check_biperm(src, perm_codomain, perm_domain)
     dest = allocate_output(permutedimsop, op, src, perm_codomain, perm_domain)
     return bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, true, false)
 end
@@ -132,39 +129,6 @@ function matricizeperm(
     return matricizeopperm(style, identity, a, perm_codomain, perm_domain)
 end
 
-# Process inputs such as `EllipsisNotation.Ellipsis`.
-function to_permblocks(a, permblocks::NTuple{2, Tuple{Vararg{Int}}})
-    isperm((permblocks[1]..., permblocks[2]...)) ||
-        throw(ArgumentError("Invalid bipermutation"))
-    return permblocks
-end
-# Like `setcomplement` is like `setdiff` but assumes t2 ⊆ t1.
-function tuplesetcomplement(t1::NTuple{N1}, t2::NTuple{N2}) where {N1, N2}
-    t2 ⊆ t1 || throw(ArgumentError("t2 must be a subset of t1"))
-    return NTuple{N1 - N2}(setdiff(t1, t2))
-end
-function to_permblocks(
-        a, permblocks::Tuple{Tuple{Ellipsis}, Tuple{Vararg{Int}}}
-    )
-    permblocks1 = tuplesetcomplement(ntuple(identity, ndims(a)), permblocks[2])
-    return (permblocks1, permblocks[2])
-end
-function to_permblocks(
-        a, permblocks::Tuple{Tuple{Vararg{Int}}, Tuple{Ellipsis}}
-    )
-    permblocks2 = tuplesetcomplement(ntuple(identity, ndims(a)), permblocks[1])
-    return (permblocks[1], permblocks2)
-end
-
-function matricizeperm(a, perm_codomain, perm_domain)
-    return matricizeperm(MatricizeStyle(a), a, perm_codomain, perm_domain)
-end
-function matricizeperm(
-        style::MatricizeStyle, a, perm_codomain, perm_domain
-    )
-    return matricizeperm(style, a, to_permblocks(a, (perm_codomain, perm_domain))...)
-end
-
 # ==================================  matricizeopperm  =====================================
 
 """
@@ -177,13 +141,10 @@ Has "maybe alias" semantics: the result may be a view/wrapper aliasing `a` or a 
 copy, depending on the matricize style and array type. The caller should treat the result
 as read-only.
 """
-function matricizeopperm(op, a, perm_codomain, perm_domain)
-    return matricizeopperm(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
-end
 function matricizeopperm(
-        style::MatricizeStyle, op, a, perm_codomain, perm_domain
+        op, a, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return matricizeopperm(style, op, a, to_permblocks(a, (perm_codomain, perm_domain))...)
+    return matricizeopperm(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
 end
 # Whether `perm` is the identity permutation `(1, …, n)`.
 isidentityperm(perm::Tuple{Vararg{Int}}) = perm == ntuple(identity, length(perm))
@@ -196,8 +157,7 @@ function matricizeopperm(
         style::MatricizeStyle, op, a,
         perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    ndims(a) == length(perm_codomain) + length(perm_domain) ||
-        throw(ArgumentError("Invalid bipermutation"))
+    check_biperm(a, perm_codomain, perm_domain)
     op === identity && isidentityperm((perm_codomain..., perm_domain...)) &&
         return matricize(style, a, Val(length(perm_codomain)))
     a_perm_op = permutedimsop(op, a, perm_codomain, perm_domain)

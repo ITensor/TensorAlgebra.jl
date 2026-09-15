@@ -1,5 +1,4 @@
 import TensorAlgebra
-using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
     contract!, contractadd!, length_codomain, length_domain, matricizeperm, unmatricize,
