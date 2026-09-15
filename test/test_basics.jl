@@ -170,6 +170,24 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test_throws ArgumentError unmatricize!(m, m, (1, 2), (3,))
     end
 
+    @testset "contraction algorithm selection rejects unusable keywords" begin
+        a1 = randn(2, 3)
+        a2 = randn(3, 4)
+        # A keyword no algorithm can consume must name itself, not surface as a `MethodError`
+        # from inside the resolver.
+        @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 3); nonsense = 1)
+        @test_throws ArgumentError contract(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize(), nonsense = 1
+        )
+        # A non-algorithm passed as `alg` says so rather than erroring with "Not implemented".
+        @test_throws ArgumentError TensorAlgebra.select_contract_algorithm(:nope, a1, a2)
+        # The supported spellings still work.
+        @test contract((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2
+        @test contract(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize()
+        ) ≈ a1 * a2
+    end
+
     @testset "contract eltype widens like a matrix product" begin
         a1 = ones(Bool, (2, 2))
         a2 = ones(Bool, (2, 2))
