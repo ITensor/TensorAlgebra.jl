@@ -215,10 +215,10 @@ end
 ismatricizeview(::MatricizeStyle, a, ndims_codomain::Val) = false
 function ismatricizeview(
         style::MatricizeStyle, a,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    isidentityperm((invperm_codomain..., invperm_domain...)) || return false
-    return ismatricizeview(style, a, Val(length(invperm_codomain)))
+    isidentityperm((perm_codomain..., perm_domain...)) || return false
+    return ismatricizeview(style, a, Val(length(perm_codomain)))
 end
 
 # ====================================  unmatricize  =======================================
@@ -245,22 +245,27 @@ function bipartition_axes(t::Tuple, split...)
     return axes_codomain, conj.(axes_domain)
 end
 
+# The bipermutation maps the destination's dimension order to the matrix's: `axes(a_dest)` grouped
+# by it gives the legs in `m`'s order, and the result is permuted back by its inverse. It is not
+# intrinsically an inverse permutation — the matricized-contraction destination path happens to
+# derive it as `invperm(biperm_dest)`, while a `matricizeperm`/`unmatricizeperm!` round trip passes
+# the same forward bipermutation to both.
 function unmatricizeperm!(
         a_dest, m,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return unmatricizeperm!(MatricizeStyle(m), a_dest, m, invperm_codomain, invperm_domain)
+    return unmatricizeperm!(MatricizeStyle(m), a_dest, m, perm_codomain, perm_domain)
 end
 function unmatricizeperm!(
         style::MatricizeStyle, a_dest, m,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    invbiperm = BiTuple(invperm_codomain, invperm_domain)
-    ndims(a_dest) == length(invbiperm) ||
+    biperm_src = BiTuple(perm_codomain, perm_domain)
+    ndims(a_dest) == length(biperm_src) ||
         throw(ArgumentError("destination does not match permutation"))
-    axes_codomain, axes_domain = bipartition_axes(axes(a_dest), invbiperm)
+    axes_codomain, axes_domain = bipartition_axes(axes(a_dest), biperm_src)
     a_perm = unmatricize(style, m, axes_codomain, axes_domain)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
+    biperm_dest = BiTuple(Tuple(invperm(biperm_src)), Val(length_codomain(biperm_src)))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
