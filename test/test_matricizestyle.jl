@@ -16,12 +16,12 @@ module MatricizeStyleTestUtils
     function TA.matricizecopy(::MyArrayMatricize, a::MyArray, ndims_codomain::Val)
         return TA.matricizecopy(TA.ReshapeMatricize(), a.parent, ndims_codomain)
     end
-    function TA.unmatricizeperm!(
+    function TA.unmatricize!(
             ::MyArrayMatricize, a_dest::MyArray, m,
-            invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+            perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
         )
-        TA.unmatricizeperm!(
-            TA.ReshapeMatricize(), a_dest.parent, m, invperm_codomain, invperm_domain
+        TA.unmatricize!(
+            TA.ReshapeMatricize(), a_dest.parent, m, perm_codomain, perm_domain
         )
         return a_dest
     end

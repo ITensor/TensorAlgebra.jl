@@ -215,10 +215,10 @@ end
 ismatricizeview(::MatricizeStyle, a, ndims_codomain::Val) = false
 function ismatricizeview(
         style::MatricizeStyle, a,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    isidentityperm((invperm_codomain..., invperm_domain...)) || return false
-    return ismatricizeview(style, a, Val(length(invperm_codomain)))
+    isidentityperm((perm_codomain..., perm_domain...)) || return false
+    return ismatricizeview(style, a, Val(length(perm_codomain)))
 end
 
 # ====================================  unmatricize  =======================================
@@ -226,7 +226,8 @@ end
 # domain groups, given codomain-facing (un-dualized), the same convention as `similar_map`. A
 # matricize style stores the domain axes dualized, so its overload re-dualizes them with `conj`
 # (a no-op on a dense axis). This is the primary overload point for new matricize styles.
-# Permutation is handled separately by `unmatricizeperm`, so `unmatricize` never has to
+# Permutation is handled by the bipermutation form of `unmatricize!`, so out-of-place `unmatricize`
+# never has to
 # disambiguate axis tuples from permutation tuples regardless of how unconstrained `m` and the
 # axes are.
 function unmatricize(style::MatricizeStyle, m, axes_codomain, axes_domain)
@@ -245,60 +246,38 @@ function bipartition_axes(t::Tuple, split...)
     return axes_codomain, conj.(axes_domain)
 end
 
-# Inverse-bipermutation form: split `axes_dest` into codomain/domain groups reordered by the
-# inverse bipermutation, unmatricize in that order, then permute back.
-function unmatricizeperm(
-        m, axes_dest,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
-    )
-    return unmatricizeperm(
-        MatricizeStyle(m),
-        m,
-        axes_dest,
-        invperm_codomain,
-        invperm_domain
-    )
-end
-function unmatricizeperm(
-        style::MatricizeStyle, m, axes_dest,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
-    )
-    invbiperm = BiTuple(invperm_codomain, invperm_domain)
-    length(axes_dest) == length(invbiperm) ||
-        throw(ArgumentError("axes do not match permutation"))
-    axes_codomain, axes_domain = bipartition_axes(axes_dest, invbiperm)
-    a12 = unmatricize(style, m, axes_codomain, axes_domain)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
-    return bipermutedims(a12, biperm_dest)
-end
-
-function unmatricizeperm!(
+# The bipermutation maps the destination's dimension order to the matrix's: `axes(a_dest)` grouped
+# by it gives the legs in `m`'s order, and the result is permuted back by its inverse. It is not
+# intrinsically an inverse permutation — the matricized-contraction destination path happens to
+# derive it as `invperm(biperm_dest)`, while a `matricizeperm`/`unmatricize!` round trip passes
+# the same forward bipermutation to both.
+function unmatricize!(
         a_dest, m,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    return unmatricizeperm!(MatricizeStyle(m), a_dest, m, invperm_codomain, invperm_domain)
+    return unmatricize!(MatricizeStyle(m), a_dest, m, perm_codomain, perm_domain)
 end
-function unmatricizeperm!(
+function unmatricize!(
         style::MatricizeStyle, a_dest, m,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
     )
-    invbiperm = BiTuple(invperm_codomain, invperm_domain)
-    ndims(a_dest) == length(invbiperm) ||
+    biperm_src = BiTuple(perm_codomain, perm_domain)
+    ndims(a_dest) == length(biperm_src) ||
         throw(ArgumentError("destination does not match permutation"))
-    axes_codomain, axes_domain = bipartition_axes(axes(a_dest), invbiperm)
+    axes_codomain, axes_domain = bipartition_axes(axes(a_dest), biperm_src)
     a_perm = unmatricize(style, m, axes_codomain, axes_domain)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
+    biperm_dest = BiTuple(Tuple(invperm(biperm_src)), Val(length_codomain(biperm_src)))
     return bipermutedims!(a_dest, a_perm, biperm_dest)
 end
 
-# In-place split-axes counterpart of `unmatricize`, as `unmatricizeperm!` is of `unmatricizeperm`:
+# In-place counterpart of `unmatricize`:
 # scatter the fused matrix `m` back into `a_dest`'s existing storage across the codomain/domain
-# split at `ndims_codomain`. The split applies no permutation, so this is `unmatricizeperm!` at the
+# split at `ndims_codomain`. The split applies no permutation, so this is the bipermutation form at the
 # trivial bipermutation, reusing its in-place block scatter (no intermediate `unmatricize` copy).
 function unmatricize!(style::MatricizeStyle, a_dest, m, ndims_codomain::Val)
     K = unval(ndims_codomain)
     N = ndims(a_dest)
-    return unmatricizeperm!(
+    return unmatricize!(
         style,
         a_dest,
         m,

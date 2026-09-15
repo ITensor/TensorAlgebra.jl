@@ -23,17 +23,38 @@ Base.@kwdef struct TensorOperationsAlgorithm{Backend, Allocator} <: ContractAlgo
     allocator::Allocator = nothing
 end
 
-function select_contract_algorithm(algorithm, a1, a2)
-    return error("Not implemented.")
+# The contraction entry points collect trailing keywords and forward them here, so these accept
+# `kwargs...` even though no `ContractAlgorithm` is configurable by keyword yet. Without it an
+# unrecognized keyword surfaces as a `MethodError` on this internal function rather than as a
+# complaint about the keyword the caller actually passed.
+function reject_algorithm_kwargs(algorithm; kwargs...)
+    isempty(kwargs) && return nothing
+    names = join(map(k -> "`$k`", collect(keys(kwargs))), ", ")
+    return throw(
+        ArgumentError(
+            "unsupported keyword argument(s) $names for contraction algorithm `$(nameof(typeof(algorithm)))`"
+        )
+    )
 end
-function select_contract_algorithm(algorithm::ContractAlgorithm, a1, a2)
+
+function select_contract_algorithm(algorithm, a1, a2; kwargs...)
+    return throw(
+        ArgumentError(
+            "`$algorithm` is not a contraction algorithm; pass a `ContractAlgorithm` as `alg`"
+        )
+    )
+end
+function select_contract_algorithm(algorithm::ContractAlgorithm, a1, a2; kwargs...)
+    reject_algorithm_kwargs(algorithm; kwargs...)
     return algorithm
 end
-function select_contract_algorithm(algorithm::DefaultContractAlgorithm, a1, a2)
-    return default_contract_algorithm(a1, a2)
+function select_contract_algorithm(algorithm::DefaultContractAlgorithm, a1, a2; kwargs...)
+    return default_contract_algorithm(a1, a2; kwargs...)
 end
-function default_contract_algorithm(a1, a2)
-    return default_contract_algorithm(typeof(a1), typeof(a2))
+function default_contract_algorithm(a1, a2; kwargs...)
+    algorithm = default_contract_algorithm(typeof(a1), typeof(a2))
+    reject_algorithm_kwargs(algorithm; kwargs...)
+    return algorithm
 end
 function default_contract_algorithm(A1::Type{<:AbstractArray}, A2::Type{<:AbstractArray})
     return Matricize(MatricizeStyle(MatricizeStyle(A1), MatricizeStyle(A2)))

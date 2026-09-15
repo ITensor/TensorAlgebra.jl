@@ -3,7 +3,7 @@ using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
     contract!, contractadd!, length_codomain, length_domain, matricizeperm, unmatricize,
-    unmatricizeperm, unmatricizeperm!
+    unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -130,30 +130,23 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test eltype(a) === elt
         @test a ≈ a0
 
-        a = unmatricizeperm(m, axes0, (1, 2), (3, 4))
-        @test eltype(a) === elt
-        @test a ≈ a0
-
         perm_codomain = (4, 2)
         perm_domain = (1, 3)
         invperm_codomain = (3, 2)
         invperm_domain = (4, 1)
         perm = (4, 2, 1, 3)
-        a = unmatricizeperm(m, map(i -> axes0[i], perm), invperm_codomain, invperm_domain)
-        @test eltype(a) === elt
-        @test a ≈ permutedims(a0, perm)
-
         a = similar(a0)
-        unmatricizeperm!(a, m, (1, 2), (3, 4))
+        unmatricize!(a, m, (1, 2), (3, 4))
         @test a ≈ a0
 
         m1 = matricizeperm(a0, perm_codomain, perm_domain)
-        a = unmatricizeperm(m1, axes0, perm_codomain, perm_domain)
+        a = similar(a0)
+        unmatricize!(a, m1, perm_codomain, perm_domain)
         @test a ≈ a0
 
         a1 = permutedims(a0, perm)
         a = similar(a1)
-        unmatricizeperm!(a, m, invperm_codomain, invperm_domain)
+        unmatricize!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
 
         a = unmatricize(reshape(a0, 1, 120), (), axes0)
@@ -174,8 +167,25 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test a isa Array{elt, 0}
         @test a[] == m[1, 1]
 
-        @test_throws ArgumentError unmatricizeperm(m, (), (1, 2), (3,))
-        @test_throws ArgumentError unmatricizeperm!(m, m, (1, 2), (3,))
+        @test_throws ArgumentError unmatricize!(m, m, (1, 2), (3,))
+    end
+
+    @testset "contraction algorithm selection rejects unusable keywords" begin
+        a1 = randn(2, 3)
+        a2 = randn(3, 4)
+        # A keyword no algorithm can consume must name itself, not surface as a `MethodError`
+        # from inside the resolver.
+        @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 3); nonsense = 1)
+        @test_throws ArgumentError contract(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize(), nonsense = 1
+        )
+        # A non-algorithm passed as `alg` says so rather than erroring with "Not implemented".
+        @test_throws ArgumentError TensorAlgebra.select_contract_algorithm(:nope, a1, a2)
+        # The supported spellings still work.
+        @test contract((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2
+        @test contract(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize()
+        ) ≈ a1 * a2
     end
 
     @testset "contract eltype widens like a matrix product" begin

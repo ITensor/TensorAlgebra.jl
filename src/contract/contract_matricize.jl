@@ -34,13 +34,13 @@ function contractopadd!(
         # overwrites `a_dest` in full.
         a_dest_mat = a1_mat * a2_mat
         isone(α) || scale!(a_dest_mat, α)
-        unmatricizeperm!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
+        unmatricize!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
     else
         # `a_dest`'s data contributes through `β`, so gather it, multiply into the gathered
         # copy, and scatter back.
         a_dest_mat = matricizecopy(output_style, a_dest, invperm_codomain, invperm_domain)
         mul!(a_dest_mat, a1_mat, a2_mat, α, β)
-        unmatricizeperm!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
+        unmatricize!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
     end
     return a_dest
 end
