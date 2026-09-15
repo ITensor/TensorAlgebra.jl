@@ -29,7 +29,7 @@ for f in (
     @eval begin
         function $f(
                 style::MatricizeStyle, A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
@@ -64,7 +64,7 @@ for f in (
     @eval begin
         function $f(
                 style::MatricizeStyle, A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             A_mat = matricizeperm(style, A, perm_codomain, perm_domain)
@@ -102,7 +102,7 @@ for f in (
         end
         function $f(
                 A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             return $f(MatricizeStyle(A), A, perm_codomain, perm_domain; kwargs...)
@@ -143,7 +143,7 @@ end
 
 """
     TensorAlgebra.tr(A, labels_A, labels_codomain, labels_domain)
-    TensorAlgebra.tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+    TensorAlgebra.tr(A, perm_codomain, perm_domain)
     TensorAlgebra.tr(A, ndims_codomain::Val)
 
 Trace of a generic N-dimensional array `A` interpreted as a linear map from its domain to its
@@ -173,7 +173,7 @@ end
 function tr(A, ndims_codomain::Val)
     return tr(MatricizeStyle(A), A, ndims_codomain)
 end
-function tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+function tr(A, perm_codomain, perm_domain)
     return LinearAlgebra.tr(matricizeperm(A, perm_codomain, perm_domain))
 end
 function tr(A, labels_A, labels_codomain, labels_domain)
@@ -184,7 +184,7 @@ end
 
 """
     qr_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr_compact(A, perm_codomain, perm_domain; kwargs...) -> Q, R
     qr_compact(A, ndims_codomain::Val; kwargs...) -> Q, R
 
 Compute the compact QR decomposition of a generic N-dimensional array, by interpreting it
@@ -202,7 +202,7 @@ qr_compact
 
 """
     qr_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr_full(A, perm_codomain, perm_domain; kwargs...) -> Q, R
     qr_full(A, ndims_codomain::Val; kwargs...) -> Q, R
 
 Compute the full QR decomposition of a generic N-dimensional array, by interpreting it as
@@ -220,7 +220,7 @@ qr_full
 
 """
     lq_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq_compact(A, perm_codomain, perm_domain; kwargs...) -> L, Q
     lq_compact(A, ndims_codomain::Val; kwargs...) -> L, Q
 
 Compute the compact LQ decomposition of a generic N-dimensional array, by interpreting it
@@ -238,7 +238,7 @@ lq_compact
 
 """
     lq_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq_full(A, perm_codomain, perm_domain; kwargs...) -> L, Q
     lq_full(A, ndims_codomain::Val; kwargs...) -> L, Q
 
 Compute the full LQ decomposition of a generic N-dimensional array, by interpreting it as
@@ -256,7 +256,7 @@ lq_full
 
 """
     left_polar(A, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
-    left_polar(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> W, P
+    left_polar(A, perm_codomain, perm_domain; kwargs...) -> W, P
     left_polar(A, ndims_codomain::Val; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -273,7 +273,7 @@ left_polar
 
 """
     right_polar(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
-    right_polar(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P, W
+    right_polar(A, perm_codomain, perm_domain; kwargs...) -> P, W
     right_polar(A, ndims_codomain::Val; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -290,7 +290,7 @@ right_polar
 
 """
     left_orth(A, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
-    left_orth(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> V, C
+    left_orth(A, perm_codomain, perm_domain; kwargs...) -> V, C
     left_orth(A, ndims_codomain::Val; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -307,7 +307,7 @@ left_orth
 
 """
     right_orth(A, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
-    right_orth(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> C, V
+    right_orth(A, perm_codomain, perm_domain; kwargs...) -> C, V
     right_orth(A, ndims_codomain::Val; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -383,7 +383,7 @@ end
 
 """
     svd_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd_compact(A, perm_codomain, perm_domain; kwargs...) -> U, S, Vᴴ
     svd_compact(A, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
 
 Compute the compact (thin) SVD of a generic N-dimensional array, by interpreting it as a
@@ -396,7 +396,7 @@ svd_compact
 
 """
     svd_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd_full(A, perm_codomain, perm_domain; kwargs...) -> U, S, Vᴴ
     svd_full(A, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
 
 Compute the full (thick) SVD of a generic N-dimensional array, by interpreting it as a
@@ -409,7 +409,7 @@ svd_full
 
 """
     svd_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ, ϵ
-    svd_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ, ϵ
+    svd_trunc(A, perm_codomain, perm_domain; trunc, kwargs...) -> U, S, Vᴴ, ϵ
     svd_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ, ϵ
 
 Compute the truncated SVD of a generic N-dimensional array, by interpreting it as a linear
@@ -446,7 +446,7 @@ svd_trunc
 
 """
     svd_vals(A, labels_A, labels_codomain, labels_domain) -> S
-    svd_vals(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> S
+    svd_vals(A, perm_codomain, perm_domain) -> S
     svd_vals(A, ndims_codomain::Val) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as a
@@ -459,7 +459,7 @@ svd_vals
 
 """
     eigh_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eigh_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eigh_full(A, perm_codomain, perm_domain; kwargs...) -> D, V
     eigh_full(A, ndims_codomain::Val; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
@@ -472,7 +472,7 @@ eigh_full
 
 """
     eig_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eig_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eig_full(A, perm_codomain, perm_domain; kwargs...) -> D, V
     eig_full(A, ndims_codomain::Val; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
@@ -486,7 +486,7 @@ eig_full
 
 """
     eigh_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> D, V
-    eigh_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> D, V
+    eigh_trunc(A, perm_codomain, perm_domain; trunc, kwargs...) -> D, V
     eigh_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> D, V
 
 Truncated Hermitian eigenvalue decomposition, like [`eigh_full`](@ref) but keeping only the
@@ -498,7 +498,7 @@ eigh_trunc
 
 """
     eig_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> D, V
-    eig_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> D, V
+    eig_trunc(A, perm_codomain, perm_domain; trunc, kwargs...) -> D, V
     eig_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> D, V
 
 Truncated general eigenvalue decomposition, like [`eig_full`](@ref) but keeping only the
@@ -510,7 +510,7 @@ eig_trunc
 
 """
     eigh_vals(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eigh_vals(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eigh_vals(A, perm_codomain, perm_domain; kwargs...) -> D
     eigh_vals(A, ndims_codomain::Val; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array interpreted as a Hermitian linear
@@ -522,7 +522,7 @@ eigh_vals
 
 """
     eig_vals(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eig_vals(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eig_vals(A, perm_codomain, perm_domain; kwargs...) -> D
     eig_vals(A, ndims_codomain::Val; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array interpreted as a general
@@ -535,7 +535,7 @@ eig_vals
 
 """
     left_null(A, labels_A, labels_codomain, labels_domain; kwargs...) -> N
-    left_null(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> N
+    left_null(A, perm_codomain, perm_domain; kwargs...) -> N
     left_null(A, ndims_codomain::Val; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
@@ -572,7 +572,7 @@ end
 
 """
     right_null(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
-    right_null(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Nᴴ
+    right_null(A, perm_codomain, perm_domain; kwargs...) -> Nᴴ
     right_null(A, ndims_codomain::Val::Val; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
@@ -609,7 +609,7 @@ end
 
 """
     gram_eigh_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> X
-    gram_eigh_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X
+    gram_eigh_full(A, perm_codomain, perm_domain; kwargs...) -> X
     gram_eigh_full(A, ndims_codomain::Val; kwargs...) -> X
 
 Gram factorization of a generic N-dimensional array, interpreting it as a
@@ -665,7 +665,7 @@ end
 
 """
     gram_eigh_full_with_pinv(A, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    gram_eigh_full_with_pinv(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X, Y
+    gram_eigh_full_with_pinv(A, perm_codomain, perm_domain; kwargs...) -> X, Y
     gram_eigh_full_with_pinv(A, ndims_codomain::Val; kwargs...) -> X, Y
 
 Like [`gram_eigh_full`](@ref), but additionally returns `Y ≈ pinv(X)` such
@@ -727,7 +727,7 @@ end
 
 """
     sqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
-    sqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
+    sqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P
     sqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
 
 Square root of a generic N-dimensional array, interpreting it as a
@@ -750,7 +750,7 @@ sqrth_safe
 
 """
     invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
-    invsqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
+    invsqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P
     invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
 
 Pseudo-inverse square root of a generic N-dimensional array, interpreting
@@ -784,7 +784,7 @@ end
 
 """
     project_hermitian(A, labels_A, labels_codomain, labels_domain; kwargs...) -> H
-    project_hermitian(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> H
+    project_hermitian(A, perm_codomain, perm_domain; kwargs...) -> H
     project_hermitian(A, ndims_codomain::Val; kwargs...) -> H
 
 Hermitian part `(M + M') / 2` of a generic N-dimensional array, interpreting
@@ -804,7 +804,7 @@ end
 
 """
     sqrth_invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, Pinv
-    sqrth_invsqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P, Pinv
+    sqrth_invsqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P, Pinv
     sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P, Pinv
 
 Square root and pseudo-inverse square root of a generic N-dimensional
@@ -833,7 +833,7 @@ end
 
 """
     TensorAlgebra.one(A, labels_A, labels_codomain, labels_domain) -> Id
-    TensorAlgebra.one(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> Id
+    TensorAlgebra.one(A, perm_codomain, perm_domain) -> Id
     TensorAlgebra.one(A, ndims_codomain::Val) -> Id
 
 Construct the identity operator tensor whose shape mirrors `A`, interpreted as a
@@ -901,14 +901,14 @@ end
 # `TensorMap` backend fills the identity through TensorKit rather than MatrixAlgebraKit).
 function one(
         style::MatricizeStyle, A,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+        perm_codomain, perm_domain;
         kwargs...
     )
     A_perm = bipermutedims(A, perm_codomain, perm_domain)
     return one!!(style, A_perm, Val(length(perm_codomain)); kwargs...)
 end
 function one(
-        A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...
+        A, perm_codomain, perm_domain; kwargs...
     )
     return one(MatricizeStyle(A), A, perm_codomain, perm_domain; kwargs...)
 end

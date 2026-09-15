@@ -107,7 +107,7 @@ end
 # guaranteed to be a copy.
 function matricizecopy(
         style::MatricizeStyle, a,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     a_perm = bipermutedims(a, perm_codomain, perm_domain)
     return matricize(style, a_perm, Val(length(perm_codomain)))
@@ -115,7 +115,7 @@ end
 
 function matricizeperm(
         a,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     return matricizeperm(MatricizeStyle(a), a, perm_codomain, perm_domain)
 end
@@ -124,7 +124,7 @@ end
 # `matricizeopperm`.
 function matricizeperm(
         style::MatricizeStyle, a,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     return matricizeopperm(style, identity, a, perm_codomain, perm_domain)
 end
@@ -142,7 +142,7 @@ copy, depending on the matricize style and array type. The caller should treat t
 as read-only.
 """
 function matricizeopperm(
-        op, a, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        op, a, perm_codomain, perm_domain
     )
     return matricizeopperm(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
 end
@@ -155,7 +155,7 @@ isidentityperm(perm::Tuple{Vararg{Int}}) = perm == ntuple(identity, length(perm)
 # alias `a` and must be treated as read-only, matching the docstring.
 function matricizeopperm(
         style::MatricizeStyle, op, a,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     check_biperm(a, perm_codomain, perm_domain)
     op === identity && isidentityperm((perm_codomain..., perm_domain...)) &&
@@ -175,7 +175,7 @@ end
 ismatricizeview(::MatricizeStyle, a, ndims_codomain::Val) = false
 function ismatricizeview(
         style::MatricizeStyle, a,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     isidentityperm((perm_codomain..., perm_domain...)) || return false
     return ismatricizeview(style, a, Val(length(perm_codomain)))
@@ -213,13 +213,13 @@ end
 # the same forward bipermutation to both.
 function unmatricize!(
         a_dest, m,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     return unmatricize!(MatricizeStyle(m), a_dest, m, perm_codomain, perm_domain)
 end
 function unmatricize!(
         style::MatricizeStyle, a_dest, m,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+        perm_codomain, perm_domain
     )
     biperm_src = BiTuple(perm_codomain, perm_domain)
     ndims(a_dest) == length(biperm_src) ||

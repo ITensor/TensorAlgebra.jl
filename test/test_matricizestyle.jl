@@ -18,7 +18,7 @@ module MatricizeStyleTestUtils
     end
     function TA.unmatricize!(
             ::MyArrayMatricize, a_dest::MyArray, m,
-            perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}
+            perm_codomain, perm_domain
         )
         TA.unmatricize!(
             TA.ReshapeMatricize(), a_dest.parent, m, perm_codomain, perm_domain

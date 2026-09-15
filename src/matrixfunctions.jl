@@ -50,7 +50,7 @@ for f in MATRIX_FUNCTIONS
 
         function $f(
                 style::MatricizeStyle, a,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             a_mat = matricizeperm(style, a, perm_codomain, perm_domain)
@@ -63,7 +63,7 @@ for f in MATRIX_FUNCTIONS
         end
         function $f(
                 a,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             return $f(MatricizeStyle(a), a, perm_codomain, perm_domain; kwargs...)
