@@ -75,3 +75,11 @@ bipartition(t::Tuple, bt::BiTuple) = bipartition(t, bt.t1, bt.t2)
 # bipartitioned permutation. The two halves only make sense jointly, so this takes them as a pair
 # rather than leaving every caller to splat and call `isperm`.
 isbiperm(perm_codomain, perm_domain) = isperm((perm_codomain..., perm_domain...))
+
+# Whether `perm_codomain` and `perm_domain` are the identity bipermutation, i.e. leave every
+# dimension where it is. Takes the halves for the same reason `isbiperm` does: both call sites had
+# a bipermutation in hand and were splatting it to ask.
+function isidentitybiperm(perm_codomain, perm_domain)
+    perm = (perm_codomain..., perm_domain...)
+    return perm == ntuple(identity, length(perm))
+end

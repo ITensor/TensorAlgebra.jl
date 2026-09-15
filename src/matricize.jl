@@ -146,8 +146,6 @@ function matricizeopperm(
     )
     return matricizeopperm(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
 end
-# Whether `perm` is the identity permutation `(1, …, n)`.
-isidentityperm(perm::Tuple{Vararg{Int}}) = perm == ntuple(identity, length(perm))
 
 # The identity bipermutation is a no-op permute, so `matricize` runs directly on `a` (a view
 # for dense, a gather without the extra permute copy for graded); the fast path requires
@@ -158,7 +156,7 @@ function matricizeopperm(
         perm_codomain, perm_domain
     )
     check_biperm(a, perm_codomain, perm_domain)
-    op === identity && isidentityperm((perm_codomain..., perm_domain...)) &&
+    op === identity && isidentitybiperm(perm_codomain, perm_domain) &&
         return matricize(style, a, Val(length(perm_codomain)))
     a_perm_op = permutedimsop(op, a, perm_codomain, perm_domain)
     return matricize(style, a_perm_op, Val(length(perm_codomain)))
@@ -177,7 +175,7 @@ function ismatricizeview(
         style::MatricizeStyle, a,
         perm_codomain, perm_domain
     )
-    isidentityperm((perm_codomain..., perm_domain...)) || return false
+    isidentitybiperm(perm_codomain, perm_domain) || return false
     return ismatricizeview(style, a, Val(length(perm_codomain)))
 end
 

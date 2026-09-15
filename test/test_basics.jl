@@ -62,17 +62,15 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         a_fused = matricizeperm(a, (3, 1, 2), (4,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (24, 5))
-        a_fused = matricizeperm(a, (..,), (3, 1))
+        a_fused = matricizeperm(a, (2, 4), (3, 1))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (15, 8))
-        a_fused = matricizeperm(a, (3, 1), (..,))
-        @test eltype(a_fused) === elt
-        @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
 
-        a_fused = matricizeperm(a, (), (..,))
+        # Degenerate splits: everything in the domain, then everything in the codomain.
+        a_fused = matricizeperm(a, (), (1, 2, 3, 4))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, (1, 120))
-        a_fused = matricizeperm(a, (..,), ())
+        a_fused = matricizeperm(a, (1, 2, 3, 4), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, (120, 1))
 
