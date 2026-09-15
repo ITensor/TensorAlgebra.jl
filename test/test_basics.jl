@@ -3,7 +3,7 @@ using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
     contract!, contractadd!, length_codomain, length_domain, matricizeperm, unmatricize,
-    unmatricizeperm!
+    unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -136,17 +136,17 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         invperm_domain = (4, 1)
         perm = (4, 2, 1, 3)
         a = similar(a0)
-        unmatricizeperm!(a, m, (1, 2), (3, 4))
+        unmatricize!(a, m, (1, 2), (3, 4))
         @test a ≈ a0
 
         m1 = matricizeperm(a0, perm_codomain, perm_domain)
         a = similar(a0)
-        unmatricizeperm!(a, m1, perm_codomain, perm_domain)
+        unmatricize!(a, m1, perm_codomain, perm_domain)
         @test a ≈ a0
 
         a1 = permutedims(a0, perm)
         a = similar(a1)
-        unmatricizeperm!(a, m, invperm_codomain, invperm_domain)
+        unmatricize!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
 
         a = unmatricize(reshape(a0, 1, 120), (), axes0)
@@ -167,7 +167,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test a isa Array{elt, 0}
         @test a[] == m[1, 1]
 
-        @test_throws ArgumentError unmatricizeperm!(m, m, (1, 2), (3,))
+        @test_throws ArgumentError unmatricize!(m, m, (1, 2), (3,))
     end
 
     @testset "contract eltype widens like a matrix product" begin
