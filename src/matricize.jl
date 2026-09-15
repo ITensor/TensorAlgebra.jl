@@ -226,7 +226,7 @@ end
 # domain groups, given codomain-facing (un-dualized), the same convention as `similar_map`. A
 # matricize style stores the domain axes dualized, so its overload re-dualizes them with `conj`
 # (a no-op on a dense axis). This is the primary overload point for new matricize styles.
-# Permutation is handled separately by `unmatricizeperm`, so `unmatricize` never has to
+# Permutation is handled separately by `unmatricizeperm!`, so `unmatricize` never has to
 # disambiguate axis tuples from permutation tuples regardless of how unconstrained `m` and the
 # axes are.
 function unmatricize(style::MatricizeStyle, m, axes_codomain, axes_domain)
@@ -243,33 +243,6 @@ end
 function bipartition_axes(t::Tuple, split...)
     axes_codomain, axes_domain = bipartition(t, split...)
     return axes_codomain, conj.(axes_domain)
-end
-
-# Inverse-bipermutation form: split `axes_dest` into codomain/domain groups reordered by the
-# inverse bipermutation, unmatricize in that order, then permute back.
-function unmatricizeperm(
-        m, axes_dest,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
-    )
-    return unmatricizeperm(
-        MatricizeStyle(m),
-        m,
-        axes_dest,
-        invperm_codomain,
-        invperm_domain
-    )
-end
-function unmatricizeperm(
-        style::MatricizeStyle, m, axes_dest,
-        invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
-    )
-    invbiperm = BiTuple(invperm_codomain, invperm_domain)
-    length(axes_dest) == length(invbiperm) ||
-        throw(ArgumentError("axes do not match permutation"))
-    axes_codomain, axes_domain = bipartition_axes(axes_dest, invbiperm)
-    a12 = unmatricize(style, m, axes_codomain, axes_domain)
-    biperm_dest = BiTuple(Tuple(invperm(invbiperm)), Val(length_codomain(invbiperm)))
-    return bipermutedims(a12, biperm_dest)
 end
 
 function unmatricizeperm!(
