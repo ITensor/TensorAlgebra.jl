@@ -70,116 +70,111 @@ function bipermutedims!(
 end
 
 # =====================================  matricize  ========================================
-# Copy convention: `bipermutedims`/`permutedims` always copy (Base `permutedims` semantics). At
-# the trivial (`Val`) split the sharing story is exact: `matricizeview` shares `a`'s memory,
-# `matricizecopy` returns fresh storage the caller owns, and `matricize` aliases `a` iff
-# `ismatricizeview` — so a consumer that writes into a destination checks the trait and writes
-# through `matricizeview`, and a consumer that mutates an input either owns a `matricizecopy`
-# result by contract or materializes an owned matrix with `MatrixAlgebraKit.copy_input` (see the
-# owned tier in `factorizations.jl`). `matricizeperm`/`matricizeopperm` keep maybe-alias
-# semantics (the result may view or copy; treat it as read-only) until the planned op/perm-form
-# trait lands, and `matricizeview` deliberately has no perm form pending that op/perm-layer
-# design.
-
-# `matricize` at the trivial split routes on the style's sharing declaration. Styles implement
-# the three leaves (`ismatricizeview`, `matricizeview`, `matricizecopy`) rather than overloading
-# `matricize` itself. This assumes the permutation was already performed.
-function matricize(style::MatricizeStyle, a, ndims_codomain::Val)
-    ismatricizeview(style, a, ndims_codomain) &&
-        return matricizeview(style, a, ndims_codomain)
-    return matricizecopy(style, a, ndims_codomain)
-end
-function matricize(a, ndims_codomain::Val)
-    return matricize(MatricizeStyle(a), a, ndims_codomain)
-end
-
-# Partial: defined only where `ismatricizeview` is `true`, and always returns a matricization
-# sharing `a`'s memory (the `StridedView` partial-constructor pattern).
-function matricizeview(style::MatricizeStyle, a, ndims_codomain::Val)
-    return throw(MethodError(matricizeview, (style, a, ndims_codomain)))
-end
-# Total: always returns a matricization in fresh storage the caller owns.
-function matricizecopy(style::MatricizeStyle, a, ndims_codomain::Val)
-    return throw(MethodError(matricizecopy, (style, a, ndims_codomain)))
-end
-
-# `bipermutedims` always copies and `matricize` might return a view, so the result is
-# guaranteed to be a copy.
-function matricizecopy(
-        style::MatricizeStyle, a,
-        perm_codomain, perm_domain
-    )
-    a_perm = bipermutedims(a, perm_codomain, perm_domain)
-    return matricize(style, a_perm, Val(length(perm_codomain)))
-end
-
-function matricizeperm(
-        a,
-        perm_codomain, perm_domain
-    )
-    return matricizeperm(MatricizeStyle(a), a, perm_codomain, perm_domain)
-end
-# Thin wrapper around `matricizeopperm` with identity op — the actual matricization logic
-# (and the matricize-style overload point for folding ops into matricization) lives in
-# `matricizeopperm`.
-function matricizeperm(
-        style::MatricizeStyle, a,
-        perm_codomain, perm_domain
-    )
-    return matricizeopperm(style, identity, a, perm_codomain, perm_domain)
-end
-
-# ==================================  matricizeopperm  =====================================
+# A style implements four hooks, all taking the operation, the array and the bipermutation:
+#
+#   `allocate_output(matricizeop, style, op, a, pc, pd)`  the matrix destination
+#   `matricizeop!(dest, style, op, a, pc, pd)`            write the matricization into it
+#   `matricizeopview(style, op, a, pc, pd)`               partial: the aliasing form
+#   `is_output_view(matricizeop, style, op, a, pc, pd)`   whether the aliasing form applies
+#
+# Everything else is derived. `matricizeopcopy` allocates and writes, so it always returns fresh
+# storage the caller owns. `matricizeop` returns the view where the style declares one and the copy
+# otherwise, i.e. it has maybe-alias semantics and its result must be treated as read-only.
+# `matricize` is `matricizeop` at `identity`.
+#
+# Allocation is a hook rather than generic machinery because computing a matricized destination
+# needs the fused axes, which only the style knows: TensorAlgebra deliberately has no generic
+# axis-fusion interface. It is also what makes the copy path terminate, since `matricizeop!` is a
+# distinct function from the router rather than a re-entry into it.
 
 """
-    matricizeopperm(op, a, perm_codomain, perm_domain)
+    matricizeop(op, a, perm_codomain, perm_domain)
 
-Matricize `a` with element-wise operation `op` folded in. Returns a matrix representing
-`op.(matricizeperm(a, perm_codomain, perm_domain))`.
+Matricize `a` across the bipermutation with the element-wise operation `op` folded in, i.e. a
+matrix representing `op.(permutedims(a, (perm_codomain..., perm_domain...)))` with the codomain
+fused to rows and the domain to columns.
 
-Has "maybe alias" semantics: the result may be a view/wrapper aliasing `a` or a fresh
-copy, depending on the matricize style and array type. The caller should treat the result
-as read-only.
+Has "maybe alias" semantics: the result may share `a`'s memory or be fresh storage, depending on
+the style and the array type. Treat it as read-only. Use `matricizeopcopy` for a matrix the caller
+owns, and `matricizeopview` (partial) for one guaranteed to alias.
 """
-function matricizeopperm(
-        op, a, perm_codomain, perm_domain
-    )
-    return matricizeopperm(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
+function matricizeop(op, a, perm_codomain, perm_domain)
+    return matricizeop(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
 end
-
-# The identity bipermutation is a no-op permute, so `matricize` runs directly on `a` (a view
-# for dense, a gather without the extra permute copy for graded); the fast path requires
-# `op === identity`, since a plain view cannot carry a fused `op` like `conj`. The result may
-# alias `a` and must be treated as read-only, matching the docstring.
-function matricizeopperm(
-        style::MatricizeStyle, op, a,
-        perm_codomain, perm_domain
-    )
+function matricizeop(style::MatricizeStyle, op, a, perm_codomain, perm_domain)
     check_biperm(a, perm_codomain, perm_domain)
-    op === identity && isidentitybiperm(perm_codomain, perm_domain) &&
-        return matricize(style, a, Val(length(perm_codomain)))
-    a_perm_op = permutedimsop(op, a, perm_codomain, perm_domain)
-    return matricize(style, a_perm_op, Val(length(perm_codomain)))
+    is_output_view(matricizeop, style, op, a, perm_codomain, perm_domain) &&
+        return matricizeopview(style, op, a, perm_codomain, perm_domain)
+    return matricizeopcopy(style, op, a, perm_codomain, perm_domain)
 end
 
-# ==================================  ismatricizeview  =====================================
-# `true` iff `matricize(style, a, ndims_codomain)` shares `a`'s memory (writes to it are writes
-# to `a`) — the `isstrided`/`StridedView` pattern (also TensorKit's `has_shared_permute` and
-# TensorOperations' `isblasdestination`). Styles overload the `Val` (trivial split) form to
-# declare which splits share; the bipermutation form delegates to it at the identity and is
-# `false` (fail-safe) everywhere else. A general `ismatricizeview(style, op, a, perm_codomain,
-# perm_domain)` form (op and bipermutation view-sets) is planned; these are its
-# `op === identity` special cases.
-ismatricizeview(::MatricizeStyle, a, ndims_codomain::Val) = false
-function ismatricizeview(
-        style::MatricizeStyle, a,
-        perm_codomain, perm_domain
+"""
+    matricize(a, perm_codomain, perm_domain)
+
+`matricizeop` at `identity`. Has the same maybe-alias semantics.
+"""
+function matricize(a, perm_codomain, perm_domain)
+    return matricizeop(identity, a, perm_codomain, perm_domain)
+end
+function matricize(style::MatricizeStyle, a, perm_codomain, perm_domain)
+    return matricizeop(style, identity, a, perm_codomain, perm_domain)
+end
+
+# Total: always fresh storage the caller owns.
+function matricizeopcopy(op, a, perm_codomain, perm_domain)
+    return matricizeopcopy(MatricizeStyle(a), op, a, perm_codomain, perm_domain)
+end
+function matricizeopcopy(style::MatricizeStyle, op, a, perm_codomain, perm_domain)
+    check_biperm(a, perm_codomain, perm_domain)
+    dest = allocate_output(matricizeop, style, op, a, perm_codomain, perm_domain)
+    return matricizeop!(dest, style, op, a, perm_codomain, perm_domain)
+end
+
+# Partial: defined only where `is_output_view` is `true`, and always returns a matricization
+# sharing `a`'s memory (the `StridedView` partial-constructor pattern).
+function matricizeopview(style::MatricizeStyle, op, a, perm_codomain, perm_domain)
+    return throw(
+        MethodError(matricizeopview, (style, op, a, perm_codomain, perm_domain))
     )
-    isidentitybiperm(perm_codomain, perm_domain) || return false
-    return ismatricizeview(style, a, Val(length(perm_codomain)))
 end
 
-# ====================================  unmatricize  =======================================
+# Required of every style: write the matricization of `a` into `dest`.
+function matricizeop!(dest, style::MatricizeStyle, op, a, perm_codomain, perm_domain)
+    return throw(
+        MethodError(matricizeop!, (dest, style, op, a, perm_codomain, perm_domain))
+    )
+end
+
+# Required of every style: the matrix destination `matricizeop!` writes into.
+function allocate_output(
+        ::typeof(matricizeop), style::MatricizeStyle, op, a, perm_codomain, perm_domain
+    )
+    return throw(
+        MethodError(
+            allocate_output,
+            (matricizeop, style, op, a, perm_codomain, perm_domain)
+        )
+    )
+end
+
+# The trivial bipermutation for a rank-`N` array split after `ndims_codomain` dimensions. The
+# `Val` entry points that remain build it to reach the bipermutation hooks.
+function trivialbiperm(a, ndims_codomain::Val{K}) where {K}
+    return ntuple(identity, Val(K)), ntuple(i -> K + i, Val(ndims(a) - K))
+end
+
+# ==================================  is_output_view  ======================================
+# `true` iff `matricizeop(style, op, a, perm_codomain, perm_domain)` shares `a`'s memory, so that
+# writes to the result are writes to `a`. The `isstrided`/`StridedView` pattern, and the same
+# question TensorKit asks with `has_shared_permute` and TensorOperations with `isblasdestination`.
+# Keyed on the operation like the other function-keyed hooks (`check_input`, `allocate_output`,
+# `output_axes`), so the predicate's arguments are exactly the call's arguments.
+function is_output_view(
+        ::typeof(matricizeop), ::MatricizeStyle, op, a, perm_codomain, perm_domain
+    )
+    return false
+end
+
 # Split form: `axes_codomain` and `axes_domain` are the destination axes for the codomain and
 # domain groups, given codomain-facing (un-dualized), the same convention as `similar_map`. A
 # matricize style stores the domain axes dualized, so its overload re-dualizes them with `conj`
@@ -207,7 +202,7 @@ end
 # The bipermutation maps the destination's dimension order to the matrix's: `axes(a_dest)` grouped
 # by it gives the legs in `m`'s order, and the result is permuted back by its inverse. It is not
 # intrinsically an inverse permutation — the matricized-contraction destination path happens to
-# derive it as `invperm(biperm_dest)`, while a `matricizeperm`/`unmatricize!` round trip passes
+# derive it as `invperm(biperm_dest)`, while a `matricize`/`unmatricize!` round trip passes
 # the same forward bipermutation to both.
 function unmatricize!(
         a_dest, m,
@@ -250,16 +245,32 @@ end
 # Defaults to ReshapeMatricize, a simple reshape
 struct ReshapeMatricize <: MatricizeStyle end
 MatricizeStyle(::Type{<:AbstractArray}) = ReshapeMatricize()
-# A dense reshape matricization is a lazy wrapper at any split, so it always shares memory.
-ismatricizeview(::ReshapeMatricize, a, ndims_codomain::Val) = true
-function matricizeview(::ReshapeMatricize, a, ndims_codomain::Val)
-    unval(ndims_codomain) ≤ ndims(a) ||
-        throw(ArgumentError("Codomain length exceeds number of dimensions."))
-    size_codomain, size_domain = bipartition(size(a), ndims_codomain)
+# A dense reshape shares memory only when the data is already in codomain-then-domain order and
+# no operation has to be folded in: a reshape can neither reorder nor carry a `conj`.
+function is_output_view(
+        ::typeof(matricizeop), ::ReshapeMatricize, op, a, perm_codomain, perm_domain
+    )
+    return op === identity && isidentitybiperm(perm_codomain, perm_domain)
+end
+function matricizeopview(::ReshapeMatricize, op, a, perm_codomain, perm_domain)
+    size_codomain, size_domain = bipartition(size(a), Val(length(perm_codomain)))
     return reshape(a, (prod(size_codomain), prod(size_domain)))
 end
-function matricizecopy(style::ReshapeMatricize, a, ndims_codomain::Val)
-    return copy(matricizeview(style, a, ndims_codomain))
+function allocate_output(
+        ::typeof(matricizeop), ::ReshapeMatricize, op, a, perm_codomain, perm_domain
+    )
+    T = Base.promote_op(op, eltype(a))
+    size_codomain = map(i -> size(a, i), perm_codomain)
+    size_domain = map(i -> size(a, i), perm_domain)
+    return similar(a, T, (prod(size_codomain), prod(size_domain)))
+end
+# The destination is a dense matrix, so reshaping it to the permuted tensor shape is a view and
+# the permuted-add writes straight through it.
+function matricizeop!(dest, ::ReshapeMatricize, op, a, perm_codomain, perm_domain)
+    perm = (perm_codomain..., perm_domain...)
+    dest_tensor = reshape(dest, map(i -> size(a, i), perm))
+    bipermutedimsopadd!(dest_tensor, op, a, perm_codomain, perm_domain, true, false)
+    return dest
 end
 # The matricized input's rows must be the fused codomain and its columns the fused domain.
 # `reshape` alone only checks the total element count, so a wrong split with the right total

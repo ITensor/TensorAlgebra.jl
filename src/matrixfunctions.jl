@@ -32,7 +32,7 @@ const MATRIX_FUNCTIONS = [
 ]
 
 # The matrix functions never mutate their input (they allocate their own outputs), so the
-# permuted forms consume the maybe-alias `matricizeperm` matricization read-only, skipping
+# permuted forms consume the maybe-alias `matricize` matricization read-only, skipping
 # the eager `bipermutedims` copy at the identity bipermutation.
 for f in MATRIX_FUNCTIONS
     @eval begin
@@ -53,7 +53,7 @@ for f in MATRIX_FUNCTIONS
                 perm_codomain, perm_domain;
                 kwargs...
             )
-            a_mat = matricizeperm(style, a, perm_codomain, perm_domain)
+            a_mat = matricize(style, a, perm_codomain, perm_domain)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(a, i), (perm_codomain..., perm_domain...)),
                 Val(length(perm_codomain))

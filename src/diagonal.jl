@@ -44,7 +44,11 @@ end
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
 # reshape, so the memory-sharing matricization is `a` itself (keeping it a `Diagonal` for the
 # `Diagonal`-specialized consumers downstream).
-matricizeview(::ReshapeMatricize, a::Diagonal, ::Val{1}) = a
+function matricizeopview(
+        ::ReshapeMatricize, op, a::Diagonal, perm_codomain::Tuple{Int}, perm_domain::Tuple{Int}
+    )
+    return a
+end
 # A `{1,1}` unmatricize (one codomain axis, one domain axis) is the endomorphism identity: the
 # result stays `Diagonal`, so return `m` directly. The generic `check_input(unmatricize, ...)`
 # validates the axis lengths against `m`'s size.

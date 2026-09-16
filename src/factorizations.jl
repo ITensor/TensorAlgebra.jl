@@ -16,7 +16,7 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
 # owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
 # a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
-# the `matricizecopy` gather is owned by contract and is donated directly (with
+# the `matricizeopcopy` gather is owned by contract and is donated directly (with
 # `copy_input` still applied when the eltype must change) — and the wrapper calls the mutating
 # entry unconditionally.
 for f in (
@@ -34,11 +34,16 @@ for f in (
             )
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
-            A_mat = if ismatricizeview(style, A, perm_codomain, perm_domain)
-                A_shared = matricizeview(style, A, Val(length(perm_codomain)))
+            A_mat =
+            if is_output_view(
+                    matricizeop, style, identity, A, perm_codomain, perm_domain
+                )
+                A_shared =
+                    matricizeopview(style, identity, A, perm_codomain, perm_domain)
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
-                A_gather = matricizecopy(style, A, perm_codomain, perm_domain)
+                A_gather =
+                    matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
                 if eltype(A_gather) === float(eltype(A_gather))
                     A_gather
                 else
@@ -56,7 +61,7 @@ for f in (
 end
 
 # Read-only tier: the matrix-level entries never mutate their input (they copy internally), so
-# the perm form consumes the maybe-alias `matricizeperm` matricization directly.
+# the perm form consumes the maybe-alias `matricize` matricization directly.
 for f in (
         :gram_eigh_full, :gram_eigh_full_with_pinv,
         :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
@@ -67,7 +72,7 @@ for f in (
                 perm_codomain, perm_domain;
                 kwargs...
             )
-            A_mat = matricizeperm(style, A, perm_codomain, perm_domain)
+            A_mat = matricize(style, A, perm_codomain, perm_domain)
             F = MatrixAlgebra.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
@@ -174,7 +179,7 @@ function tr(A, ndims_codomain::Val)
     return tr(MatricizeStyle(A), A, ndims_codomain)
 end
 function tr(A, perm_codomain, perm_domain)
-    return LinearAlgebra.tr(matricizeperm(A, perm_codomain, perm_domain))
+    return LinearAlgebra.tr(matricize(A, perm_codomain, perm_domain))
 end
 function tr(A, labels_A, labels_codomain, labels_domain)
     perm_codomain, perm_domain =
@@ -858,14 +863,14 @@ julia> A = randn(2, 3, 2, 3);
 
 julia> Id = TensorAlgebra.one(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
 
-julia> matricize(Id, Val(2)) ≈ I
+julia> matricize(Id, (1, 2), (3, 4)) ≈ I
 true
 ```
 """
 function one end
 
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, trivialbiperm(A, ndims_codomain)...)
     MatrixAlgebraKit.one!(A_mat)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, A_mat, axes_codomain, axes_domain)
@@ -878,11 +883,14 @@ end
 # matricization directly when the style declares one at this split, and otherwise fills a
 # gathered matrix and scatters it back with `unmatricize!`.
 function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    if ismatricizeview(style, A, ndims_codomain)
-        MatrixAlgebraKit.one!(matricizeview(style, A, ndims_codomain))
+    perm_codomain, perm_domain = trivialbiperm(A, ndims_codomain)
+    if is_output_view(matricizeop, style, identity, A, perm_codomain, perm_domain)
+        MatrixAlgebraKit.one!(
+            matricizeopview(style, identity, A, perm_codomain, perm_domain)
+        )
         return A
     end
-    A_mat = matricizecopy(style, A, ndims_codomain)
+    A_mat = matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
     MatrixAlgebraKit.one!(A_mat)
     return unmatricize!(style, A, A_mat, ndims_codomain)
 end
