@@ -86,6 +86,12 @@ end
 # needs the fused axes, which only the style knows: TensorAlgebra deliberately has no generic
 # axis-fusion interface. It is also what makes the copy path terminate, since `matricizeop!` is a
 # distinct function from the router rather than a re-entry into it.
+#
+# `matricizeopcopy` is itself an overload point for a style whose owned matricization already falls
+# out of an allocating operation it has (for a graded array, permuting into fresh storage whose
+# stored matrix is the answer). Such a style overloads the copy instead of
+# `allocate_output`/`matricizeop!`, which would copy that storage a second time, and then owes
+# only `matricizeopview` and `is_output_view`.
 
 """
     matricizeop(op, a, perm_codomain, perm_domain)
