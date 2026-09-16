@@ -10,7 +10,7 @@ export contract, contract!, contractalign, dual, eig_full, eig_trunc, eig_vals, 
 if VERSION >= v"1.11.0-DEV.469"
     eval(
         Meta.parse(
-            "public allocate_output, biperm, bipartition, cat_similar, check_input, concatenate, concatenate!, ContractAlgorithm, contractopadd!, contractperm, contractperm!, contractpermadd!, contractpermopadd!, data, datatype, directsum, flattenlinear, is_output_view, label_type, matricize, matricizeop, matricizeop!, matricizeopcopy, matricizeopview, output_axes, select_algorithm, default_algorithm, permutedims, permutedims!, scalar, similar_map, TensorOperationsAlgorithm, to_range, tr, tryflattenlinear, ungrade, zero!, scale!, permuteddims, PermutedDims"
+            "public allocate_output, biperm, bipartition, cat_similar, check_input, concatenate, concatenate!, ContractAlgorithm, contractadd!, contractopadd!, contractperm, contractperm!, contractpermadd!, contractpermopadd!, data, datatype, directsum, flattenlinear, is_output_view, label_type, matricize, matricizeop, matricizeop!, matricizeopcopy, matricizeopview, output_axes, select_algorithm, default_algorithm, permutedims, permutedims!, scalar, similar_map, TensorOperationsAlgorithm, to_range, tr, tryflattenlinear, ungrade, zero!, scale!, permuteddims, PermutedDims"
         )
     )
 end

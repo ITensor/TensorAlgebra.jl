@@ -39,7 +39,8 @@ using Test: @test, @testset
             exports,
             [
                 :allocate_output, :biperm, :bipartition, :cat_similar, :check_input,
-                :concatenate, :concatenate!, :ContractAlgorithm, :contractopadd!,
+                :concatenate, :concatenate!, :ContractAlgorithm, :contractadd!,
+                :contractopadd!,
                 :contractperm, :contractperm!, :contractpermadd!, :contractpermopadd!,
                 :data,
                 :datatype, :directsum,
