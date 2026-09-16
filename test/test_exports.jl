@@ -13,8 +13,6 @@ using Test: @test, @testset
         :eigh_full,
         :eigh_trunc,
         :eigh_vals,
-        :gram_eigh_full,
-        :gram_eigh_full_with_pinv,
         :invsqrth_safe,
         :isdual,
         :left_null,
@@ -28,7 +26,6 @@ using Test: @test, @testset
         :right_null,
         :right_orth,
         :right_polar,
-        :sqrth_invsqrth_safe,
         :sqrth_safe,
         :svd_compact,
         :svd_full,
@@ -56,15 +53,12 @@ using Test: @test, @testset
 
     exports = [
         :MatrixAlgebra,
-        :gram_eigh_full,
-        :gram_eigh_full_with_pinv,
         :invsqrt_diag_safe,
         :invsqrth_safe,
         :pow_diag_safe,
         :pow_diag_safe!,
         :powh_safe,
         :sqrt_diag_safe,
-        :sqrth_invsqrth_safe,
         :sqrth_safe,
     ]
     @test issetequal(names(TensorAlgebra.MatrixAlgebra), exports)

@@ -63,8 +63,7 @@ end
 # Read-only tier: the matrix-level entries never mutate their input (they copy internally), so
 # the perm form consumes the maybe-alias `matricize` matricization directly.
 for f in (
-        :gram_eigh_full, :gram_eigh_full_with_pinv,
-        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
+        :sqrth_safe, :invsqrth_safe,
     )
     @eval begin
         function $f(
@@ -90,8 +89,8 @@ for f in (
         :left_polar, :right_polar, :left_orth, :right_orth,
         :svd_compact, :svd_full, :svd_trunc, :svd_vals,
         :eigh_full, :eig_full, :eigh_trunc, :eig_trunc, :eigh_vals, :eig_vals,
-        :left_null, :right_null, :gram_eigh_full, :gram_eigh_full_with_pinv,
-        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe, :project_hermitian,
+        :left_null, :right_null,
+        :sqrth_safe, :invsqrth_safe, :project_hermitian,
     )
     @eval begin
         function $f(style::MatricizeStyle, A, ndims_codomain::Val{K}; kwargs...) where {K}
@@ -613,124 +612,6 @@ function unmatricize_factors(
 end
 
 """
-    gram_eigh_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> X
-    gram_eigh_full(A, perm_codomain, perm_domain; kwargs...) -> X
-    gram_eigh_full(A, ndims_codomain::Val; kwargs...) -> X
-
-Gram factorization of a generic N-dimensional array, interpreting it as a
-Hermitian positive semi-definite linear map from the domain to the codomain
-dimensions. Returns `X` such that `A ≈ X * X'` (contracted on the rank leg),
-i.e. the codomain axes of `X` match the codomain axes of `A` and `X` has a
-single trailing rank axis.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(MatrixAlgebra._clamp_kwargs_doc("A"))
-
-# Examples
-
-```jldoctest
-julia> using TensorAlgebra: contract, gram_eigh_full
-
-julia> B = randn(3, 2, 2);
-
-julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
-
-julia> X = gram_eigh_full(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
-
-julia> A ≈ contract((:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r))
-true
-```
-
-See also [`gram_eigh_full_with_pinv`](@ref) and
-[`MatrixAlgebra.gram_eigh_full`](@ref).
-"""
-gram_eigh_full
-
-function gram_eigh_full!!(
-        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
-    )
-    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
-    X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
-    axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
-end
-function gram_eigh_full!!(A, ndims_codomain::Val; kwargs...)
-    return gram_eigh_full!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function unmatricize_factors(
-        ::typeof(gram_eigh_full), style::MatricizeStyle, X,
-        axes_codomain, axes_domain
-    )
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
-end
-
-"""
-    gram_eigh_full_with_pinv(A, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    gram_eigh_full_with_pinv(A, perm_codomain, perm_domain; kwargs...) -> X, Y
-    gram_eigh_full_with_pinv(A, ndims_codomain::Val; kwargs...) -> X, Y
-
-Like [`gram_eigh_full`](@ref), but additionally returns `Y ≈ pinv(X)` such
-that `Y * X ≈ I` on the rank subspace (a left inverse). The codomain axes
-of `X` match the codomain axes of `A`; `Y` has a leading rank axis followed
-by the codomain axes.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(MatrixAlgebra._clamp_kwargs_doc("A"))
-
-# Examples
-
-```jldoctest
-julia> using LinearAlgebra: I
-
-julia> using TensorAlgebra: contract, gram_eigh_full_with_pinv
-
-julia> B = randn(8, 2, 2);
-
-julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
-
-julia> X, Y = gram_eigh_full_with_pinv(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
-
-julia> A ≈ contract((:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r))
-true
-
-julia> contract((:r, :s), Y, (:r, :a, :b), X, (:a, :b, :s)) ≈ I
-true
-```
-
-See also [`MatrixAlgebra.gram_eigh_full_with_pinv`](@ref).
-"""
-gram_eigh_full_with_pinv
-
-function gram_eigh_full_with_pinv!!(
-        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
-    )
-    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
-    X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
-    axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
-        unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
-end
-function gram_eigh_full_with_pinv!!(A, ndims_codomain::Val; kwargs...)
-    return gram_eigh_full_with_pinv!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function unmatricize_factors(
-        ::typeof(gram_eigh_full_with_pinv), style::MatricizeStyle, F,
-        axes_codomain, axes_domain
-    )
-    X, Y = F
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
-        unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
-end
-
-"""
     sqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
     sqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P
     sqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
@@ -748,7 +629,7 @@ up to numerical noise.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
-See also [`invsqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
+See also [`invsqrth_safe`](@ref) and
 [`MatrixAlgebra.sqrth_safe`](@ref).
 """
 sqrth_safe
@@ -771,7 +652,7 @@ first if it is Hermitian only up to numerical noise.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
-See also [`sqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
+See also [`sqrth_safe`](@ref) and
 [`MatrixAlgebra.invsqrth_safe`](@ref).
 """
 invsqrth_safe
@@ -805,35 +686,6 @@ function unmatricize_factors(
         axes_codomain, axes_domain
     )
     return unmatricize(style, H_mat, axes_codomain, axes_domain)
-end
-
-"""
-    sqrth_invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, Pinv
-    sqrth_invsqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P, Pinv
-    sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P, Pinv
-
-Square root and pseudo-inverse square root of a generic N-dimensional
-array (see [`sqrth_safe`](@ref) and [`invsqrth_safe`](@ref)), from a
-single eigendecomposition. Both results carry the same codomain and
-domain axes as `A`.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(MatrixAlgebra._clamp_kwargs_doc("A"))
-
-See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
-"""
-sqrth_invsqrth_safe
-
-function unmatricize_factors(
-        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, F,
-        axes_codomain, axes_domain
-    )
-    P_mat, Pinv_mat = F
-    return unmatricize(style, P_mat, axes_codomain, axes_domain),
-        unmatricize(style, Pinv_mat, axes_codomain, axes_domain)
 end
 
 """

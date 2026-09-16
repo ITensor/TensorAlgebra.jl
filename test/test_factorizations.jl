@@ -1,9 +1,8 @@
 using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, norm
 using MatrixAlgebraKit: truncrank
 using TensorAlgebra: TensorAlgebra, contract, eig_full, eig_vals, eigh_full, eigh_vals,
-    gram_eigh_full, gram_eigh_full_with_pinv, left_null, left_orth, left_polar, lq_compact,
-    lq_full, qr_compact, qr_full, right_null, right_orth, right_polar, svd_compact,
-    svd_full, svd_trunc, svd_vals
+    left_null, left_orth, left_polar, lq_compact, lq_full, qr_compact, qr_full, right_null,
+    right_orth, right_polar, svd_compact, svd_full, svd_trunc, svd_vals
 using Test: @test, @testset
 using TestExtras: @constinferred
 
@@ -304,59 +303,6 @@ end
 
     P, W = right_orth(A, (2, 1), (4, 3))
     @test A ≈ contract(labels_A, P, (labels_P..., :w), W, (:w, labels_W...))
-end
-
-# Gram factorization
-# ------------------
-# Build a Hermitian positive semi-definite tensor A[a,b,c,d] with codomain
-# (a, b) and domain (c, d): pick a random B[k, a, b] (k = aux), then form
-# A = B' * B over k. By construction A ≈ X' * X for X[r, a, b] with rank r
-# bounded by k (rank leg first, following the Cholesky `A = U' * U`
-# convention).
-@testset "Full-rank gram_eigh_full ($T)" for T in elts
-    B = randn(T, 6, 2, 3) # k = 6, codomain = (a, b) of size 2*3 = 6 -> full rank
-    A = contract((:a, :b, :c, :d), conj(B), (:k, :a, :b), B, (:k, :c, :d))
-    labels_A = (:a, :b, :c, :d)
-    labels_X = (:a, :b)
-    labels_Y = (:c, :d)
-
-    Acopy = copy(A)
-    X = @constinferred gram_eigh_full(A, labels_A, labels_X, labels_Y)
-    @test A == Acopy # should not have altered initial array
-    A′ = contract(labels_A, X, (:a, :b, :r), conj(X), (:c, :d, :r))
-    @test A ≈ A′
-    @test size(X, ndims(X)) == size(A, 1) * size(A, 2)
-
-    # `Val`, perm, and label entries agree.
-    @test gram_eigh_full(A, Val(2)) ≈ X
-    @test gram_eigh_full(A, (1, 2), (3, 4)) ≈ X
-
-    # `with_pinv` variant: Y is a left inverse of X (Y * X ≈ I on the
-    # rank subspace).
-    X2, Y2 = @constinferred gram_eigh_full_with_pinv(A, labels_A, labels_X, labels_Y)
-    @test A ≈ contract(labels_A, X2, (:a, :b, :r), conj(X2), (:c, :d, :r))
-    YX = contract((:r, :s), Y2, (:r, :a, :b), X2, (:a, :b, :s))
-    @test YX ≈ I
-end
-
-@testset "Rank-deficient gram_eigh_full ($T)" for T in elts
-    B = randn(T, 4, 2, 3) # k = 4 < codomain dim 6, so A is rank-4
-    A = contract((:a, :b, :c, :d), conj(B), (:k, :a, :b), B, (:k, :c, :d))
-
-    # Recovery of A is independent of the `rtol` cutoff because all
-    # nonzero eigenvalues sit far above any reasonable threshold.
-    X = gram_eigh_full(A, Val(2); rtol = 1.0e-10)
-    @test A ≈ contract(
-        (:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r)
-    )
-
-    # Moore–Penrose-like identity: X * Y * X ≈ X when Y is pinv(X). With
-    # cod-first X and rank-first Y, contract Y[r, a, b] * X[a, b, s] → P[r, s]
-    # (projector onto the rank subspace), then X * P → X.
-    X2, Y2 = gram_eigh_full_with_pinv(A, Val(2); rtol = 1.0e-10)
-    P = contract((:r, :s), Y2, (:r, :a, :b), X2, (:a, :b, :s))
-    XP = contract((:c, :d, :r), X2, (:c, :d, :s), P, (:s, :r))
-    @test XP ≈ X2
 end
 
 # one (identity tensor)
