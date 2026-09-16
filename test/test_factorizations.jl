@@ -7,6 +7,9 @@ using TensorAlgebra: TensorAlgebra, contract, eig_full, eig_vals, eigh_full, eig
 using Test: @test, @testset
 using TestExtras: @constinferred
 
+# Matricize without permuting: the identity bipermutation for a split after `k` dimensions.
+splitperms(a, k) = (ntuple(identity, k), ntuple(i -> k + i, ndims(a) - k))
+
 elts = (Float64, ComplexF64)
 
 # QR Decomposition
@@ -373,7 +376,7 @@ end
     @test size(Id) == size(A)
     @test eltype(Id) === T
 
-    @test TensorAlgebra.matricize(Id, Val(2)) ≈ I
+    @test TensorAlgebra.matricize(Id, splitperms(Id, 2)...) ≈ I
 
     # `Val`, perm, and label entries agree.
     @test TensorAlgebra.one(A, Val(2)) ≈ Id
@@ -386,7 +389,7 @@ end
     B = randn(T, 2, 2, 2, 2)
     labels_B = (:a, :c, :b, :d)
     Id_perm = TensorAlgebra.one(B, labels_B, labels_cod, labels_dom)
-    @test TensorAlgebra.matricize(Id_perm, Val(2)) ≈ I
+    @test TensorAlgebra.matricize(Id_perm, splitperms(Id_perm, 2)...) ≈ I
     # Perm- and biperm-tuple forms agree with the label form.
     @test TensorAlgebra.one(B, (1, 3), (2, 4)) ≈ Id_perm
 
@@ -394,12 +397,12 @@ end
     C = randn(T, 2, 3, 2, 3)
     Cret = @constinferred TensorAlgebra.one!(C, Val(2))
     @test Cret === C
-    @test TensorAlgebra.matricize(C, Val(2)) ≈ I
+    @test TensorAlgebra.matricize(C, splitperms(C, 2)...) ≈ I
     @test C ≈ TensorAlgebra.one(A, Val(2))
 
     # `unmatricize!` scatters a fused matrix back into an existing array.
     D = randn(T, 2, 3, 2, 3)
-    Dmat = TensorAlgebra.matricize(D, Val(2))
+    Dmat = TensorAlgebra.matricize(D, splitperms(D, 2)...)
     E = similar(D)
     Eret = TensorAlgebra.unmatricize!(E, Dmat, Val(2))
     @test Eret === E
@@ -430,23 +433,25 @@ end
         (((1, 2), (3,)), ((3, 1), (2,)), ((3,), (1, 2)), ((2,), (3, 1)))
         k = length(perm_codomain)
         A_perm = TensorAlgebra.bipermutedims(A, perm_codomain, perm_domain)
-        A_mat = TensorAlgebra.matricize(A_perm, Val(k))
+        A_mat = TensorAlgebra.matricize(A_perm, splitperms(A_perm, k)...)
         for f in (qr_compact, lq_compact, left_orth, right_orth)
             X, Y = f(A, perm_codomain, perm_domain)
-            @test TensorAlgebra.matricize(X, Val(k)) *
-                TensorAlgebra.matricize(Y, Val(1)) ≈ A_mat
+            @test TensorAlgebra.matricize(X, splitperms(X, k)...) *
+                TensorAlgebra.matricize(Y, splitperms(Y, 1)...) ≈ A_mat
         end
         for f in (svd_compact, svd_trunc)
             U, S, Vᴴ = f(A, perm_codomain, perm_domain)
-            U_mat = TensorAlgebra.matricize(U, Val(k))
-            @test U_mat * S * TensorAlgebra.matricize(Vᴴ, Val(1)) ≈ A_mat
+            U_mat = TensorAlgebra.matricize(U, splitperms(U, k)...)
+            @test U_mat * S * TensorAlgebra.matricize(Vᴴ, splitperms(Vᴴ, 1)...) ≈ A_mat
             @test U_mat' * U_mat ≈ I
         end
         @test svd_vals(A, perm_codomain, perm_domain) ≈ LinearAlgebra.svdvals(A_mat)
-        N = TensorAlgebra.matricize(left_null(A, perm_codomain, perm_domain), Val(k))
+        N_tensor = left_null(A, perm_codomain, perm_domain)
+        N = TensorAlgebra.matricize(N_tensor, splitperms(N_tensor, k)...)
         @test norm(N' * A_mat) ≈ 0 atol = 1.0e-13
         @test N' * N ≈ I
-        Nᴴ = TensorAlgebra.matricize(right_null(A, perm_codomain, perm_domain), Val(1))
+        Nᴴ_tensor = right_null(A, perm_codomain, perm_domain)
+        Nᴴ = TensorAlgebra.matricize(Nᴴ_tensor, splitperms(Nᴴ_tensor, 1)...)
         @test norm(A_mat * Nᴴ') ≈ 0 atol = 1.0e-13
         @test Nᴴ * Nᴴ' ≈ I
         @test A == Acopy
@@ -456,9 +461,9 @@ end
     for (perm_codomain, perm_domain) in
         (((1, 2), (3, 4)), ((3, 4), (1, 2)), ((2, 3), (4, 1)))
         B_perm = TensorAlgebra.bipermutedims(B, perm_codomain, perm_domain)
-        B_mat = Matrix(TensorAlgebra.matricize(B_perm, Val(2)))
+        B_mat = Matrix(TensorAlgebra.matricize(B_perm, splitperms(B_perm, 2)...))
         D, V = eig_full(B, perm_codomain, perm_domain)
-        V_mat = TensorAlgebra.matricize(V, Val(2))
+        V_mat = TensorAlgebra.matricize(V, splitperms(V, 2)...)
         @test B_mat * V_mat ≈ V_mat * D
         sortvals(v) = sort(v; by = x -> (real(x), imag(x)))
         @test sortvals(eig_vals(B, perm_codomain, perm_domain)) ≈
@@ -481,11 +486,37 @@ module FactorizationMatricizeTestUtils
     end
     struct AliasingMatricize <: TA.MatricizeStyle end
     TA.MatricizeStyle(::Type{<:AliasingArray}) = AliasingMatricize()
-    function TA.matricize(::AliasingMatricize, a::AliasingArray, ndims_codomain::Val)
-        return TA.matricize(TA.ReshapeMatricize(), a.parent, ndims_codomain)
+    # Delegate every hook to the dense style on the unwrapped parent, so the matricization
+    # aliases exactly where a plain `Array`'s would.
+    unwrap(a::AliasingArray) = a.parent
+    unwrap(a::AbstractArray) = a
+    function TA.is_output_view(
+            ::typeof(TA.matricizeop), ::AliasingMatricize, op, a, perm_codomain, perm_domain
+        )
+        return TA.is_output_view(
+            TA.matricizeop, TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
+        )
     end
-    function TA.matricize(::AliasingMatricize, a::AbstractArray, ndims_codomain::Val)
-        return TA.matricize(TA.ReshapeMatricize(), a, ndims_codomain)
+    function TA.matricizeopview(
+            ::AliasingMatricize, op, a, perm_codomain, perm_domain
+        )
+        return TA.matricizeopview(
+            TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
+        )
+    end
+    function TA.allocate_output(
+            ::typeof(TA.matricizeop), ::AliasingMatricize, op, a, perm_codomain, perm_domain
+        )
+        return TA.allocate_output(
+            TA.matricizeop, TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
+        )
+    end
+    function TA.matricizeop!(
+            dest, ::AliasingMatricize, op, a, perm_codomain, perm_domain
+        )
+        return TA.matricizeop!(
+            dest, TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
+        )
     end
     function TA.unmatricize(::AliasingMatricize, m, axes_codomain, axes_domain)
         return AliasingArray(
@@ -512,9 +543,9 @@ end
     parent_copy = copy(parent)
     Q, R = qr_compact(A, Val(1))
     @test parent == parent_copy
-    Q_mat = TensorAlgebra.matricize(Q, Val(1))
+    Q_mat = TensorAlgebra.matricize(Q, splitperms(Q, 1)...)
     @test eltype(Q_mat) === Float64
-    @test Q_mat * TensorAlgebra.matricize(R, Val(1)) ≈ reshape(parent, 2, 12)
+    @test Q_mat * TensorAlgebra.matricize(R, splitperms(R, 1)...) ≈ reshape(parent, 2, 12)
     @test svd_vals(A, (1,), (2, 3)) ≈ LinearAlgebra.svdvals(reshape(float.(parent), 2, 12))
     @test parent == parent_copy
 end

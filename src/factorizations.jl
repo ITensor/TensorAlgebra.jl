@@ -173,7 +173,7 @@ true
 ```
 """
 function tr(style::MatricizeStyle, A, ndims_codomain::Val)
-    return LinearAlgebra.tr(matricize(style, A, ndims_codomain))
+    return LinearAlgebra.tr(matricize(style, A, identitybiperm(A, ndims_codomain)...))
 end
 function tr(A, ndims_codomain::Val)
     return tr(MatricizeStyle(A), A, ndims_codomain)
@@ -559,7 +559,7 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 left_null
 
 function left_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
     return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
@@ -596,7 +596,7 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 right_null
 
 function right_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     _, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, Nᴴ, (axes(Nᴴ, 1),), axes_domain)
@@ -652,7 +652,7 @@ gram_eigh_full
 function gram_eigh_full!!(
         style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
     )
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
     return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
@@ -711,7 +711,7 @@ gram_eigh_full_with_pinv
 function gram_eigh_full_with_pinv!!(
         style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
     )
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
     return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
