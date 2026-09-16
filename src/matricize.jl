@@ -120,6 +120,22 @@ function matricize(style::MatricizeStyle, a, perm_codomain, perm_domain)
     return matricizeop(style, identity, a, perm_codomain, perm_domain)
 end
 
+# Split-only convenience: matricize after `ndims_codomain` dimensions without permuting. Sugar over
+# the bipermutation forms, not a dispatch tier. A style implements the hooks above and never these,
+# which is what keeps the copy path from recursing back through the router.
+function matricize(a, ndims_codomain::Val)
+    return matricize(a, identitybiperm(a, ndims_codomain)...)
+end
+function matricize(style::MatricizeStyle, a, ndims_codomain::Val)
+    return matricize(style, a, identitybiperm(a, ndims_codomain)...)
+end
+function matricizeop(op, a, ndims_codomain::Val)
+    return matricizeop(op, a, identitybiperm(a, ndims_codomain)...)
+end
+function matricizeop(style::MatricizeStyle, op, a, ndims_codomain::Val)
+    return matricizeop(style, op, a, identitybiperm(a, ndims_codomain)...)
+end
+
 # Total: always fresh storage the caller owns.
 function matricizeopcopy(op, a, perm_codomain, perm_domain)
     return matricizeopcopy(MatricizeStyle(a), op, a, perm_codomain, perm_domain)

@@ -85,8 +85,8 @@ function isidentitybiperm(perm_codomain, perm_domain)
 end
 
 # The identity bipermutation for a rank-`N` array split after `ndims_codomain` dimensions, i.e.
-# the one `isidentitybiperm` accepts. Transitional: only the `Val` entry points that have yet to be
-# removed build it, to reach the bipermutation hooks.
+# the one `isidentitybiperm` accepts. The split-only `Val` conveniences build it to reach the
+# bipermutation forms.
 function identitybiperm(a, ndims_codomain::Val{K}) where {K}
     return ntuple(identity, Val(K)), ntuple(i -> K + i, Val(ndims(a) - K))
 end
