@@ -1,6 +1,6 @@
 using LinearAlgebra: mul!
 
-function contractopadd!(
+function contractpermopadd!(
         algorithm::Matricize,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
         op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,

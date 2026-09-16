@@ -1,8 +1,8 @@
 import TensorAlgebra
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
-    contract!, contractadd!, length_codomain, length_domain, matricize, unmatricize,
-    unmatricize!
+    contract!, contractadd!, contractalign, length_codomain, length_domain, matricize,
+    unmatricize, unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -172,15 +172,22 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         a2 = randn(3, 4)
         # A keyword no algorithm can consume must name itself, not surface as a `MethodError`
         # from inside the resolver.
-        @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 3); nonsense = 1)
-        @test_throws ArgumentError contract(
+        @test_throws ArgumentError contractalign(
+            (1, 3),
+            a1,
+            (1, 2),
+            a2,
+            (2, 3);
+            nonsense = 1
+        )
+        @test_throws ArgumentError contractalign(
             (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize(), nonsense = 1
         )
         # A non-algorithm passed as `alg` says so rather than erroring with "Not implemented".
         @test_throws ArgumentError TensorAlgebra.select_contract_algorithm(:nope, a1, a2)
         # The supported spellings still work.
-        @test contract((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2
-        @test contract(
+        @test contractalign((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2
+        @test contractalign(
             (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize()
         ) ≈ a1 * a2
     end
@@ -201,8 +208,8 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         a_dest = ones(elt_dest, (1, 1))
         @test_throws ArgumentError contract(a1, (1, 2, 4), a2, (2, 3))
         @test_throws ArgumentError contract(a1, (1, 2), a2, (2, 3, 4))
-        @test_throws ArgumentError contract((1, 3, 4), a1, (1, 2), a2, (2, 3))
-        @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 4))
+        @test_throws ArgumentError contractalign((1, 3, 4), a1, (1, 2), a2, (2, 3))
+        @test_throws ArgumentError contractalign((1, 3), a1, (1, 2), a2, (2, 4))
         @test_throws ArgumentError contract!(a_dest, (1, 3, 4), a1, (1, 2), a2, (2, 3))
 
         dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
@@ -241,14 +248,14 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
             @test a_dest ≈ a_dest_tensoroperations
 
             # Specify destination labels
-            a_dest = contract(labels_dest, a1, labels1, a2, labels2)
-            a_dest_tensoroperations = contract(
+            a_dest = contractalign(labels_dest, a1, labels1, a2, labels2)
+            a_dest_tensoroperations = contractalign(
                 labels_dest, a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
             @test a_dest ≈ a_dest_tensoroperations
 
-            a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
-            a_dest_tensoroperations = contract(
+            a_dest = contractalign(labels_dest′, a1, labels1, a2, labels2)
+            a_dest_tensoroperations = contractalign(
                 labels_dest′, a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
             @test a_dest ≈ a_dest_tensoroperations
@@ -286,7 +293,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test labels_dest == [L(1), L(4)]
 
         # Specifying the destination labels still works for opted-in types.
-        a_dest = contract([L(1), L(4)], a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
+        a_dest = contractalign([L(1), L(4)], a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
         @test a_dest ≈ a_ref
 
         # Empty labels (e.g. a scalar operand) are handled.
@@ -309,7 +316,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test eltype(a_dest) === elt_dest
         @test a_dest ≈ reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...))
 
-        a_dest = contract(("i", "k", "j", "l"), a1, ("i", "j"), a2, ("k", "l"))
+        a_dest = contractalign(("i", "k", "j", "l"), a1, ("i", "j"), a2, ("k", "l"))
         @test eltype(a_dest) === elt_dest
         @test a_dest ≈ permutedims(
             reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 3, 2, 4)
@@ -456,17 +463,17 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         size_dest_example = (3, 5, 2, 4)
 
         # Array-scalar contraction.
-        a_dest = contract(labels_dest_example, a, labels_a, s, ())
+        a_dest = contractalign(labels_dest_example, a, labels_a, s, ())
         @test size(a_dest) == size_dest_example
         @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
 
         # Scalar-array contraction.
-        a_dest = contract(labels_dest_example, s, (), a, labels_a)
+        a_dest = contractalign(labels_dest_example, s, (), a, labels_a)
         @test size(a_dest) == size_dest_example
         @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
 
         # Scalar-scalar contraction.
-        a_dest = contract((), s, (), t, ())
+        a_dest = contractalign((), s, (), t, ())
         @test size(a_dest) == ()
         @test a_dest[] ≈ s[] * t[]
 

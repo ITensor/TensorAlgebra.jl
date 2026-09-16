@@ -22,7 +22,7 @@ end
 # ----------------------------------------------------------------
 
 # not in-place
-function TA.contract(
+function TA.contractperm(
         algorithm::TensorOperationsAlgorithm,
         perm_dest_codomain, perm_dest_domain,
         a1::AbstractArray, perm1_codomain, perm1_domain,
@@ -39,7 +39,7 @@ function TA.contract(
     )
 end
 
-function TA.contract(
+function TA.contractalign(
         algorithm::TensorOperationsAlgorithm,
         labels_dest,
         a1::AbstractArray, labels1,
@@ -56,7 +56,7 @@ function TA.contract(
 end
 
 # in-place
-function TA.contractopadd!(
+function TA.contractpermopadd!(
         algorithm::TensorOperationsAlgorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
@@ -89,7 +89,7 @@ function TO.tensorcontract!(
     )
     op1 = conj1 ? conj : identity
     op2 = conj2 ? conj : identity
-    return TA.contractopadd!(
+    return TA.contractpermopadd!(
         backend,
         a_dest, permblocks_dest...,
         op1, a1, permblocks1...,

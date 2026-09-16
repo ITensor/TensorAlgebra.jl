@@ -108,7 +108,7 @@ end
     # for the identity destination bipermutation and the gather/scatter route otherwise.
     a1 = randn(rng, 2, 3, 5)
     a2 = randn(rng, 5, 3, 2)
-    ref = TensorAlgebra.contract((:i, :j, :k, :l), a1, (:i, :j, :m), a2, (:m, :k, :l))
+    ref = TensorAlgebra.contractalign((:i, :j, :k, :l), a1, (:i, :j, :m), a2, (:m, :k, :l))
     for labels in ((:i, :j, :k, :l), (:k, :l, :i, :j), (:k, :i, :l, :j))
         perm = map(l -> findfirst(==(l), (:i, :j, :k, :l)), labels)
         dest = randn(rng, map(d -> size(ref, d), perm)...)

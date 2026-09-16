@@ -429,15 +429,15 @@ truncation error `ϵ`, the 2-norm of the discarded singular values.
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: svd_trunc, contract
+julia> using TensorAlgebra: svd_trunc, contractalign
 
 julia> A = randn(4, 4);
 
 julia> U, S, Vᴴ, ϵ = svd_trunc(A, (:i, :j), (:i,), (:j,));
 
-julia> SV = contract((:u, :j), S, (:u, :v), Vᴴ, (:v, :j));
+julia> SV = contractalign((:u, :j), S, (:u, :v), Vᴴ, (:v, :j));
 
-julia> contract((:i, :j), U, (:i, :u), SV, (:u, :j)) ≈ A
+julia> contractalign((:i, :j), U, (:i, :u), SV, (:u, :j)) ≈ A
 true
 
 julia> isapprox(ϵ, 0; atol = 1e-10)

@@ -293,7 +293,7 @@ end
 # already implements through its TensorOperations interface. Route the generic `contract`
 # there: `zero!` clears the `similar_map`-allocated destination, and the default algorithm
 # hands the in-place contraction to the TensorOperations backend (see the TensorOperations
-# extension's `contractopadd!`).
+# extension's `contractpermopadd!`).
 TensorAlgebra.zero!(t::AbstractTensorMap) = VectorInterface.zerovector!(t)
 
 # A `TensorMap` is not an `AbstractArray`, so the generic in-place `TensorAlgebra` operations
