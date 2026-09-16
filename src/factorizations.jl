@@ -870,7 +870,7 @@ true
 function one end
 
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, trivialbiperm(A, ndims_codomain)...)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     MatrixAlgebraKit.one!(A_mat)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, A_mat, axes_codomain, axes_domain)
@@ -883,7 +883,7 @@ end
 # matricization directly when the style declares one at this split, and otherwise fills a
 # gathered matrix and scatters it back with `unmatricize!`.
 function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    perm_codomain, perm_domain = trivialbiperm(A, ndims_codomain)
+    perm_codomain, perm_domain = identitybiperm(A, ndims_codomain)
     if is_output_view(matricizeop, style, identity, A, perm_codomain, perm_domain)
         MatrixAlgebraKit.one!(
             matricizeopview(style, identity, A, perm_codomain, perm_domain)

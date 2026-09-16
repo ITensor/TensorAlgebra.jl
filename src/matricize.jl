@@ -157,12 +157,6 @@ function allocate_output(
     )
 end
 
-# The trivial bipermutation for a rank-`N` array split after `ndims_codomain` dimensions. The
-# `Val` entry points that remain build it to reach the bipermutation hooks.
-function trivialbiperm(a, ndims_codomain::Val{K}) where {K}
-    return ntuple(identity, Val(K)), ntuple(i -> K + i, Val(ndims(a) - K))
-end
-
 # ==================================  is_output_view  ======================================
 # `true` iff `matricizeop(style, op, a, perm_codomain, perm_domain)` shares `a`'s memory, so that
 # writes to the result are writes to `a`. The `isstrided`/`StridedView` pattern, and the same
