@@ -70,3 +70,23 @@ function bipartition(t::Tuple, group1::Tuple, group2::Tuple)
 end
 # Split `t` by the two groups of a `BiTuple`.
 bipartition(t::Tuple, bt::BiTuple) = bipartition(t, bt.t1, bt.t2)
+
+# Whether `perm_codomain` and `perm_domain` together permute `1:n`, i.e. whether they are a valid
+# bipartitioned permutation. The two halves only make sense jointly, so this takes them as a pair
+# rather than leaving every caller to splat and call `isperm`.
+isbiperm(perm_codomain, perm_domain) = isperm((perm_codomain..., perm_domain...))
+
+# Whether `perm_codomain` and `perm_domain` are the identity bipermutation, i.e. leave every
+# dimension where it is. Takes the halves for the same reason `isbiperm` does: both call sites had
+# a bipermutation in hand and were splatting it to ask.
+function isidentitybiperm(perm_codomain, perm_domain)
+    perm = (perm_codomain..., perm_domain...)
+    return perm == ntuple(identity, length(perm))
+end
+
+# The identity bipermutation for a rank-`N` array split after `ndims_codomain` dimensions, i.e.
+# the one `isidentitybiperm` accepts. The split-only `Val` conveniences build it to reach the
+# bipermutation forms.
+function identitybiperm(a, ndims_codomain::Val{K}) where {K}
+    return ntuple(identity, Val(K)), ntuple(i -> K + i, Val(ndims(a) - K))
+end

@@ -41,7 +41,7 @@ using Test: @test, @test_throws, @testset
     end
 
     @testset "matricize(1, 1) is the identity reshape" begin
-        m = TensorAlgebra.matricize(TensorAlgebra.ReshapeMatricize(), d, Val(1))
+        m = TensorAlgebra.matricize(TensorAlgebra.ReshapeMatricize(), d, (1,), (2,))
         @test m === d
     end
 

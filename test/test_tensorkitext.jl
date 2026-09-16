@@ -60,7 +60,7 @@ using Test: @test, @test_throws, @testset
         # `unmatricize` takes the domain axes codomain-facing (un-dualized), so pass `B`, `C1`
         # directly rather than the dualized `space(t, 3)`, `space(t, 4)`.
         axes_domain = (B, C1)
-        m = matricize(t, Val(2))
+        m = matricize(t, (1, 2), (3, 4))
         @test space(m) == space(t)
         back = unmatricize(m, axes_codomain, axes_domain)
         @test back ≈ t

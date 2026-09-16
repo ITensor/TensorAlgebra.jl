@@ -16,7 +16,7 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
 # owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
 # a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
-# the `matricizecopy` gather is owned by contract and is donated directly (with
+# the `matricizeopcopy` gather is owned by contract and is donated directly (with
 # `copy_input` still applied when the eltype must change) — and the wrapper calls the mutating
 # entry unconditionally.
 for f in (
@@ -29,16 +29,21 @@ for f in (
     @eval begin
         function $f(
                 style::MatricizeStyle, A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
-            A_mat = if ismatricizeview(style, A, perm_codomain, perm_domain)
-                A_shared = matricizeview(style, A, Val(length(perm_codomain)))
+            A_mat =
+            if is_output_view(
+                    matricizeop, style, identity, A, perm_codomain, perm_domain
+                )
+                A_shared =
+                    matricizeopview(style, identity, A, perm_codomain, perm_domain)
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
-                A_gather = matricizecopy(style, A, perm_codomain, perm_domain)
+                A_gather =
+                    matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
                 if eltype(A_gather) === float(eltype(A_gather))
                     A_gather
                 else
@@ -56,18 +61,17 @@ for f in (
 end
 
 # Read-only tier: the matrix-level entries never mutate their input (they copy internally), so
-# the perm form consumes the maybe-alias `matricizeperm` matricization directly.
+# the perm form consumes the maybe-alias `matricize` matricization directly.
 for f in (
-        :gram_eigh_full, :gram_eigh_full_with_pinv,
-        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
+        :sqrth_safe, :invsqrth_safe,
     )
     @eval begin
         function $f(
                 style::MatricizeStyle, A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
-            A_mat = matricizeperm(style, A, perm_codomain, perm_domain)
+            A_mat = matricize(style, A, perm_codomain, perm_domain)
             F = MatrixAlgebra.$f(A_mat; kwargs...)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
@@ -85,8 +89,8 @@ for f in (
         :left_polar, :right_polar, :left_orth, :right_orth,
         :svd_compact, :svd_full, :svd_trunc, :svd_vals,
         :eigh_full, :eig_full, :eigh_trunc, :eig_trunc, :eigh_vals, :eig_vals,
-        :left_null, :right_null, :gram_eigh_full, :gram_eigh_full_with_pinv,
-        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe, :project_hermitian,
+        :left_null, :right_null,
+        :sqrth_safe, :invsqrth_safe, :project_hermitian,
     )
     @eval begin
         function $f(style::MatricizeStyle, A, ndims_codomain::Val{K}; kwargs...) where {K}
@@ -102,7 +106,7 @@ for f in (
         end
         function $f(
                 A,
-                perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+                perm_codomain, perm_domain;
                 kwargs...
             )
             return $f(MatricizeStyle(A), A, perm_codomain, perm_domain; kwargs...)
@@ -143,7 +147,7 @@ end
 
 """
     TensorAlgebra.tr(A, labels_A, labels_codomain, labels_domain)
-    TensorAlgebra.tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
+    TensorAlgebra.tr(A, perm_codomain, perm_domain)
     TensorAlgebra.tr(A, ndims_codomain::Val)
 
 Trace of a generic N-dimensional array `A` interpreted as a linear map from its domain to its
@@ -168,13 +172,13 @@ true
 ```
 """
 function tr(style::MatricizeStyle, A, ndims_codomain::Val)
-    return LinearAlgebra.tr(matricize(style, A, ndims_codomain))
+    return LinearAlgebra.tr(matricize(style, A, identitybiperm(A, ndims_codomain)...))
 end
 function tr(A, ndims_codomain::Val)
     return tr(MatricizeStyle(A), A, ndims_codomain)
 end
-function tr(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}})
-    return LinearAlgebra.tr(matricizeperm(A, perm_codomain, perm_domain))
+function tr(A, perm_codomain, perm_domain)
+    return LinearAlgebra.tr(matricize(A, perm_codomain, perm_domain))
 end
 function tr(A, labels_A, labels_codomain, labels_domain)
     perm_codomain, perm_domain =
@@ -184,7 +188,7 @@ end
 
 """
     qr_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr_compact(A, perm_codomain, perm_domain; kwargs...) -> Q, R
     qr_compact(A, ndims_codomain::Val; kwargs...) -> Q, R
 
 Compute the compact QR decomposition of a generic N-dimensional array, by interpreting it
@@ -202,7 +206,7 @@ qr_compact
 
 """
     qr_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
-    qr_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Q, R
+    qr_full(A, perm_codomain, perm_domain; kwargs...) -> Q, R
     qr_full(A, ndims_codomain::Val; kwargs...) -> Q, R
 
 Compute the full QR decomposition of a generic N-dimensional array, by interpreting it as
@@ -220,7 +224,7 @@ qr_full
 
 """
     lq_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq_compact(A, perm_codomain, perm_domain; kwargs...) -> L, Q
     lq_compact(A, ndims_codomain::Val; kwargs...) -> L, Q
 
 Compute the compact LQ decomposition of a generic N-dimensional array, by interpreting it
@@ -238,7 +242,7 @@ lq_compact
 
 """
     lq_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> L, Q
-    lq_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> L, Q
+    lq_full(A, perm_codomain, perm_domain; kwargs...) -> L, Q
     lq_full(A, ndims_codomain::Val; kwargs...) -> L, Q
 
 Compute the full LQ decomposition of a generic N-dimensional array, by interpreting it as
@@ -256,7 +260,7 @@ lq_full
 
 """
     left_polar(A, labels_A, labels_codomain, labels_domain; kwargs...) -> W, P
-    left_polar(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> W, P
+    left_polar(A, perm_codomain, perm_domain; kwargs...) -> W, P
     left_polar(A, ndims_codomain::Val; kwargs...) -> W, P
 
 Compute the left polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -273,7 +277,7 @@ left_polar
 
 """
     right_polar(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, W
-    right_polar(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P, W
+    right_polar(A, perm_codomain, perm_domain; kwargs...) -> P, W
     right_polar(A, ndims_codomain::Val; kwargs...) -> P, W
 
 Compute the right polar decomposition of a generic N-dimensional array, by interpreting it as
@@ -290,7 +294,7 @@ right_polar
 
 """
     left_orth(A, labels_A, labels_codomain, labels_domain; kwargs...) -> V, C
-    left_orth(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> V, C
+    left_orth(A, perm_codomain, perm_domain; kwargs...) -> V, C
     left_orth(A, ndims_codomain::Val; kwargs...) -> V, C
 
 Compute the left orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -307,7 +311,7 @@ left_orth
 
 """
     right_orth(A, labels_A, labels_codomain, labels_domain; kwargs...) -> C, V
-    right_orth(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> C, V
+    right_orth(A, perm_codomain, perm_domain; kwargs...) -> C, V
     right_orth(A, ndims_codomain::Val; kwargs...) -> C, V
 
 Compute the right orthogonal decomposition of a generic N-dimensional array, by interpreting it as
@@ -383,7 +387,7 @@ end
 
 """
     svd_compact(A, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd_compact(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd_compact(A, perm_codomain, perm_domain; kwargs...) -> U, S, Vᴴ
     svd_compact(A, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
 
 Compute the compact (thin) SVD of a generic N-dimensional array, by interpreting it as a
@@ -396,7 +400,7 @@ svd_compact
 
 """
     svd_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> U, S, Vᴴ
-    svd_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> U, S, Vᴴ
+    svd_full(A, perm_codomain, perm_domain; kwargs...) -> U, S, Vᴴ
     svd_full(A, ndims_codomain::Val; kwargs...) -> U, S, Vᴴ
 
 Compute the full (thick) SVD of a generic N-dimensional array, by interpreting it as a
@@ -409,7 +413,7 @@ svd_full
 
 """
     svd_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> U, S, Vᴴ, ϵ
-    svd_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> U, S, Vᴴ, ϵ
+    svd_trunc(A, perm_codomain, perm_domain; trunc, kwargs...) -> U, S, Vᴴ, ϵ
     svd_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> U, S, Vᴴ, ϵ
 
 Compute the truncated SVD of a generic N-dimensional array, by interpreting it as a linear
@@ -425,15 +429,15 @@ truncation error `ϵ`, the 2-norm of the discarded singular values.
 # Examples
 
 ```jldoctest
-julia> using TensorAlgebra: svd_trunc, contract
+julia> using TensorAlgebra: svd_trunc, contractalign
 
 julia> A = randn(4, 4);
 
 julia> U, S, Vᴴ, ϵ = svd_trunc(A, (:i, :j), (:i,), (:j,));
 
-julia> SV = contract((:u, :j), S, (:u, :v), Vᴴ, (:v, :j));
+julia> SV = contractalign((:u, :j), S, (:u, :v), Vᴴ, (:v, :j));
 
-julia> contract((:i, :j), U, (:i, :u), SV, (:u, :j)) ≈ A
+julia> contractalign((:i, :j), U, (:i, :u), SV, (:u, :j)) ≈ A
 true
 
 julia> isapprox(ϵ, 0; atol = 1e-10)
@@ -446,7 +450,7 @@ svd_trunc
 
 """
     svd_vals(A, labels_A, labels_codomain, labels_domain) -> S
-    svd_vals(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> S
+    svd_vals(A, perm_codomain, perm_domain) -> S
     svd_vals(A, ndims_codomain::Val) -> S
 
 Compute the singular values of a generic N-dimensional array, by interpreting it as a
@@ -459,7 +463,7 @@ svd_vals
 
 """
     eigh_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eigh_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eigh_full(A, perm_codomain, perm_domain; kwargs...) -> D, V
     eigh_full(A, ndims_codomain::Val; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
@@ -472,7 +476,7 @@ eigh_full
 
 """
     eig_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D, V
-    eig_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D, V
+    eig_full(A, perm_codomain, perm_domain; kwargs...) -> D, V
     eig_full(A, ndims_codomain::Val; kwargs...) -> D, V
 
 Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
@@ -486,7 +490,7 @@ eig_full
 
 """
     eigh_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> D, V
-    eigh_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> D, V
+    eigh_trunc(A, perm_codomain, perm_domain; trunc, kwargs...) -> D, V
     eigh_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> D, V
 
 Truncated Hermitian eigenvalue decomposition, like [`eigh_full`](@ref) but keeping only the
@@ -498,7 +502,7 @@ eigh_trunc
 
 """
     eig_trunc(A, labels_A, labels_codomain, labels_domain; trunc, kwargs...) -> D, V
-    eig_trunc(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; trunc, kwargs...) -> D, V
+    eig_trunc(A, perm_codomain, perm_domain; trunc, kwargs...) -> D, V
     eig_trunc(A, ndims_codomain::Val; trunc, kwargs...) -> D, V
 
 Truncated general eigenvalue decomposition, like [`eig_full`](@ref) but keeping only the
@@ -510,7 +514,7 @@ eig_trunc
 
 """
     eigh_vals(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eigh_vals(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eigh_vals(A, perm_codomain, perm_domain; kwargs...) -> D
     eigh_vals(A, ndims_codomain::Val; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array interpreted as a Hermitian linear
@@ -522,7 +526,7 @@ eigh_vals
 
 """
     eig_vals(A, labels_A, labels_codomain, labels_domain; kwargs...) -> D
-    eig_vals(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> D
+    eig_vals(A, perm_codomain, perm_domain; kwargs...) -> D
     eig_vals(A, ndims_codomain::Val; kwargs...) -> D
 
 Compute the eigenvalues of a generic N-dimensional array interpreted as a general
@@ -535,7 +539,7 @@ eig_vals
 
 """
     left_null(A, labels_A, labels_codomain, labels_domain; kwargs...) -> N
-    left_null(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> N
+    left_null(A, perm_codomain, perm_domain; kwargs...) -> N
     left_null(A, ndims_codomain::Val; kwargs...) -> N
 
 Compute the left nullspace of a generic N-dimensional array, by interpreting it as
@@ -554,7 +558,7 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 left_null
 
 function left_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
     return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
@@ -572,7 +576,7 @@ end
 
 """
     right_null(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
-    right_null(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> Nᴴ
+    right_null(A, perm_codomain, perm_domain; kwargs...) -> Nᴴ
     right_null(A, ndims_codomain::Val::Val; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
@@ -591,7 +595,7 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 right_null
 
 function right_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     _, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, Nᴴ, (axes(Nᴴ, 1),), axes_domain)
@@ -608,126 +612,8 @@ function unmatricize_factors(
 end
 
 """
-    gram_eigh_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> X
-    gram_eigh_full(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X
-    gram_eigh_full(A, ndims_codomain::Val; kwargs...) -> X
-
-Gram factorization of a generic N-dimensional array, interpreting it as a
-Hermitian positive semi-definite linear map from the domain to the codomain
-dimensions. Returns `X` such that `A ≈ X * X'` (contracted on the rank leg),
-i.e. the codomain axes of `X` match the codomain axes of `A` and `X` has a
-single trailing rank axis.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(MatrixAlgebra._clamp_kwargs_doc("A"))
-
-# Examples
-
-```jldoctest
-julia> using TensorAlgebra: contract, gram_eigh_full
-
-julia> B = randn(3, 2, 2);
-
-julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
-
-julia> X = gram_eigh_full(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
-
-julia> A ≈ contract((:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r))
-true
-```
-
-See also [`gram_eigh_full_with_pinv`](@ref) and
-[`MatrixAlgebra.gram_eigh_full`](@ref).
-"""
-gram_eigh_full
-
-function gram_eigh_full!!(
-        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
-    )
-    A_mat = matricize(style, A, ndims_codomain)
-    X = MatrixAlgebra.gram_eigh_full!!(A_mat; kwargs...)
-    axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
-end
-function gram_eigh_full!!(A, ndims_codomain::Val; kwargs...)
-    return gram_eigh_full!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function unmatricize_factors(
-        ::typeof(gram_eigh_full), style::MatricizeStyle, X,
-        axes_codomain, axes_domain
-    )
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),))
-end
-
-"""
-    gram_eigh_full_with_pinv(A, labels_A, labels_codomain, labels_domain; kwargs...) -> X, Y
-    gram_eigh_full_with_pinv(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> X, Y
-    gram_eigh_full_with_pinv(A, ndims_codomain::Val; kwargs...) -> X, Y
-
-Like [`gram_eigh_full`](@ref), but additionally returns `Y ≈ pinv(X)` such
-that `Y * X ≈ I` on the rank subspace (a left inverse). The codomain axes
-of `X` match the codomain axes of `A`; `Y` has a leading rank axis followed
-by the codomain axes.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(MatrixAlgebra._clamp_kwargs_doc("A"))
-
-# Examples
-
-```jldoctest
-julia> using LinearAlgebra: I
-
-julia> using TensorAlgebra: contract, gram_eigh_full_with_pinv
-
-julia> B = randn(8, 2, 2);
-
-julia> A = contract((:a, :b, :c, :d), conj(B), (:r, :a, :b), B, (:r, :c, :d));
-
-julia> X, Y = gram_eigh_full_with_pinv(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
-
-julia> A ≈ contract((:a, :b, :c, :d), X, (:a, :b, :r), conj(X), (:c, :d, :r))
-true
-
-julia> contract((:r, :s), Y, (:r, :a, :b), X, (:a, :b, :s)) ≈ I
-true
-```
-
-See also [`MatrixAlgebra.gram_eigh_full_with_pinv`](@ref).
-"""
-gram_eigh_full_with_pinv
-
-function gram_eigh_full_with_pinv!!(
-        style::MatricizeStyle, A, ndims_codomain::Val; kwargs...
-    )
-    A_mat = matricize(style, A, ndims_codomain)
-    X, Y = MatrixAlgebra.gram_eigh_full_with_pinv!!(A_mat; kwargs...)
-    axes_codomain = first(bipartition(axes(A), ndims_codomain))
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
-        unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
-end
-function gram_eigh_full_with_pinv!!(A, ndims_codomain::Val; kwargs...)
-    return gram_eigh_full_with_pinv!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
-end
-
-function unmatricize_factors(
-        ::typeof(gram_eigh_full_with_pinv), style::MatricizeStyle, F,
-        axes_codomain, axes_domain
-    )
-    X, Y = F
-    return unmatricize(style, X, axes_codomain, (conj(axes(X, ndims(X))),)),
-        unmatricize(style, Y, (axes(Y, 1),), axes_codomain)
-end
-
-"""
     sqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
-    sqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
+    sqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P
     sqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
 
 Square root of a generic N-dimensional array, interpreting it as a
@@ -743,14 +629,14 @@ up to numerical noise.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
-See also [`invsqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
+See also [`invsqrth_safe`](@ref) and
 [`MatrixAlgebra.sqrth_safe`](@ref).
 """
 sqrth_safe
 
 """
     invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P
-    invsqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P
+    invsqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P
     invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P
 
 Pseudo-inverse square root of a generic N-dimensional array, interpreting
@@ -766,7 +652,7 @@ first if it is Hermitian only up to numerical noise.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
-See also [`sqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
+See also [`sqrth_safe`](@ref) and
 [`MatrixAlgebra.invsqrth_safe`](@ref).
 """
 invsqrth_safe
@@ -784,7 +670,7 @@ end
 
 """
     project_hermitian(A, labels_A, labels_codomain, labels_domain; kwargs...) -> H
-    project_hermitian(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> H
+    project_hermitian(A, perm_codomain, perm_domain; kwargs...) -> H
     project_hermitian(A, ndims_codomain::Val; kwargs...) -> H
 
 Hermitian part `(M + M') / 2` of a generic N-dimensional array, interpreting
@@ -803,37 +689,8 @@ function unmatricize_factors(
 end
 
 """
-    sqrth_invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, Pinv
-    sqrth_invsqrth_safe(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...) -> P, Pinv
-    sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P, Pinv
-
-Square root and pseudo-inverse square root of a generic N-dimensional
-array (see [`sqrth_safe`](@ref) and [`invsqrth_safe`](@ref)), from a
-single eigendecomposition. Both results carry the same codomain and
-domain axes as `A`.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(MatrixAlgebra._clamp_kwargs_doc("A"))
-
-See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
-"""
-sqrth_invsqrth_safe
-
-function unmatricize_factors(
-        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, F,
-        axes_codomain, axes_domain
-    )
-    P_mat, Pinv_mat = F
-    return unmatricize(style, P_mat, axes_codomain, axes_domain),
-        unmatricize(style, Pinv_mat, axes_codomain, axes_domain)
-end
-
-"""
     TensorAlgebra.one(A, labels_A, labels_codomain, labels_domain) -> Id
-    TensorAlgebra.one(A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}) -> Id
+    TensorAlgebra.one(A, perm_codomain, perm_domain) -> Id
     TensorAlgebra.one(A, ndims_codomain::Val) -> Id
 
 Construct the identity operator tensor whose shape mirrors `A`, interpreted as a
@@ -858,14 +715,14 @@ julia> A = randn(2, 3, 2, 3);
 
 julia> Id = TensorAlgebra.one(A, (:a, :b, :c, :d), (:a, :b), (:c, :d));
 
-julia> matricize(Id, Val(2)) ≈ I
+julia> matricize(Id, (1, 2), (3, 4)) ≈ I
 true
 ```
 """
 function one end
 
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, ndims_codomain)
+    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
     MatrixAlgebraKit.one!(A_mat)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, A_mat, axes_codomain, axes_domain)
@@ -878,11 +735,14 @@ end
 # matricization directly when the style declares one at this split, and otherwise fills a
 # gathered matrix and scatters it back with `unmatricize!`.
 function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    if ismatricizeview(style, A, ndims_codomain)
-        MatrixAlgebraKit.one!(matricizeview(style, A, ndims_codomain))
+    perm_codomain, perm_domain = identitybiperm(A, ndims_codomain)
+    if is_output_view(matricizeop, style, identity, A, perm_codomain, perm_domain)
+        MatrixAlgebraKit.one!(
+            matricizeopview(style, identity, A, perm_codomain, perm_domain)
+        )
         return A
     end
-    A_mat = matricizecopy(style, A, ndims_codomain)
+    A_mat = matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
     MatrixAlgebraKit.one!(A_mat)
     return unmatricize!(style, A, A_mat, ndims_codomain)
 end
@@ -901,14 +761,14 @@ end
 # `TensorMap` backend fills the identity through TensorKit rather than MatrixAlgebraKit).
 function one(
         style::MatricizeStyle, A,
-        perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}};
+        perm_codomain, perm_domain;
         kwargs...
     )
     A_perm = bipermutedims(A, perm_codomain, perm_domain)
     return one!!(style, A_perm, Val(length(perm_codomain)); kwargs...)
 end
 function one(
-        A, perm_codomain::Tuple{Vararg{Int}}, perm_domain::Tuple{Vararg{Int}}; kwargs...
+        A, perm_codomain, perm_domain; kwargs...
     )
     return one(MatricizeStyle(A), A, perm_codomain, perm_domain; kwargs...)
 end

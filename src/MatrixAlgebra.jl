@@ -1,15 +1,12 @@
 module MatrixAlgebra
 
-export gram_eigh_full,
-    gram_eigh_full_with_pinv,
-    invsqrt_diag_safe,
+export invsqrt_diag_safe,
     invsqrth_safe,
     pow_diag_safe,
     pow_diag_safe!,
     powh_safe,
     sqrt_diag_safe,
-    sqrth_safe,
-    sqrth_invsqrth_safe
+    sqrth_safe
 
 using LinearAlgebra: LinearAlgebra, Diagonal, isdiag, norm
 using MatrixAlgebraKit: MatrixAlgebraKit as MAK
@@ -164,120 +161,6 @@ Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 $(_clamp_kwargs_doc("M"))
 """
 invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
-
-"""
-    sqrth_invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2), M^(-1//2)
-
-Square root and pseudo-inverse square root of a Hermitian positive
-semi-definite matrix, from a single eigendecomposition. Equivalent
-to `(sqrth_safe(M; ...), invsqrth_safe(M; ...))` but with the
-eigendecomposition computed once. Eigenvalues below tolerance are clamped
-to zero in both factors (Moore-Penrose convention for the inverse).
-
-The input must be Hermitian (as for `MatrixAlgebraKit.eigh_full`): project
-with `MatrixAlgebraKit.project_hermitian` first if it is Hermitian only up
-to numerical noise.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(_clamp_kwargs_doc("M"))
-"""
-function sqrth_invsqrth_safe(M; alg = nothing, kwargs...)
-    if isdiag(M)
-        return pow_diag_safe(M, 1 // 2; kwargs...), pow_diag_safe(M, -1 // 2; kwargs...)
-    end
-    D, V = MAK.eigh_full(M; alg)
-    return V * pow_diag_safe(D, 1 // 2; kwargs...) * V',
-        V * pow_diag_safe(D, -1 // 2; kwargs...) * V'
-end
-
-for (gram, gram_with_pinv, eigh_full) in (
-        (:gram_eigh_full, :gram_eigh_full_with_pinv, :eigh_full),
-        (:gram_eigh_full!!, :gram_eigh_full_with_pinv!!, :eigh_full!),
-    )
-    @eval begin
-        function $gram(A::AbstractMatrix; alg = nothing, kwargs...)
-            D, V = MAK.$eigh_full(A; alg)
-            return V * sqrth_safe(D; kwargs...)
-        end
-        function $gram_with_pinv(A::AbstractMatrix; alg = nothing, kwargs...)
-            D, V = MAK.$eigh_full(A; alg)
-            return V * sqrth_safe(D; kwargs...), invsqrth_safe(D; kwargs...) * V'
-        end
-    end
-end
-
-"""
-    gram_eigh_full(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X
-
-Gram factorization of a Hermitian positive semi-definite matrix via its
-eigendecomposition (balanced eigh): returns `X = V * sqrth_safe(D; atol, rtol)`
-such that `A ≈ X * X'`, where `A = V * D * V'`. The square-root of `D` is
-absorbed symmetrically into the two factors of the eigendecomposition.
-Eigenvalues below `tol` (see [`pow_diag_safe`](@ref)) are clamped to zero.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(_clamp_kwargs_doc("A"))
-
-# Examples
-
-```jldoctest
-julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full
-
-julia> B = [1.0 0.5; 0.5 2.0];
-
-julia> A = B' * B;
-
-julia> X = gram_eigh_full(A);
-
-julia> X * X' ≈ A
-true
-```
-
-See also [`gram_eigh_full_with_pinv`](@ref).
-"""
-gram_eigh_full
-
-"""
-    gram_eigh_full_with_pinv(A::AbstractMatrix; alg=nothing, atol=0, rtol=eps(real(eltype(A)))^(3//4)) -> X, Y
-
-Like [`gram_eigh_full`](@ref), but additionally returns
-`Y = invsqrth_safe(D; atol, rtol) * V' ≈ pinv(X)`, a left inverse of `X`
-on the rank subspace: `Y * X ≈ I`. Eigenvalues below `tol` are clamped to
-zero in both factors.
-
-## Keyword arguments
-
-  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
-
-$(_clamp_kwargs_doc("A"))
-
-# Examples
-
-```jldoctest
-julia> using LinearAlgebra: I
-
-julia> using TensorAlgebra.MatrixAlgebra: gram_eigh_full_with_pinv
-
-julia> B = [1.0 0.5; 0.5 2.0];
-
-julia> A = B' * B;
-
-julia> X, Y = gram_eigh_full_with_pinv(A);
-
-julia> X * X' ≈ A
-true
-
-julia> Y * X ≈ I
-true
-```
-"""
-gram_eigh_full_with_pinv
 
 using MatrixAlgebraKit: MatrixAlgebraKit, TruncationStrategy
 

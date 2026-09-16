@@ -44,7 +44,11 @@ end
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
 # reshape, so the memory-sharing matricization is `a` itself (keeping it a `Diagonal` for the
 # `Diagonal`-specialized consumers downstream).
-matricizeview(::ReshapeMatricize, a::Diagonal, ::Val{1}) = a
+function matricizeopview(
+        ::ReshapeMatricize, op, a::Diagonal, perm_codomain::Tuple{Int}, perm_domain::Tuple{Int}
+    )
+    return a
+end
 # A `{1,1}` unmatricize (one codomain axis, one domain axis) is the endomorphism identity: the
 # result stays `Diagonal`, so return `m` directly. The generic `check_input(unmatricize, ...)`
 # validates the axis lengths against `m`'s size.
@@ -65,13 +69,31 @@ function unmatricize(
     return unmatricize(style, copyto!(similar(m, axes(m)), m), axes_codomain, axes_domain)
 end
 
-# Contracting two `Diagonal`s over a single leg is the matmul/endomorphism pattern
-# `Diagonal * Diagonal = Diagonal` (all transpose variants `[i,j]*[j,k]`, `[i,j]*[k,j]`, ...),
-# whose `{1,1}` output stays `Diagonal`, so allocate one. Every other output shape (rank-4 outer
-# product, scalar full contraction) is not representable as a `Diagonal` and falls back to the
-# generic dense allocation, matching `Diagonal`/dense mixing.
-function allocate_contract_output(
-        a1::Diagonal, a2::Diagonal, T, axes_codomain::Tuple{Any}, axes_domain::Tuple{Any}
+function allocate_output(
+        ::typeof(contract),
+        perm_dest_codomain, perm_dest_domain,
+        a1::Diagonal, perm1_codomain, perm1_domain,
+        a2::Diagonal, perm2_codomain, perm2_domain
     )
-    return Diagonal(zero!(similar(a1.diag, T, (only(axes_codomain),))))
+    check_input(
+        contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain
+    )
+    axes_codomain_dest, axes_domain_dest = output_axes(
+        contract,
+        perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain
+    )
+    T = Base.promote_op(matprod, eltype(a1), eltype(a2))
+    # Contracting two `Diagonal`s over a single leg, leaving one free leg on each, is the
+    # matmul/endomorphism pattern `Diagonal * Diagonal = Diagonal` (all transpose variants
+    # `[i,j]*[j,k]`, `[i,j]*[k,j]`, ...), whose `{1,1}` output stays `Diagonal`. Every other
+    # pattern (rank-4 outer product, scalar full contraction) is not representable as a
+    # `Diagonal` and takes the generic dense allocation, matching `Diagonal`/dense mixing.
+    is_matmul =
+        length(perm1_codomain) == 1 && length(perm1_domain) == 1 &&
+        length(perm2_domain) == 1
+    is_matmul ||
+        return zero!(similar_map(a1, T, axes_codomain_dest, axes_domain_dest))
+    return Diagonal(zero!(similar(a1.diag, T, (only(axes_codomain_dest),))))
 end

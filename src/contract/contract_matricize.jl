@@ -1,6 +1,6 @@
 using LinearAlgebra: mul!
 
-function contractopadd!(
+function contractpermopadd!(
         algorithm::Matricize,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
         op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,
@@ -16,16 +16,20 @@ function contractopadd!(
         a1, biperm1_codomain, biperm1_domain,
         a2, biperm2_codomain, biperm2_domain
     )
-    a1_mat = matricizeopperm(
+    a1_mat = matricizeop(
         algorithm.left_matricize_style, op1, a1, biperm1_codomain, biperm1_domain
     )
-    a2_mat = matricizeopperm(
+    a2_mat = matricizeop(
         algorithm.right_matricize_style, op2, a2, biperm2_codomain, biperm2_domain
     )
     output_style = algorithm.output_matricize_style
-    if ismatricizeview(output_style, a_dest, invperm_codomain, invperm_domain)
+    if is_output_view(
+            matricizeop, output_style, identity, a_dest, invperm_codomain, invperm_domain
+        )
         # The matricization shares `a_dest`'s memory, so the matmul is the whole operation.
-        a_dest_mat = matricizeview(output_style, a_dest, Val(length(invperm_codomain)))
+        a_dest_mat = matricizeopview(
+            output_style, identity, a_dest, invperm_codomain, invperm_domain
+        )
         mul!(a_dest_mat, a1_mat, a2_mat, α, β)
     elseif iszero(β)
         # `β` is a strong zero, so `a_dest`'s current data is irrelevant: let the matmul
@@ -34,13 +38,15 @@ function contractopadd!(
         # overwrites `a_dest` in full.
         a_dest_mat = a1_mat * a2_mat
         isone(α) || scale!(a_dest_mat, α)
-        unmatricizeperm!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
+        unmatricize!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
     else
         # `a_dest`'s data contributes through `β`, so gather it, multiply into the gathered
         # copy, and scatter back.
-        a_dest_mat = matricizecopy(output_style, a_dest, invperm_codomain, invperm_domain)
+        a_dest_mat = matricizeopcopy(
+            output_style, identity, a_dest, invperm_codomain, invperm_domain
+        )
         mul!(a_dest_mat, a1_mat, a2_mat, α, β)
-        unmatricizeperm!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
+        unmatricize!(output_style, a_dest, a_dest_mat, invperm_codomain, invperm_domain)
     end
     return a_dest
 end

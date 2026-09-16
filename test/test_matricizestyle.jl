@@ -9,19 +9,35 @@ module MatricizeStyleTestUtils
     end
     struct MyArrayMatricize <: TA.MatricizeStyle end
     TA.MatricizeStyle(::Type{<:MyArray}) = MyArrayMatricize()
-    # Minimal fold/unfold leaves so a round-trip (`one!`) can run through the custom style:
-    # both dispatch on `MyArrayMatricize`, so an unfold whose style was re-derived from the
-    # plain fused matrix instead of threaded through would miss them and error.
-    TA.ismatricizeview(::MyArrayMatricize, a, ::Val) = false
-    function TA.matricizecopy(::MyArrayMatricize, a::MyArray, ndims_codomain::Val)
-        return TA.matricizecopy(TA.ReshapeMatricize(), a.parent, ndims_codomain)
-    end
-    function TA.unmatricizeperm!(
-            ::MyArrayMatricize, a_dest::MyArray, m,
-            invperm_codomain::Tuple{Vararg{Int}}, invperm_domain::Tuple{Vararg{Int}}
+    # Minimal hooks so a round trip (`one!`) can run through the custom style. All of them
+    # dispatch on `MyArrayMatricize`, so a path whose style was re-derived from the plain fused
+    # matrix instead of threaded through would miss them and error.
+    function TA.is_output_view(
+            ::typeof(TA.matricizeop), ::MyArrayMatricize, op, a, perm_codomain, perm_domain
         )
-        TA.unmatricizeperm!(
-            TA.ReshapeMatricize(), a_dest.parent, m, invperm_codomain, invperm_domain
+        return false
+    end
+    function TA.allocate_output(
+            ::typeof(TA.matricizeop), ::MyArrayMatricize, op, a::MyArray,
+            perm_codomain, perm_domain
+        )
+        return TA.allocate_output(
+            TA.matricizeop, TA.ReshapeMatricize(), op, a.parent, perm_codomain, perm_domain
+        )
+    end
+    function TA.matricizeop!(
+            dest, ::MyArrayMatricize, op, a::MyArray, perm_codomain, perm_domain
+        )
+        return TA.matricizeop!(
+            dest, TA.ReshapeMatricize(), op, a.parent, perm_codomain, perm_domain
+        )
+    end
+    function TA.unmatricize!(
+            ::MyArrayMatricize, a_dest::MyArray, m,
+            perm_codomain, perm_domain
+        )
+        TA.unmatricize!(
+            TA.ReshapeMatricize(), a_dest.parent, m, perm_codomain, perm_domain
         )
         return a_dest
     end

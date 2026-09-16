@@ -1,13 +1,12 @@
 name = "TensorAlgebra"
 uuid = "68bd88dc-f39d-4e12-b2ca-f046b68fcc6a"
-version = "0.20.1"
+version = "0.21.0-DEV"
 authors = ["ITensor developers <support@itensor.org> and contributors"]
 
 [workspace]
 projects = ["benchmark", "dev", "docs", "examples", "test"]
 
 [deps]
-EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MatrixAlgebraKit = "6c742aac-3347-4629-af66-fc926824e5e4"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -29,7 +28,6 @@ TensorAlgebraTensorKitSectorsExt = "TensorKitSectors"
 TensorAlgebraTensorOperationsExt = "TensorOperations"
 
 [compat]
-EllipsisNotation = "1.8"
 LinearAlgebra = "1.10"
 MatrixAlgebraKit = "0.6"
 Mooncake = "0.4.202, 0.5"

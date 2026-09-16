@@ -243,44 +243,41 @@ end
 struct TensorKitMatricize <: TensorAlgebra.MatricizeStyle end
 TensorAlgebra.MatricizeStyle(::Type{<:AbstractTensorMap}) = TensorKitMatricize()
 
-# `permute` at the tensor's own codomain/domain split is trivial and returns `t` itself, so
-# the matching split is the one memory-sharing matricization (TensorKit's own
-# `has_shared_permute` notion); any other split regroups into a fresh `TensorMap`.
-function TensorAlgebra.ismatricizeview(
-        ::TensorKitMatricize, ::AbstractTensorMap{<:Any, <:Any, K}, ::Val{K}
-    ) where {K}
-    return true
+# `permute` at the tensor's own codomain/domain split is trivial and returns `t` itself, so that
+# split is the one memory-sharing matricization (TensorKit's own `has_shared_permute` notion). Any
+# other split, or a folded `conj`, regroups into a fresh `TensorMap`.
+function TensorAlgebra.is_output_view(
+        ::typeof(TensorAlgebra.matricizeop), ::TensorKitMatricize, op,
+        t::AbstractTensorMap, perm_codomain, perm_domain
+    )
+    return op === identity &&
+        TensorAlgebra.isidentitybiperm(perm_codomain, perm_domain) &&
+        length(perm_codomain) == numout(t)
 end
-TensorAlgebra.ismatricizeview(::TensorKitMatricize, ::AbstractTensorMap, ::Val) = false
-function TensorAlgebra.matricizeview(
-        ::TensorKitMatricize, t::AbstractTensorMap{<:Any, <:Any, K}, ::Val{K}
-    ) where {K}
+function TensorAlgebra.matricizeopview(
+        ::TensorKitMatricize, op, t::AbstractTensorMap, perm_codomain, perm_domain
+    )
     return t
 end
-function TensorAlgebra.matricizecopy(
-        ::TensorKitMatricize, t::AbstractTensorMap, ndims_codomain::Val{K}
-    ) where {K}
-    N = numind(t)
-    return permute(
-        t,
-        (ntuple(identity, Val(K)), ntuple(i -> K + i, Val(N - K)));
-        copy = true
+# A `TensorMap`'s matricization is a regrouping of its indices, so the destination is a `TensorMap`
+# over the regrouped space and the write is the ordinary permuted-add. `bipermutedimsopadd!` above
+# routes that through `tensoradd!`, which realizes the permutation, the `op === conj` conjugation
+# and the scaling in one call, so no separate handling of `op` is needed here.
+function TensorAlgebra.allocate_output(
+        ::typeof(TensorAlgebra.matricizeop), ::TensorKitMatricize, op,
+        t::AbstractTensorMap, perm_codomain, perm_domain
+    )
+    return similar(t, permute(space(t), (perm_codomain, perm_domain)))
+end
+function TensorAlgebra.matricizeop!(
+        dest::AbstractTensorMap, ::TensorKitMatricize, op,
+        t::AbstractTensorMap, perm_codomain, perm_domain
+    )
+    return TensorAlgebra.bipermutedimsopadd!(
+        dest, op, t, perm_codomain, perm_domain, true, false
     )
 end
 
-# The identity fill on the regrouped map is TensorKit's own `one!` (MatrixAlgebraKit's
-# `one!` speaks `AbstractMatrix` only).
-function TensorAlgebra.one!!(
-        style::TensorKitMatricize, A::AbstractTensorMap, ndims_codomain::Val; kwargs...
-    )
-    return TensorKit.one!(TensorAlgebra.matricize(style, A, ndims_codomain))
-end
-
-# `unmatricize` reconstructs the codomain/domain axes from the matrix `m`. A `TensorMap` already
-# is the linear map its space describes, so the only valid request is the one whose codomain/domain
-# split matches `m`'s own space, and `unmatricize` returns `m` unchanged. The domain axes arrive
-# codomain-facing (un-dualized), which is exactly TensorKit's domain convention, so they build the
-# domain `ProductSpace` directly.
 function TensorAlgebra.unmatricize(
         ::TensorKitMatricize, m::AbstractTensorMap, axes_codomain, axes_domain
     )
@@ -296,7 +293,7 @@ end
 # already implements through its TensorOperations interface. Route the generic `contract`
 # there: `zero!` clears the `similar_map`-allocated destination, and the default algorithm
 # hands the in-place contraction to the TensorOperations backend (see the TensorOperations
-# extension's `contractopadd!`).
+# extension's `contractpermopadd!`).
 TensorAlgebra.zero!(t::AbstractTensorMap) = VectorInterface.zerovector!(t)
 
 # A `TensorMap` is not an `AbstractArray`, so the generic in-place `TensorAlgebra` operations

@@ -21,42 +21,7 @@ end
 # Using TensorOperations backends as TensorAlgebra implementations
 # ----------------------------------------------------------------
 
-# not in-place
-function TA.contract(
-        algorithm::TensorOperationsAlgorithm,
-        perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain
-    )
-    permblocks1 = Tuple.((perm1_codomain, perm1_domain))
-    permblocks2 = Tuple.((perm2_codomain, perm2_domain))
-    permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))
-    conj1, conj2 = false, false
-    α = true
-    return TO.tensorcontract(
-        a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, backend(algorithm), allocator(algorithm)
-    )
-end
-
-function TA.contract(
-        algorithm::TensorOperationsAlgorithm,
-        labels_dest,
-        a1::AbstractArray, labels1,
-        a2::AbstractArray, labels2
-    )
-    permblocks1, permblocks2, permblocks_dest =
-        TO.contract_indices(labels1, labels2, labels_dest)
-    conj1, conj2 = false, false
-    α = true
-    return TO.tensorcontract(
-        a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, backend(algorithm), allocator(algorithm)
-    )
-end
-
-# in-place
-function TA.contractopadd!(
+function TA.contractpermopadd!(
         algorithm::TensorOperationsAlgorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
@@ -89,7 +54,7 @@ function TO.tensorcontract!(
     )
     op1 = conj1 ? conj : identity
     op2 = conj2 ? conj : identity
-    return TA.contractopadd!(
+    return TA.contractpermopadd!(
         backend,
         a_dest, permblocks_dest...,
         op1, a1, permblocks1...,
