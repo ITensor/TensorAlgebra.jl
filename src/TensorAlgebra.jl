@@ -1,16 +1,11 @@
 module TensorAlgebra
 
-export contract, contract!, contractalign, dual, eig_full, eig_trunc, eig_vals, eigh_full,
-    eigh_trunc,
-    eigh_vals, invsqrth_safe, isdual, left_null,
-    left_orth, left_polar, lq_compact, lq_full, project_hermitian, qr_compact,
-    qr_full, right_null, right_orth, right_polar, sqrth_invsqrth_safe, sqrth_safe,
-    svd_compact, svd_full, svd_trunc, svd_vals
+export contract, contract!, contractalign, dual, isdual, MatrixAlgebra
 
 if VERSION >= v"1.11.0-DEV.469"
     eval(
         Meta.parse(
-            "public allocate_output, biperm, bipartition, cat_similar, check_input, concatenate, concatenate!, ContractAlgorithm, contractadd!, contractopadd!, contractperm, contractperm!, contractpermadd!, contractpermopadd!, data, datatype, directsum, flattenlinear, is_output_view, label_type, matricize, matricizeop, matricizeop!, matricizeopcopy, matricizeopview, output_axes, select_algorithm, default_algorithm, permutedims, permutedims!, scalar, similar_map, TensorOperationsAlgorithm, to_range, tr, tryflattenlinear, ungrade, zero!, scale!, permuteddims, PermutedDims"
+            "public add!, AddBroadcasted, addends, allocate_output, allocate_project, arguments, axes, bipartition, bipartition_axes, biperm, bipermutedims, bipermutedims!, bipermutedimsopadd!, cat_axis, cat_similar, check_input, concatenate, concatenate!, ConjBroadcasted, contractadd!, ContractAlgorithm, contractopadd!, contractperm, contractperm!, contractpermadd!, contractpermopadd!, data, datatype, default_algorithm, default_contract_algorithm, dims2cat, directsum, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc, eigh_vals, fill_map, flattenlinear, infer_aux_space, invsqrth_safe, is_output_view, is_projected, isidentitybiperm, label_type, left_null, left_orth, left_polar, LinearBroadcasted, linearbroadcasted, lq_compact, lq_full, Matricize, matricize, matricizeop, matricizeop!, matricizeopcopy, matricizeopview, MatricizeStyle, MATRIX_FUNCTIONS, ndims, ndims_codomain, one, ones_map, operation, output_axes, PermutedDims, permuteddims, permutedims, permutedims!, permutedimsadd!, permutedimsop, permutedimsopadd!, project, project!, project_aux, project_hermitian, projectto!, qr_compact, qr_full, rand_map, randn_map, right_null, right_orth, right_polar, scalar, scale!, ScaledBroadcasted, select_algorithm, similar_map, size, sqrth_invsqrth_safe, sqrth_safe, sum, svd_compact, svd_full, svd_trunc, svd_vals, TensorOperationsAlgorithm, to_range, tr, trivialrange, tryflattenlinear, tryproject, tryproject_aux, unchecked_project, unchecked_project_aux, ungrade, unmatricize, unmatricize!, unmatricize_factors, unproject, unscaled, zero!, zeros_map"
         )
     )
 end
