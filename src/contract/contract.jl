@@ -20,7 +20,9 @@ julia> a, b = randn(2, 3), randn(3, 4);
 julia> ab, labels = contract(a, (:i, :j), b, (:j, :k));
 
 julia> labels
-(:i, :k)
+2-element Vector{Symbol}:
+ :i
+ :k
 
 julia> ab ≈ a * b
 true
@@ -45,11 +47,9 @@ end
 """
     contractalign(labels_dest, a1, labels1, a2, labels2, ...; alg = nothing) -> a_dest
 
-Contract the arrays over the labels they share into a result whose dimensions carry
-`labels_dest`, which must be the surviving labels in some order.
-
-This is [`contract`](@ref) with the output specified, so it returns the array on its own. The
-name matches `ITensorBase.align`: arrange the result's dimensions to match the labels given.
+Contract the input arrays over the shared labels, aligning the output array according to the
+specified destination labels `labels_dest`. `labels_dest` must match the uncontracted labels,
+i.e. `issetequal(labels_dest, symdiff(labels1, labels2))` must be `true`.
 
 ```jldoctest
 julia> using TensorAlgebra: contractalign
