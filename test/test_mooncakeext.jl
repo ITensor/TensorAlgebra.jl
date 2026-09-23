@@ -1,8 +1,8 @@
 using Mooncake: Mooncake
 using Random: Random
-using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm, Matricize,
-    allocate_output, biperm, biperms, check_input, contract, contract!, contract_labels,
-    contractadd!, contractpermadd!, default_contract_algorithm, select_contract_algorithm
+using TensorAlgebra: AbstractContractAlgorithm, BiTuple, DefaultContractAlgorithm,
+    MatricizeContract, allocate_output, biperm, biperms, check_input, contract, contract!,
+    contract_labels, contractadd!, contractpermadd!, default_algorithm, select_algorithm
 using Test: @test, @testset
 
 @testset "MooncakeExt" begin
@@ -14,9 +14,9 @@ using Test: @test, @testset
     rtol = eps(real(elt))^(3 / 4)
     @testset "zero derivatives" begin
         @test Mooncake.tangent_type(BiTuple) ≡ Mooncake.NoTangent
-        @test Mooncake.tangent_type(ContractAlgorithm) ≡ Mooncake.NoTangent
+        @test Mooncake.tangent_type(AbstractContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(DefaultContractAlgorithm) ≡ Mooncake.NoTangent
-        @test Mooncake.tangent_type(Matricize) ≡ Mooncake.NoTangent
+        @test Mooncake.tangent_type(MatricizeContract) ≡ Mooncake.NoTangent
 
         dest = randn(elt, (2, 2))
         a1 = randn(elt, (2, 2))
@@ -55,10 +55,10 @@ using Test: @test, @testset
             rng, contract_labels, a1, labels1, a2, labels2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, default_contract_algorithm, a1, a2; mode, is_primitive
+            rng, default_algorithm, contract!, dest, a1, a2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, select_contract_algorithm, DefaultContractAlgorithm(), a1, a2;
+            rng, select_algorithm, contract!, DefaultContractAlgorithm(), dest, a1, a2;
             mode, is_primitive
         )
     end

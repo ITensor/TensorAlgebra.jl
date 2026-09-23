@@ -1,8 +1,8 @@
 import TensorAlgebra
 using StableRNGs: StableRNG
-using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
-    contract!, contractadd!, contractalign, length_codomain, length_domain, matricize,
-    unmatricize, unmatricize!
+using TensorAlgebra: AbstractContractAlgorithm, BiTuple, bipermutedims, bipermutedims!,
+    contract, contract!, contractadd!, contractalign, length_codomain, length_domain,
+    matricize, unmatricize, unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -170,25 +170,23 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
     @testset "contraction algorithm selection rejects unusable keywords" begin
         a1 = randn(2, 3)
         a2 = randn(3, 4)
-        # A keyword no algorithm can consume must name itself, not surface as a `MethodError`
-        # from inside the resolver.
-        @test_throws ArgumentError contractalign(
-            (1, 3),
-            a1,
-            (1, 2),
-            a2,
-            (2, 3);
+        # Nothing in the algorithm-selection layer accepts keywords, so a keyword no
+        # algorithm can consume fails as a `MethodError`.
+        @test_throws MethodError contractalign(
+            (1, 3), a1, (1, 2), a2, (2, 3); nonsense = 1
+        )
+        @test_throws MethodError contractalign(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.MatricizeContract(),
             nonsense = 1
         )
-        @test_throws ArgumentError contractalign(
-            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize(), nonsense = 1
-        )
         # A non-algorithm passed as `alg` says so rather than erroring with "Not implemented".
-        @test_throws ArgumentError TensorAlgebra.select_contract_algorithm(:nope, a1, a2)
+        @test_throws ArgumentError TensorAlgebra.select_algorithm(
+            TensorAlgebra.contract!, :nope, a1 * a2, a1, a2
+        )
         # The supported spellings still work.
         @test contractalign((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2
         @test contractalign(
-            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.Matricize()
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.MatricizeContract()
         ) ≈ a1 * a2
     end
 
@@ -200,7 +198,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test a_dest == fill(2, (2, 2))
     end
 
-    alg_tensoroperations = ContractAlgorithm(TensorOperations.StridedBLAS())
+    alg_tensoroperations = AbstractContractAlgorithm(TensorOperations.StridedBLAS())
     @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
         elt_dest = promote_type(elt1, elt2)
         a1 = ones(elt1, (1, 1))

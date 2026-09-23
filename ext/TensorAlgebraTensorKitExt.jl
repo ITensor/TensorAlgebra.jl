@@ -307,10 +307,11 @@ function TensorAlgebra.add!(
     return VectorInterface.add!(y, x, α, β)
 end
 
-function TensorAlgebra.default_contract_algorithm(
+function TensorAlgebra.default_algorithm(
+        ::typeof(TensorAlgebra.contract!), ::Type{<:AbstractTensorMap},
         ::Type{<:AbstractTensorMap}, ::Type{<:AbstractTensorMap}
     )
-    return TensorAlgebra.ContractAlgorithm(TO.DefaultBackend())
+    return TensorAlgebra.AbstractContractAlgorithm(TO.DefaultBackend())
 end
 
 # ==================================  linear-combination broadcast  =========================

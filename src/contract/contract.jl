@@ -234,7 +234,7 @@ function contractpermopadd!(
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number;
-        alg = nothing, kwargs...
+        alg = nothing
     )
     check_input(
         contract!,
@@ -242,7 +242,7 @@ function contractpermopadd!(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    algorithm = select_algorithm(contract, a1, a2; alg, kwargs...)
+    algorithm = select_algorithm(contract!, alg, a_dest, a1, a2)
     return contractpermopadd!(
         algorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
@@ -254,7 +254,7 @@ end
 # contractpermopadd! (dispatched on the algorithm, bipartitioned permutations)
 # Required interface if not using matricized contraction
 function contractpermopadd!(
-        algorithm::ContractAlgorithm,
+        algorithm::AbstractContractAlgorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,
@@ -274,17 +274,18 @@ function contractpermopadd!(
     )
 end
 
-# Bridges from the operation-generic algorithm layer in `algorithm.jl` down to the contraction
-# resolvers. They live here rather than beside those resolvers because dispatching on
-# `::typeof(contract)` needs `contract` to exist, and `contractalgorithm.jl` is included first for
-# the algorithm types this file's signatures use.
-function default_algorithm(::typeof(contract), A1::Type, A2::Type; kwargs...)
-    algorithm = default_contract_algorithm(A1, A2)
-    reject_algorithm_kwargs(algorithm; kwargs...)
-    return algorithm
-end
-function select_algorithm_specified(
-        ::typeof(contract), alg::ContractAlgorithm, a1, a2; kwargs...
+# The contraction methods of the operation-generic algorithm layer in `algorithm.jl`. They live
+# here rather than beside the algorithm types because dispatching on `::typeof(contract!)` needs
+# it to exist, and `contractalgorithm.jl` is included first for the types these signatures use.
+# Keyed on `contract!` rather than `contract` because the destination is in the signature,
+# matching `check_input`. A backend can therefore choose on the destination, even though the
+# generic default derives the matricization styles from the operands alone.
+function default_algorithm(
+        ::typeof(contract!), A_dest::Type{<:AbstractArray},
+        A1::Type{<:AbstractArray}, A2::Type{<:AbstractArray}
     )
-    return select_contract_algorithm(alg, a1, a2; kwargs...)
+    return MatricizeContract(MatricizeStyle(MatricizeStyle(A1), MatricizeStyle(A2)))
+end
+function select_algorithm(::typeof(contract!), ::DefaultContractAlgorithm, a_dest, a1, a2)
+    return default_algorithm(contract!, a_dest, a1, a2)
 end

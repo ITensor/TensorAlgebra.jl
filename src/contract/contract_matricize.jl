@@ -1,7 +1,7 @@
 using LinearAlgebra: mul!
 
 function contractpermopadd!(
-        algorithm::Matricize,
+        algorithm::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
         op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,
         op2, a2::AbstractArray, biperm2_codomain, biperm2_domain,

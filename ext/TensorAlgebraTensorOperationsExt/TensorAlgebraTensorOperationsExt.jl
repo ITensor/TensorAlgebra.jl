@@ -1,28 +1,30 @@
 module TensorAlgebraTensorOperationsExt
 
-using TensorAlgebra: TensorAlgebra as TA, TensorOperationsAlgorithm
+using TensorAlgebra: TensorAlgebra as TA, TensorOperationsContract
 using TensorOperations: TensorOperations as TO
 
-# `TensorOperationsAlgorithm` stores `nothing` to mean "TensorOperations' default"; resolve
+# `TensorOperationsContract` stores `nothing` to mean "TensorOperations' default"; resolve
 # those here, where the defaults can be named.
-function backend(algorithm::TensorOperationsAlgorithm)
+function backend(algorithm::TensorOperationsContract)
     return @something algorithm.backend TO.DefaultBackend()
 end
-function allocator(algorithm::TensorOperationsAlgorithm)
+function allocator(algorithm::TensorOperationsContract)
     return @something algorithm.allocator TO.DefaultAllocator()
 end
 
-# Construct via the `ContractAlgorithm` public constructor seam as well.
-TA.ContractAlgorithm(backend::TO.AbstractBackend) = TensorOperationsAlgorithm(; backend)
-function TA.ContractAlgorithm(backend::TO.AbstractBackend, allocator)
-    return TensorOperationsAlgorithm(; backend, allocator)
+# Construct via the `AbstractContractAlgorithm` public constructor seam as well.
+function TA.AbstractContractAlgorithm(backend::TO.AbstractBackend)
+    return TensorOperationsContract(; backend)
+end
+function TA.AbstractContractAlgorithm(backend::TO.AbstractBackend, allocator)
+    return TensorOperationsContract(; backend, allocator)
 end
 
 # Using TensorOperations backends as TensorAlgebra implementations
 # ----------------------------------------------------------------
 
 function TA.contractpermopadd!(
-        algorithm::TensorOperationsAlgorithm,
+        algorithm::TensorOperationsContract,
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,
@@ -49,7 +51,7 @@ function TO.tensorcontract!(
         a2::AbstractArray, permblocks2::TO.Index2Tuple, conj2::Bool,
         permblocks_dest::TO.Index2Tuple,
         α::Number, β::Number,
-        backend::TA.ContractAlgorithm,
+        backend::TA.AbstractContractAlgorithm,
         allocator
     )
     op1 = conj1 ? conj : identity
@@ -71,7 +73,7 @@ function TO.tensortrace!(
         permblocks_dest::TO.Index2Tuple,
         conj_src::Bool,
         α::Number, β::Number,
-        ::TA.ContractAlgorithm,
+        ::TA.AbstractContractAlgorithm,
         allocator
     )
     return TO.tensortrace!(
@@ -86,7 +88,7 @@ function TO.tensoradd!(
         permblocks_src::TO.Index2Tuple,
         conj_src::Bool,
         α::Number, β::Number,
-        ::TA.ContractAlgorithm,
+        ::TA.AbstractContractAlgorithm,
         allocator
     )
     return TO.tensoradd!(

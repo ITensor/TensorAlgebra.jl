@@ -1,16 +1,28 @@
 """
-    TensorAlgebra.select_algorithm(f, args...; alg = nothing, kwargs...)
+    TensorAlgebra.AbstractAlgorithm
+
+Supertype for the algorithm objects operations dispatch on. An operation's own supertype
+subtypes this (for example `AbstractContractAlgorithm`), which is what makes an instance pass
+through [`TensorAlgebra.select_algorithm`](@ref) unchanged.
+"""
+abstract type AbstractAlgorithm end
+
+"""
+    TensorAlgebra.select_algorithm(f, alg, args...)
 
 Resolve the algorithm operation `f` should run with on `args`. An `alg` of `nothing` defers to
-[`TensorAlgebra.default_algorithm`](@ref); anything else is validated and passed through.
+[`TensorAlgebra.default_algorithm`](@ref), an `AbstractAlgorithm` passes through unchanged, and
+anything else is an error.
 
-This is the forward-facing layer the per-operation resolvers sit under, so a caller that does not
-care which operation it is dispatching writes `select_algorithm(f, ...)` and a backend registers
-its choice on `default_algorithm(f, ...)`.
+`alg` is positional so each operation can dispatch on the algorithm type. The user-facing entry
+points take it as a keyword and hand it here.
 """
-function select_algorithm(f, args...; alg = nothing, kwargs...)
-    isnothing(alg) && return default_algorithm(f, args...; kwargs...)
-    return select_algorithm_specified(f, alg, args...; kwargs...)
+select_algorithm(f, ::Nothing, args...) = default_algorithm(f, args...)
+select_algorithm(f, alg::AbstractAlgorithm, args...) = alg
+# `alg` named something that is not an algorithm at all. Reported against the operation rather
+# than as a `MethodError` from inside a resolver.
+function select_algorithm(f, alg, args...)
+    return throw(ArgumentError("`$alg` is not an algorithm for `$f`"))
 end
 
 """
@@ -20,20 +32,10 @@ end
 The algorithm operation `f` runs with on `args` when the caller names none. The types form is the
 registration point for a storage type; the values form defaults to it.
 
-Each operation bridges to its own resolver, so `default_algorithm(contract, A1, A2)` is
-[`TensorAlgebra.default_contract_algorithm`](@ref).
+A storage type registers its choice per operation, so a backend that contracts its own way
+adds a method to `default_algorithm(contract!, A_dest, A1, A2)`.
 """
-function default_algorithm(f, args...; kwargs...)
-    return default_algorithm(f, map(typeof, args)...; kwargs...)
-end
-function default_algorithm(f, argtypes::Type...; kwargs...)
+default_algorithm(f, args...) = default_algorithm(f, map(typeof, args)...)
+function default_algorithm(f, argtypes::Type...)
     return throw(MethodError(default_algorithm, (f, argtypes...)))
-end
-
-# `alg` named something. A resolved algorithm object passes through; anything else is a caller
-# error, reported against the operation rather than as a `MethodError` from inside the resolver.
-function select_algorithm_specified(f, alg, args...; kwargs...)
-    return throw(
-        ArgumentError("`$alg` is not an algorithm for `$f`")
-    )
 end
