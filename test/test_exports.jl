@@ -17,13 +17,15 @@ using Test: @test, @testset
         append!(
             exports,
             [
-                :AbstractAlgorithm, :AbstractContractAlgorithm, :add!, :AddBroadcasted,
+                :AbstractAlgorithm, :add!, :AddBroadcasted,
                 :addends, :allocate_output, :allocate_project, :arguments, :axes,
                 :bipartition, :bipartition_axes, :biperm, :bipermutedims,
                 :bipermutedims!, :bipermutedimsopadd!, :cat_axis, :cat_similar,
                 :check_input, :concatenate, :concatenate!, :ConjBroadcasted,
-                :contractadd!, :contractopadd!, :contractperm, :contractperm!,
-                :contractpermadd!, :contractpermopadd!, :data, :datatype,
+                :contractadd!, :ContractAlgorithm, :contractopadd!, :contractperm,
+                :contractperm!,
+                :contractpermadd!, :contractpermalign, :contractpermopadd!, :data,
+                :datatype,
                 :default_algorithm, :dims2cat, :directsum, :eig_full, :eig_trunc,
                 :eig_vals, :eigh_full, :eigh_trunc, :eigh_vals, :fill_map,
                 :flattenlinear, :infer_aux_space, :invsqrth_safe, :is_output_view,

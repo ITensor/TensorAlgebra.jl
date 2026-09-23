@@ -1,6 +1,6 @@
 using Mooncake: Mooncake
 using Random: Random
-using TensorAlgebra: AbstractContractAlgorithm, BiTuple, DefaultContractAlgorithm,
+using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm,
     MatricizeContract, allocate_output, biperm, biperms, check_input, contract, contract!,
     contract_labels, contractadd!, contractpermadd!, default_algorithm, select_algorithm
 using Test: @test, @testset
@@ -14,7 +14,7 @@ using Test: @test, @testset
     rtol = eps(real(elt))^(3 / 4)
     @testset "zero derivatives" begin
         @test Mooncake.tangent_type(BiTuple) ≡ Mooncake.NoTangent
-        @test Mooncake.tangent_type(AbstractContractAlgorithm) ≡ Mooncake.NoTangent
+        @test Mooncake.tangent_type(ContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(DefaultContractAlgorithm) ≡ Mooncake.NoTangent
         @test Mooncake.tangent_type(MatricizeContract) ≡ Mooncake.NoTangent
 

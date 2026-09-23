@@ -12,11 +12,11 @@ function allocator(algorithm::TensorOperationsContract)
     return @something algorithm.allocator TO.DefaultAllocator()
 end
 
-# Construct via the `AbstractContractAlgorithm` public constructor seam as well.
-function TA.AbstractContractAlgorithm(backend::TO.AbstractBackend)
+# Construct via the `ContractAlgorithm` public constructor seam as well.
+function TA.ContractAlgorithm(backend::TO.AbstractBackend)
     return TensorOperationsContract(; backend)
 end
-function TA.AbstractContractAlgorithm(backend::TO.AbstractBackend, allocator)
+function TA.ContractAlgorithm(backend::TO.AbstractBackend, allocator)
     return TensorOperationsContract(; backend, allocator)
 end
 
@@ -51,7 +51,7 @@ function TO.tensorcontract!(
         a2::AbstractArray, permblocks2::TO.Index2Tuple, conj2::Bool,
         permblocks_dest::TO.Index2Tuple,
         α::Number, β::Number,
-        backend::TA.AbstractContractAlgorithm,
+        backend::TA.ContractAlgorithm,
         allocator
     )
     op1 = conj1 ? conj : identity
@@ -73,7 +73,7 @@ function TO.tensortrace!(
         permblocks_dest::TO.Index2Tuple,
         conj_src::Bool,
         α::Number, β::Number,
-        ::TA.AbstractContractAlgorithm,
+        ::TA.ContractAlgorithm,
         allocator
     )
     return TO.tensortrace!(
@@ -88,7 +88,7 @@ function TO.tensoradd!(
         permblocks_src::TO.Index2Tuple,
         conj_src::Bool,
         α::Number, β::Number,
-        ::TA.AbstractContractAlgorithm,
+        ::TA.ContractAlgorithm,
         allocator
     )
     return TO.tensoradd!(

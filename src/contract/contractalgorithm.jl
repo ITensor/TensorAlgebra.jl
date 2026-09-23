@@ -1,9 +1,9 @@
-abstract type AbstractContractAlgorithm <: AbstractAlgorithm end
-AbstractContractAlgorithm(algorithm::AbstractContractAlgorithm) = algorithm
+abstract type ContractAlgorithm <: AbstractAlgorithm end
+ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 
-struct DefaultContractAlgorithm <: AbstractContractAlgorithm end
+struct DefaultContractAlgorithm <: ContractAlgorithm end
 
-struct MatricizeContract{LeftStyle, RightStyle, OutputStyle} <: AbstractContractAlgorithm
+struct MatricizeContract{LeftStyle, RightStyle, OutputStyle} <: ContractAlgorithm
     left_matricize_style::LeftStyle
     right_matricize_style::RightStyle
     output_matricize_style::OutputStyle
@@ -21,7 +21,7 @@ Contract using TensorOperations, with `backend` selecting the contraction kernel
 A `nothing` field uses TensorOperations' default. Only usable with TensorOperations loaded.
 """
 Base.@kwdef struct TensorOperationsContract{Backend, Allocator} <:
-    AbstractContractAlgorithm
+    ContractAlgorithm
     backend::Backend = nothing
     allocator::Allocator = nothing
 end

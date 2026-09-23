@@ -1,8 +1,8 @@
 import TensorAlgebra
 using StableRNGs: StableRNG
-using TensorAlgebra: AbstractContractAlgorithm, BiTuple, bipermutedims, bipermutedims!,
-    contract, contract!, contractadd!, contractalign, length_codomain, length_domain,
-    matricize, unmatricize, unmatricize!
+using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
+    contract!, contractadd!, contractalign, length_codomain, length_domain, matricize,
+    unmatricize, unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -198,7 +198,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test a_dest == fill(2, (2, 2))
     end
 
-    alg_tensoroperations = AbstractContractAlgorithm(TensorOperations.StridedBLAS())
+    alg_tensoroperations = ContractAlgorithm(TensorOperations.StridedBLAS())
     @testset "contract (eltype1=$elt1, eltype2=$elt2)" for elt1 in elts, elt2 in elts
         elt_dest = promote_type(elt1, elt2)
         a1 = ones(elt1, (1, 1))

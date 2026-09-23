@@ -311,7 +311,7 @@ function TensorAlgebra.default_algorithm(
         ::typeof(TensorAlgebra.contract!),
         ::Type{<:Tuple{AbstractTensorMap, AbstractTensorMap, AbstractTensorMap}}
     )
-    return TensorAlgebra.AbstractContractAlgorithm(TO.DefaultBackend())
+    return TensorAlgebra.ContractAlgorithm(TO.DefaultBackend())
 end
 
 # ==================================  linear-combination broadcast  =========================

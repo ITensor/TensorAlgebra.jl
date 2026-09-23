@@ -3,14 +3,11 @@
 
 # contract (labels)
 """
-    contract(a1, labels1, a2, labels2, ...; alg = nothing) -> a_dest, labels_dest
+    contract(a1, labels1, a2, labels2; alg = nothing) -> a_dest, labels_dest
 
 Contract the arrays over the labels they share, returning the result along with the labels of its
 dimensions. A label appearing on two operands is summed over, one appearing on a single operand
 survives, and `labels_dest` reports the surviving labels in the order the result carries them.
-
-Operands past the second are contracted one pair at a time from left to right, so the call
-expresses the contraction order rather than requesting an optimized one.
 
 ```jldoctest
 julia> using TensorAlgebra: contract
@@ -38,14 +35,9 @@ function contract(a1, labels1, a2, labels2; kwargs...)
     a_dest = contractalign(l_dest, a1, l1, a2, l2; kwargs...)
     return a_dest, decode_contraction_labels(l_dest, labels1, labels2)
 end
-function contract(a1, labels1, a2, labels2, a3, labels3, rest...; kwargs...)
-    check_alternating_labels(contract, rest)
-    a12, labels12 = contract(a1, labels1, a2, labels2; kwargs...)
-    return contract(a12, labels12, a3, labels3, rest...; kwargs...)
-end
 
 """
-    contractalign(labels_dest, a1, labels1, a2, labels2, ...; alg = nothing) -> a_dest
+    contractalign(labels_dest, a1, labels1, a2, labels2; alg = nothing) -> a_dest
 
 Contract the input arrays over the shared labels, aligning the output array according to the
 specified destination labels `labels_dest`. `labels_dest` must match the uncontracted labels,
@@ -79,37 +71,20 @@ function contractalign(
         kwargs...
     )
 end
-# Only the last pair lands on the requested output labels; the ones before it infer their own.
-function contractalign(
-        labels_dest, a1, labels1, a2, labels2, a3, labels3, rest...; kwargs...
-    )
-    check_alternating_labels(contractalign, rest)
-    a12, labels12 = contract(a1, labels1, a2, labels2; kwargs...)
-    return contractalign(labels_dest, a12, labels12, a3, labels3, rest...; kwargs...)
-end
 function _contractalign(
         ::Val{K}, labels_dest, a1, labels1, a2, labels2,
         contracted1; kwargs...
     ) where {K}
     biperm_dest, biperm1, biperm2 =
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
-    return contractperm(biperm_dest..., a1, biperm1..., a2, biperm2...; kwargs...)
-end
-
-# The variadic forms take arrays and labels in alternating positions, so a trailing group with an
-# odd length is a miscount at the call site rather than something to diagnose further down.
-function check_alternating_labels(f, rest::Tuple)
-    iseven(length(rest)) || throw(
-        ArgumentError(
-            "`$f` takes each array followed by its labels, so the trailing arguments must come in pairs"
-        )
+    return contractpermalign(
+        biperm_dest..., a1, biperm1..., a2, biperm2...; kwargs...
     )
-    return nothing
 end
 
 # contractperm (bipartitioned permutations)
 # `perm` marks the whole biperm ladder: every rung has a labels-form sibling under the plain name,
-# and once `contract` is variadic over operands the two can no longer be told apart by arity.
+# so the suffix says which form a call site is in without the reader counting arguments.
 function contractperm(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
@@ -119,14 +94,14 @@ function contractperm(
     Ndest = Val(length(perm1_codomain) + length(perm2_domain))
     perm_dest_codomain, perm_dest_domain =
         bipartition(ntuple(identity, Ndest), Ndest_codomain)
-    return contractperm(
+    return contractpermalign(
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
         kwargs...
     )
 end
-function contractperm(
+function contractpermalign(
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
@@ -254,7 +229,7 @@ end
 # contractpermopadd! (dispatched on the algorithm, bipartitioned permutations)
 # Required interface if not using matricized contraction
 function contractpermopadd!(
-        algorithm::AbstractContractAlgorithm,
+        algorithm::ContractAlgorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,

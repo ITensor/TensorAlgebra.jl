@@ -2,7 +2,7 @@
     TensorAlgebra.AbstractAlgorithm
 
 Supertype for the algorithm objects operations dispatch on. An operation's own supertype
-subtypes this (for example `AbstractContractAlgorithm`), which is what makes an instance pass
+subtypes this (for example `ContractAlgorithm`), which is what makes an instance pass
 through [`TensorAlgebra.select_algorithm`](@ref) unchanged.
 """
 abstract type AbstractAlgorithm end

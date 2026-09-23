@@ -1,5 +1,5 @@
-using TensorAlgebra: AbstractContractAlgorithm, MatricizeContract, TensorOperationsContract,
-    contract, contract!
+using TensorAlgebra:
+    ContractAlgorithm, MatricizeContract, TensorOperationsContract, contract, contract!
 using TensorOperations:
     @tensor, DefaultAllocator, DefaultBackend, ManualAllocator, ncon, tensorcontract
 using Test: @inferred, @test, @testset
@@ -133,7 +133,7 @@ end
     labels2 = (:k, :l)
     ref, ref_labels = contract(a1, labels1, a2, labels2)
 
-    @test TensorOperationsContract() isa AbstractContractAlgorithm
+    @test TensorOperationsContract() isa ContractAlgorithm
 
     @testset "allocator = $(nameof(typeof(alloc)))" for alloc in
         (
@@ -150,8 +150,8 @@ end
         @test c_dest ≈ ref
     end
 
-    # The `AbstractContractAlgorithm(backend, allocator)` constructor seam.
-    seam = AbstractContractAlgorithm(DefaultBackend(), ManualAllocator())
+    # The `ContractAlgorithm(backend, allocator)` constructor seam.
+    seam = ContractAlgorithm(DefaultBackend(), ManualAllocator())
     @test contract(a1, labels1, a2, labels2; alg = seam)[1] ≈ ref
 
     # `nothing` fields fall back to the TensorOperations defaults.
