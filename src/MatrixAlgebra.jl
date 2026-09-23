@@ -6,6 +6,7 @@ export invsqrt_diag_safe,
     pow_diag_safe!,
     powh_safe,
     sqrt_diag_safe,
+    sqrth_invsqrth_safe,
     sqrth_safe
 
 using LinearAlgebra: LinearAlgebra, Diagonal, isdiag, norm
@@ -161,6 +162,34 @@ Equivalent to `powh_safe(M, -1//2; alg, atol, rtol)`.
 $(_clamp_kwargs_doc("M"))
 """
 invsqrth_safe(M; kwargs...) = powh_safe(M, -1 // 2; kwargs...)
+
+"""
+    sqrth_invsqrth_safe(M; alg=nothing, atol=0, rtol=eps(real(eltype(M)))^(3//4)) -> M^(1//2), M^(-1//2)
+
+Square root and pseudo-inverse square root of a Hermitian positive
+semi-definite matrix, from a single eigendecomposition. Equivalent
+to `(sqrth_safe(M; ...), invsqrth_safe(M; ...))` but with the
+eigendecomposition computed once. Eigenvalues below tolerance are clamped
+to zero in both factors (Moore-Penrose convention for the inverse).
+
+The input must be Hermitian (as for `MatrixAlgebraKit.eigh_full`): project
+with `MatrixAlgebraKit.project_hermitian` first if it is Hermitian only up
+to numerical noise.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(_clamp_kwargs_doc("M"))
+"""
+function sqrth_invsqrth_safe(M; alg = nothing, kwargs...)
+    if isdiag(M)
+        return pow_diag_safe(M, 1 // 2; kwargs...), pow_diag_safe(M, -1 // 2; kwargs...)
+    end
+    D, V = MAK.eigh_full(M; alg)
+    return V * pow_diag_safe(D, 1 // 2; kwargs...) * V',
+        V * pow_diag_safe(D, -1 // 2; kwargs...) * V'
+end
 
 using MatrixAlgebraKit: MatrixAlgebraKit, TruncationStrategy
 

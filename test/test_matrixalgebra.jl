@@ -159,6 +159,16 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         invsqrtA = MatrixAlgebra.invsqrth_safe(A)
         @test invsqrtA * sqrtA ≈ I(n)
 
+        # The paired form shares one eigendecomposition, so it has to agree with the
+        # separate calls, on both the dense and the `isdiag` fast paths.
+        P, Pinv = MatrixAlgebra.sqrth_invsqrth_safe(A)
+        @test P ≈ sqrtA
+        @test Pinv ≈ invsqrtA
+        Ddiag = Diagonal(rand(real(elt), n) .+ 1)
+        Pd, Pdinv = MatrixAlgebra.sqrth_invsqrth_safe(Matrix(Ddiag))
+        @test Pd ≈ MatrixAlgebra.sqrth_safe(Matrix(Ddiag))
+        @test Pdinv ≈ MatrixAlgebra.invsqrth_safe(Matrix(Ddiag))
+
         # Integer power: passes through without clamping affecting result.
         @test MatrixAlgebra.powh_safe(A, 2) ≈ A * A
 

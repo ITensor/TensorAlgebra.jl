@@ -63,7 +63,7 @@ end
 # Read-only tier: the matrix-level entries never mutate their input (they copy internally), so
 # the perm form consumes the maybe-alias `matricize` matricization directly.
 for f in (
-        :sqrth_safe, :invsqrth_safe,
+        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
     )
     @eval begin
         function $f(
@@ -90,7 +90,7 @@ for f in (
         :svd_compact, :svd_full, :svd_trunc, :svd_vals,
         :eigh_full, :eig_full, :eigh_trunc, :eig_trunc, :eigh_vals, :eig_vals,
         :left_null, :right_null,
-        :sqrth_safe, :invsqrth_safe, :project_hermitian,
+        :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe, :project_hermitian,
     )
     @eval begin
         function $f(style::MatricizeStyle, A, ndims_codomain::Val{K}; kwargs...) where {K}
@@ -629,7 +629,7 @@ up to numerical noise.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
-See also [`invsqrth_safe`](@ref) and
+See also [`invsqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
 [`MatrixAlgebra.sqrth_safe`](@ref).
 """
 sqrth_safe
@@ -652,7 +652,7 @@ first if it is Hermitian only up to numerical noise.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
-See also [`sqrth_safe`](@ref) and
+See also [`sqrth_safe`](@ref), [`sqrth_invsqrth_safe`](@ref), and
 [`MatrixAlgebra.invsqrth_safe`](@ref).
 """
 invsqrth_safe
@@ -686,6 +686,35 @@ function unmatricize_factors(
         axes_codomain, axes_domain
     )
     return unmatricize(style, H_mat, axes_codomain, axes_domain)
+end
+
+"""
+    sqrth_invsqrth_safe(A, labels_A, labels_codomain, labels_domain; kwargs...) -> P, Pinv
+    sqrth_invsqrth_safe(A, perm_codomain, perm_domain; kwargs...) -> P, Pinv
+    sqrth_invsqrth_safe(A, ndims_codomain::Val; kwargs...) -> P, Pinv
+
+Square root and pseudo-inverse square root of a generic N-dimensional
+array (see [`sqrth_safe`](@ref) and [`invsqrth_safe`](@ref)), from a
+single eigendecomposition. Both results carry the same codomain and
+domain axes as `A`.
+
+## Keyword arguments
+
+  - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+
+$(MatrixAlgebra._clamp_kwargs_doc("A"))
+
+See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
+"""
+sqrth_invsqrth_safe
+
+function unmatricize_factors(
+        ::typeof(sqrth_invsqrth_safe), style::MatricizeStyle, F,
+        axes_codomain, axes_domain
+    )
+    P_mat, Pinv_mat = F
+    return unmatricize(style, P_mat, axes_codomain, axes_domain),
+        unmatricize(style, Pinv_mat, axes_codomain, axes_domain)
 end
 
 """

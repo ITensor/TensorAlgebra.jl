@@ -27,6 +27,7 @@ using Test: @test, @testset
         :right_null,
         :right_orth,
         :right_polar,
+        :sqrth_invsqrth_safe,
         :sqrth_safe,
         :svd_compact,
         :svd_full,
@@ -64,6 +65,7 @@ using Test: @test, @testset
         :pow_diag_safe!,
         :powh_safe,
         :sqrt_diag_safe,
+        :sqrth_invsqrth_safe,
         :sqrth_safe,
     ]
     @test issetequal(names(TensorAlgebra.MatrixAlgebra), exports)
