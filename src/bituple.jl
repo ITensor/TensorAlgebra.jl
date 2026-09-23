@@ -84,9 +84,12 @@ function isidentitybiperm(perm_codomain, perm_domain)
     return perm == ntuple(identity, length(perm))
 end
 
-# The identity bipermutation for a rank-`N` array split after `ndims_codomain` dimensions, i.e.
-# the one `isidentitybiperm` accepts. The split-only `Val` conveniences build it to reach the
-# bipermutation forms.
-function identitybiperm(a, ndims_codomain::Val{K}) where {K}
-    return ntuple(identity, Val(K)), ntuple(i -> K + i, Val(ndims(a) - K))
+# The identity bipermutation splitting `K` dimensions after `K_codomain`, i.e. the one
+# `isidentitybiperm` accepts. The split-only `Val` conveniences build it to reach the
+# bipermutation forms. Takes the codomain rank and the total, the same shape as `bipartition`,
+# which reads the total off the container being split. Both are `Val`s so the tuple lengths stay
+# compile-time constants and the result is inferrable.
+function identitybiperm(::Val{K_codomain}, ::Val{K}) where {K_codomain, K}
+    return ntuple(identity, Val(K_codomain)),
+        ntuple(i -> K_codomain + i, Val(K - K_codomain))
 end

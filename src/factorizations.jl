@@ -93,12 +93,9 @@ for f in (
         :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe, :project_hermitian,
     )
     @eval begin
-        function $f(style::MatricizeStyle, A, ndims_codomain::Val{K}; kwargs...) where {K}
+        function $f(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
             return $f(
-                style, A,
-                ntuple(identity, ndims_codomain),
-                ntuple(i -> K + i, Val(ndims(A) - K));
-                kwargs...
+                style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...; kwargs...
             )
         end
         function $f(A, ndims_codomain::Val; kwargs...)
@@ -172,7 +169,9 @@ true
 ```
 """
 function tr(style::MatricizeStyle, A, ndims_codomain::Val)
-    return LinearAlgebra.tr(matricize(style, A, identitybiperm(A, ndims_codomain)...))
+    return LinearAlgebra.tr(
+        matricize(style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...)
+    )
 end
 function tr(A, ndims_codomain::Val)
     return tr(MatricizeStyle(A), A, ndims_codomain)
@@ -558,7 +557,7 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
 left_null
 
 function left_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
+    A_mat = matricize(style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...)
     N = MatrixAlgebraKit.left_null!(A_mat; kwargs...)
     axes_codomain = first(bipartition(axes(A), ndims_codomain))
     return unmatricize(style, N, axes_codomain, (conj(axes(N, ndims(N))),))
@@ -595,7 +594,7 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
 right_null
 
 function right_null!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
+    A_mat = matricize(style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...)
     Nᴴ = MatrixAlgebraKit.right_null!(A_mat; kwargs...)
     _, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, Nᴴ, (axes(Nᴴ, 1),), axes_domain)
@@ -751,7 +750,7 @@ true
 function one end
 
 function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, identitybiperm(A, ndims_codomain)...)
+    A_mat = matricize(style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...)
     MatrixAlgebraKit.one!(A_mat)
     axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
     return unmatricize(style, A_mat, axes_codomain, axes_domain)
@@ -764,7 +763,7 @@ end
 # matricization directly when the style declares one at this split, and otherwise fills a
 # gathered matrix and scatters it back with `unmatricize!`.
 function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    perm_codomain, perm_domain = identitybiperm(A, ndims_codomain)
+    perm_codomain, perm_domain = identitybiperm(ndims_codomain, Val(ndims(A)))
     if is_output_view(matricizeop, style, identity, A, perm_codomain, perm_domain)
         MatrixAlgebraKit.one!(
             matricizeopview(style, identity, A, perm_codomain, perm_domain)

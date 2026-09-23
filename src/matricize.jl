@@ -130,16 +130,16 @@ end
 # the bipermutation forms, not a dispatch tier. A style implements the hooks above and never these,
 # which is what keeps the copy path from recursing back through the router.
 function matricize(a, ndims_codomain::Val)
-    return matricize(a, identitybiperm(a, ndims_codomain)...)
+    return matricize(a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
 end
 function matricize(style::MatricizeStyle, a, ndims_codomain::Val)
-    return matricize(style, a, identitybiperm(a, ndims_codomain)...)
+    return matricize(style, a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
 end
 function matricizeop(op, a, ndims_codomain::Val)
-    return matricizeop(op, a, identitybiperm(a, ndims_codomain)...)
+    return matricizeop(op, a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
 end
 function matricizeop(style::MatricizeStyle, op, a, ndims_codomain::Val)
-    return matricizeop(style, op, a, identitybiperm(a, ndims_codomain)...)
+    return matricizeop(style, op, a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
 end
 
 # Total: always fresh storage the caller owns.
@@ -244,14 +244,8 @@ end
 # split at `ndims_codomain`. The split applies no permutation, so this is the bipermutation form at the
 # trivial bipermutation, reusing its in-place block scatter (no intermediate `unmatricize` copy).
 function unmatricize!(style::MatricizeStyle, a_dest, m, ndims_codomain::Val)
-    K = unval(ndims_codomain)
-    N = ndims(a_dest)
     return unmatricize!(
-        style,
-        a_dest,
-        m,
-        ntuple(identity, Val(K)),
-        ntuple(i -> K + i, Val(N - K))
+        style, a_dest, m, identitybiperm(ndims_codomain, Val(ndims(a_dest)))...
     )
 end
 function unmatricize!(a_dest, m, ndims_codomain::Val)

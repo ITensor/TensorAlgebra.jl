@@ -36,12 +36,9 @@ const MATRIX_FUNCTIONS = [
 # the eager `bipermutedims` copy at the identity bipermutation.
 for f in MATRIX_FUNCTIONS
     @eval begin
-        function $f(style::MatricizeStyle, a, ndims_codomain::Val{K}; kwargs...) where {K}
+        function $f(style::MatricizeStyle, a, ndims_codomain::Val; kwargs...)
             return $f(
-                style, a,
-                ntuple(identity, ndims_codomain),
-                ntuple(i -> K + i, Val(ndims(a) - K));
-                kwargs...
+                style, a, identitybiperm(ndims_codomain, Val(ndims(a)))...; kwargs...
             )
         end
         function $f(a, ndims_codomain::Val; kwargs...)
