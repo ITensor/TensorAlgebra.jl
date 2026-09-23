@@ -308,8 +308,8 @@ function TensorAlgebra.add!(
 end
 
 function TensorAlgebra.default_algorithm(
-        ::typeof(TensorAlgebra.contract!), ::Type{<:AbstractTensorMap},
-        ::Type{<:AbstractTensorMap}, ::Type{<:AbstractTensorMap}
+        ::typeof(TensorAlgebra.contract!),
+        ::Type{<:Tuple{AbstractTensorMap, AbstractTensorMap, AbstractTensorMap}}
     )
     return TensorAlgebra.AbstractContractAlgorithm(TO.DefaultBackend())
 end

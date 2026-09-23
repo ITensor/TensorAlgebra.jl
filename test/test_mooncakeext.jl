@@ -55,10 +55,10 @@ using Test: @test, @testset
             rng, contract_labels, a1, labels1, a2, labels2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, default_algorithm, contract!, dest, a1, a2; mode, is_primitive
+            rng, default_algorithm, contract!, (dest, a1, a2); mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
-            rng, select_algorithm, contract!, DefaultContractAlgorithm(), dest, a1, a2;
+            rng, select_algorithm, contract!, DefaultContractAlgorithm(), (dest, a1, a2);
             mode, is_primitive
         )
     end

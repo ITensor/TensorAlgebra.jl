@@ -55,13 +55,13 @@ using .MatricizeStyleTestUtils: MyArray, MyArrayMatricize
     @test MatricizeStyle(MyArrayMatricize(), MyArrayMatricize()) ≡ MyArrayMatricize()
     @test MatricizeStyle(MyArrayMatricize(), ReshapeMatricize()) ≡ ReshapeMatricize()
     @test MatricizeStyle(ReshapeMatricize(), MyArrayMatricize()) ≡ ReshapeMatricize()
-    @test TA.default_algorithm(TA.contract!, typeof(a1), typeof(a1), typeof(a1)) ≡
+    @test TA.default_algorithm(TA.contract!, Tuple{typeof(a1), typeof(a1), typeof(a1)}) ≡
         MatricizeContract(ReshapeMatricize())
-    @test TA.default_algorithm(TA.contract!, typeof(a1), typeof(a1), typeof(a2)) ≡
+    @test TA.default_algorithm(TA.contract!, Tuple{typeof(a1), typeof(a1), typeof(a2)}) ≡
         MatricizeContract(ReshapeMatricize())
-    @test TA.default_algorithm(TA.contract!, typeof(a2), typeof(a2), typeof(a1)) ≡
+    @test TA.default_algorithm(TA.contract!, Tuple{typeof(a2), typeof(a2), typeof(a1)}) ≡
         MatricizeContract(ReshapeMatricize())
-    @test TA.default_algorithm(TA.contract!, typeof(a2), typeof(a2), typeof(a2)) ≡
+    @test TA.default_algorithm(TA.contract!, Tuple{typeof(a2), typeof(a2), typeof(a2)}) ≡
         MatricizeContract(MyArrayMatricize())
 end
 

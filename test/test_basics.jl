@@ -181,7 +181,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         )
         # A non-algorithm passed as `alg` says so rather than erroring with "Not implemented".
         @test_throws ArgumentError TensorAlgebra.select_algorithm(
-            TensorAlgebra.contract!, :nope, a1 * a2, a1, a2
+            TensorAlgebra.contract!, :nope, (a1 * a2, a1, a2)
         )
         # The supported spellings still work.
         @test contractalign((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2

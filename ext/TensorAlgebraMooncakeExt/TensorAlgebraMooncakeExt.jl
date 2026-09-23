@@ -32,7 +32,7 @@ Mooncake.tangent_type(::Type{<:AbstractContractAlgorithm}) = Mooncake.NoTangent
 @zero_derivative DefaultCtx Tuple{typeof(contract_labels), Any, Any, Any, Any}
 @zero_derivative DefaultCtx Tuple{typeof(encode_contraction_labels), Any, Any}
 @zero_derivative DefaultCtx Tuple{typeof(decode_contraction_labels), Any, Any, Any}
-@zero_derivative DefaultCtx Tuple{typeof(default_algorithm), Any, Any, Any, Any}
-@zero_derivative DefaultCtx Tuple{typeof(select_algorithm), Any, Any, Any, Any, Any}
+@zero_derivative DefaultCtx Tuple{typeof(default_algorithm), Any, Any}
+@zero_derivative DefaultCtx Tuple{typeof(select_algorithm), Any, Any, Any}
 
 end

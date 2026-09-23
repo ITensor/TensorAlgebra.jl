@@ -242,7 +242,7 @@ function contractpermopadd!(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    algorithm = select_algorithm(contract!, alg, a_dest, a1, a2)
+    algorithm = select_algorithm(contract!, alg, (a_dest, a1, a2))
     return contractpermopadd!(
         algorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
@@ -281,11 +281,10 @@ end
 # matching `check_input`. A backend can therefore choose on the destination, even though the
 # generic default derives the matricization styles from the operands alone.
 function default_algorithm(
-        ::typeof(contract!), A_dest::Type{<:AbstractArray},
-        A1::Type{<:AbstractArray}, A2::Type{<:AbstractArray}
-    )
+        ::typeof(contract!), ::Type{Tuple{A_dest, A1, A2}}
+    ) where {A_dest <: AbstractArray, A1 <: AbstractArray, A2 <: AbstractArray}
     return MatricizeContract(MatricizeStyle(MatricizeStyle(A1), MatricizeStyle(A2)))
 end
-function select_algorithm(::typeof(contract!), ::DefaultContractAlgorithm, a_dest, a1, a2)
-    return default_algorithm(contract!, a_dest, a1, a2)
+function select_algorithm(::typeof(contract!), ::DefaultContractAlgorithm, args::Tuple)
+    return default_algorithm(contract!, args)
 end
