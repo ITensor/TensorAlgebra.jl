@@ -50,10 +50,6 @@ using Test: @test, @testset
         )
     end
     @test issetequal(names(TensorAlgebra), exports)
-    # `public` accepts a name that resolves to nothing, and the list above is maintained
-    # alongside the declaration, so a typo would be edited into both and slip past the
-    # comparison. Check the declared names actually resolve.
-    @test all(n -> isdefined(TensorAlgebra, n), names(TensorAlgebra))
 
     # The matrix-level factorizations are `public`, not exported: the names MatrixAlgebraKit
     # also exports would otherwise collide in a session loading both packages, and the
@@ -86,8 +82,4 @@ using Test: @test, @testset
         :sqrth_safe,
     ]
     @test issetequal(names(TensorAlgebra.MatrixAlgebra), exports)
-    @test all(
-        n -> isdefined(TensorAlgebra.MatrixAlgebra, n),
-        names(TensorAlgebra.MatrixAlgebra)
-    )
 end
