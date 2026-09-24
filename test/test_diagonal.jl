@@ -99,6 +99,11 @@ using Test: @test, @test_throws, @testset
         c0, = TensorAlgebra.contract(d, ("i", "j"), d2, ("i", "j"))
         @test ndims(c0) == 0
         @test c0[] ≈ sum(diag(d) .* diag(d2))
+        # A destination bipermutation that groups both free legs on one side is a `{2,0}` map,
+        # not representable as a `Diagonal`, so it densifies rather than erroring.
+        cg = TensorAlgebra.contractpermalign((1, 2), (), d, (1,), (2,), d2, (1,), (2,))
+        @test !(cg isa Diagonal)
+        @test cg ≈ d * d2
         # No contracted legs: a rank-4 outer product, densified.
         c4, = TensorAlgebra.contract(d, ("i", "j"), d2, ("k", "l"))
         @test !(c4 isa Diagonal)
