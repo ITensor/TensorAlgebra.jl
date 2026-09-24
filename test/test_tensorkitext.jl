@@ -1,9 +1,11 @@
 using Base.Broadcast: broadcasted
 using LinearAlgebra: LinearAlgebra, norm
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, contract, matricize, project, project_aux, projectto!,
-    rand_map, randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project,
-    unmatricize, zeros_map
+using TensorAlgebra: TensorAlgebra, contract, contractalign, eig_full, eig_vals, eigh_full,
+    eigh_vals, left_null, left_orth, left_polar, lq_compact, lq_full, matricize, project,
+    project_aux, projectto!, qr_compact, qr_full, rand_map, randn_map, right_null,
+    right_orth, right_polar, similar_map, svd_compact, svd_full, svd_vals, tryflattenlinear,
+    tryproject, unchecked_project, unmatricize, zeros_map
 using TensorKit: TensorKit, @tensor, AbstractTensorMap, DiagonalTensorMap, Irrep, Rep, SU₂,
     TensorMap, U₁, dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
@@ -358,6 +360,127 @@ using Test: @test, @test_throws, @testset
         c_style = copy(t)
         @test TensorAlgebra.one!(style, c_style, Val(2)) === c_style
         @test c_style ≈ Id
+    end
+
+    @testset "the matricize hooks cohere on the matching split" begin
+        W = Rep[U₁](0 => 2, 1 => 1)
+        X = Rep[U₁](0 => 1, 1 => 2)
+        Z = Rep[U₁](0 => 1, 1 => 2)
+        t = randn(rng, elt, W ⊗ X, Z)
+        style = TensorAlgebra.MatricizeStyle(t)
+        splits = (((1, 2), (3,)), ((1, 3), (2,)), ((1, 2, 3), ()), ((), (1, 2, 3)))
+        for op in (identity, conj), (pc, pd) in splits
+            # Regrouping a `TensorMap` is a permuted-add, so the matricization is the tensor
+            # `permutedimsop` builds, spaces included. Under `conj` that dualizes every space.
+            ref = TensorAlgebra.permutedimsop(op, t, pc, pd)
+            if TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, style, op, t, pc, pd)
+                @test op === identity # only the identity op can hand back `t` itself
+                @test TensorAlgebra.matricizeopview(style, op, t, pc, pd) === t
+            end
+            m_copy = TensorAlgebra.matricizeopcopy(style, op, t, pc, pd)
+            @test m_copy !== t
+            @test TensorAlgebra.data(m_copy) !== TensorAlgebra.data(t)
+            @test space(m_copy) == space(ref)
+            @test m_copy ≈ ref
+        end
+        # Only the split TensorKit already stores is a view. A regrouped one has to be built.
+        @test TensorAlgebra.is_output_view(
+            TensorAlgebra.matricizeop, style, identity, t, (1, 2), (3,)
+        )
+        @test !TensorAlgebra.is_output_view(
+            TensorAlgebra.matricizeop, style, identity, t, (1, 3), (2,)
+        )
+
+        dest = similar(t)
+        @test TensorAlgebra.unmatricize!(
+            style, dest, matricize(style, t, (1, 2), (3,)), Val(2)
+        ) === dest
+        @test dest ≈ t
+    end
+
+    # The factorizations are generic over the matricize hooks, so a `TensorMap` reaches them
+    # through the extension rather than through any dedicated method. Each factor is checked for
+    # the spaces it carries as well as for reconstructing the input.
+    @testset "factorizations" begin
+        W = Rep[U₁](0 => 2, 1 => 1)
+        X = Rep[U₁](0 => 1, 1 => 2)
+        # Every charge sector of the fused codomain is at least as large as the domain's, which
+        # is what the tall-block factorizations need.
+        Z = Rep[U₁](0 => 1, 1 => 2)
+        t = randn(rng, elt, W ⊗ X, Z)
+        t_before = copy(t)
+        labels_t = (:i, :j, :k)
+        labels_l = (:i, :j)
+        labels_r = (:k,)
+        # Both halves of every two-factor form carry the bond on the inside, so one
+        # reconstruction covers them all.
+        reconstruct(F1, F2) = contractalign(
+            labels_t, F1, (labels_l..., :q), F2, (:q, labels_r...)
+        )
+
+        @testset "$(nameof(f))" for f in (
+                qr_compact, qr_full, lq_compact, lq_full, left_orth, right_orth, left_polar,
+            )
+            F1, F2 = f(t, labels_t, labels_l, labels_r)
+            @test F1 isa AbstractTensorMap
+            @test F2 isa AbstractTensorMap
+            @test space(F1, 1) == space(t, 1)
+            @test space(F1, 2) == space(t, 2)
+            @test space(F2, 2) == space(t, 3)
+            @test reconstruct(F1, F2) ≈ t
+        end
+
+        @testset "$(nameof(f))" for f in (svd_compact, svd_full)
+            U, S, Vᴴ = f(t, labels_t, labels_l, labels_r)
+            @test U isa AbstractTensorMap
+            @test Vᴴ isa AbstractTensorMap
+            US, labels_US = contract(U, (labels_l..., :u), S, (:u, :q))
+            @test contractalign(labels_t, US, labels_US, Vᴴ, (:q, labels_r...)) ≈ t
+        end
+
+        @testset "svd_vals matches the compact spectrum" begin
+            _, S, _ = svd_compact(t, labels_t, labels_l, labels_r)
+            @test svd_vals(t, labels_t, labels_l, labels_r) ≈ TensorAlgebra.data(S)
+        end
+
+        @testset "the left null space annihilates the map" begin
+            N = left_null(t, labels_t, labels_l, labels_r)
+            @test N isa AbstractTensorMap
+            @test norm(N' * t) < sqrt(eps(real(elt))) * norm(t)
+        end
+
+        @test t ≈ t_before # no factorization altered the input
+
+        # `right_polar` needs a wide block in every sector, and `t`'s right null space is empty
+        # because it has full column rank, so both get the transposed map.
+        @testset "the wide map: right_polar and the right null space" begin
+            tw = randn(rng, elt, Z, W ⊗ X)
+            labels_w = (:k, :i, :j)
+            P, Qw = right_polar(tw, labels_w, (:k,), (:i, :j))
+            @test contractalign(labels_w, P, (:k, :q), Qw, (:q, :i, :j)) ≈ tw
+            M = right_null(tw, labels_w, (:k,), (:i, :j))
+            @test M isa AbstractTensorMap
+            @test norm(tw * M') < sqrt(eps(real(elt))) * norm(tw)
+        end
+
+        @testset "the eigen family on an endomorphism" begin
+            te = randn(rng, elt, W ⊗ X, W ⊗ X)
+            labels_e = (:i, :j, :ip, :jp)
+            labels_v, labels_vp = (:i, :j), (:ip, :jp)
+            D, V = eig_full(te, labels_e, labels_v, labels_vp)
+            teV = contractalign((:i, :j, :d), te, labels_e, V, (labels_vp..., :d))
+            VD = contractalign((:i, :j, :d), V, (labels_v..., :dp), D, (:dp, :d))
+            @test teV ≈ VD
+            @test eig_vals(te, labels_e, labels_v, labels_vp) ≈ TensorAlgebra.data(D)
+
+            # The Hermitian entries need a Hermitian input.
+            th = te + te'
+            Dh, Vh = eigh_full(th, labels_e, labels_v, labels_vp)
+            thV = contractalign((:i, :j, :d), th, labels_e, Vh, (labels_vp..., :d))
+            VhD = contractalign((:i, :j, :d), Vh, (labels_v..., :dp), Dh, (:dp, :d))
+            @test thV ≈ VhD
+            @test eigh_vals(th, labels_e, labels_v, labels_vp) ≈ TensorAlgebra.data(Dh)
+        end
     end
 end
 

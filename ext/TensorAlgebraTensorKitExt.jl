@@ -259,15 +259,17 @@ function TensorAlgebra.matricizeopview(
     )
     return t
 end
-# A `TensorMap`'s matricization is a regrouping of its indices, so the destination is a `TensorMap`
-# over the regrouped space and the write is the ordinary permuted-add. `bipermutedimsopadd!` above
-# routes that through `tensoradd!`, which realizes the permutation, the `op === conj` conjugation
-# and the scaling in one call, so no separate handling of `op` is needed here.
+# A `TensorMap`'s matricization is a regrouping of its indices, so the destination is the same
+# `TensorMap` the plain permuted-add would allocate. That one already dualizes each space under
+# `op === conj`, which is what `bipermutedimsopadd!` needs: `tensoradd!` realizes a conjugation
+# by adjointing its source, so a destination over the undualized space does not match it.
 function TensorAlgebra.allocate_output(
         ::typeof(TensorAlgebra.matricizeop), ::TensorKitMatricize, op,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
-    return similar(t, permute(space(t), (perm_codomain, perm_domain)))
+    return TensorAlgebra.allocate_output(
+        TensorAlgebra.permutedimsop, op, t, perm_codomain, perm_domain
+    )
 end
 function TensorAlgebra.matricizeop!(
         dest::AbstractTensorMap, ::TensorKitMatricize, op,

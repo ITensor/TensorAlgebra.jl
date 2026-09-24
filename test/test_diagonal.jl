@@ -79,6 +79,42 @@ using Test: @test, @test_throws, @testset
         @test e ≈ exp(dp)
     end
 
+    @testset "the matricize hooks cohere on the aliasing split" begin
+        style = TensorAlgebra.MatricizeStyle(d)
+        dz = Diagonal(elt <: Complex ? elt[1 + 2im, 3 - im, 2im] : elt[1, 3, 2])
+        for op in (identity, conj), (pc, pd) in (((1,), (2,)), ((2,), (1,)))
+            ref = TensorAlgebra.matricizeop(style, op, dz, pc, pd)
+            if TensorAlgebra.is_output_view(
+                    TensorAlgebra.matricizeop,
+                    style,
+                    op,
+                    dz,
+                    pc,
+                    pd
+                )
+                m = TensorAlgebra.matricizeopview(style, op, dz, pc, pd)
+                @test Base.mightalias(m, dz)
+                @test m == ref
+            end
+            m_copy = TensorAlgebra.matricizeopcopy(style, op, dz, pc, pd)
+            @test !Base.mightalias(m_copy, dz)
+            @test m_copy == ref
+        end
+        # Only the identity op on the untransposed split aliases. `matricizeopview` hands back
+        # `dz` itself, so a declared share under `conj` would silently skip the conjugation.
+        @test TensorAlgebra.is_output_view(
+            TensorAlgebra.matricizeop, style, identity, dz, (1,), (2,)
+        )
+        @test !TensorAlgebra.is_output_view(
+            TensorAlgebra.matricizeop, style, conj, dz, (1,), (2,)
+        )
+
+        dest = Diagonal(zeros(elt, 3))
+        src = Diagonal(elt[7, 8, 9])
+        @test TensorAlgebra.unmatricize!(style, dest, src, Val(1)) === dest
+        @test dest == src
+    end
+
     @testset "one and one! preserve Diagonal" begin
         Id = Diagonal(ones(elt, 3))
         style = TensorAlgebra.ReshapeMatricize()
