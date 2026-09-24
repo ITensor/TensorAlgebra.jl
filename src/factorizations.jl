@@ -768,17 +768,13 @@ function one!(A, ndims_codomain::Val)
     return one!(MatricizeStyle(A), A, ndims_codomain)
 end
 
-# The fill writes into the matricization, so the bipermutation form is the primitive:
-# `matricizeopcopy` permutes and matricizes in one step and hands back storage this call owns,
-# which is what makes `A` a shape prototype rather than something to copy up front.
+# Fills a permuted copy in place rather than building the matrix itself, so the result keeps the
+# structure `bipermutedims` gives it (the identity of a `Diagonal` is a `Diagonal`, which the
+# dense `allocate_output` behind `matricizeopcopy` would flatten). The copy is the same one the
+# caller would otherwise pay for `A` being a shape prototype.
 function one(style::MatricizeStyle, A, perm_codomain, perm_domain)
-    A_mat = matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
-    MatrixAlgebra.one!(A_mat)
-    axes_codomain, axes_domain = bipartition_axes(
-        map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
-        Val(length(perm_codomain))
-    )
-    return unmatricize(style, A_mat, axes_codomain, axes_domain)
+    A_perm = bipermutedims(A, perm_codomain, perm_domain)
+    return one!(style, A_perm, Val(length(perm_codomain)))
 end
 function one(A, perm_codomain, perm_domain)
     return one(MatricizeStyle(A), A, perm_codomain, perm_domain)

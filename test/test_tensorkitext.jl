@@ -333,18 +333,31 @@ using Test: @test, @test_throws, @testset
         @test TensorAlgebra.tr(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp)) ≈
             LinearAlgebra.tr(t)
 
-        # The identity fill routes through `one_matrix!`, which TensorKit answers with its own
-        # `one!` rather than MatrixAlgebraKit's (that one speaks `AbstractMatrix` only).
+        # The identity fill routes through `MatrixAlgebra.one!`, which TensorKit answers with its
+        # own `one!` rather than MatrixAlgebraKit's (that one speaks `AbstractMatrix` only).
+        style = TensorAlgebra.MatricizeStyle(t)
         Id = TensorAlgebra.one(t, Val(2))
         @test Id ≈ TensorKit.id(TensorKit.domain(t))
         @test Id !== t
+        @test space(Id) == space(t)
         @test t ≈ t_before
-        Id_labels = TensorAlgebra.one(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp))
-        @test Id_labels ≈ Id
+        for got in (
+                TensorAlgebra.one(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp)),
+                TensorAlgebra.one(t, (1, 2), (3, 4)),
+                TensorAlgebra.one(style, t, Val(2)),
+                TensorAlgebra.one(style, t, (1, 2), (3, 4)),
+            )
+            @test space(got) == space(t)
+            @test got ≈ Id
+        end
+        @test t ≈ t_before
         # In-place, the matching split is TensorKit's own space, so it fills `t` through the view.
         c = copy(t)
         @test TensorAlgebra.one!(c, Val(2)) === c
         @test c ≈ Id
+        c_style = copy(t)
+        @test TensorAlgebra.one!(style, c_style, Val(2)) === c_style
+        @test c_style ≈ Id
     end
 end
 

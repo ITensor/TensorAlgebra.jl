@@ -79,6 +79,31 @@ using Test: @test, @test_throws, @testset
         @test e ≈ exp(dp)
     end
 
+    @testset "one and one! preserve Diagonal" begin
+        Id = Diagonal(ones(elt, 3))
+        style = TensorAlgebra.ReshapeMatricize()
+        for got in (
+                TensorAlgebra.one(d, ("i", "j"), ("i",), ("j",)),
+                TensorAlgebra.one(d, Val(1)),
+                TensorAlgebra.one(d, (1,), (2,)),
+                TensorAlgebra.one(d, (2,), (1,)),
+                TensorAlgebra.one(style, d, Val(1)),
+                TensorAlgebra.one(style, d, (1,), (2,)),
+            )
+            @test got isa Diagonal
+            @test got == Id
+        end
+        # The allocating forms treat `d` as a shape prototype and leave it alone.
+        @test d == Diagonal(elt[2, 3, 4])
+
+        dfill = Diagonal(elt[5, 6, 7])
+        @test TensorAlgebra.one!(dfill, Val(1)) === dfill
+        @test dfill == Id
+        dstyle = Diagonal(elt[5, 6, 7])
+        @test TensorAlgebra.one!(style, dstyle, Val(1)) === dstyle
+        @test dstyle == Id
+    end
+
     @testset "contract stays Diagonal on the matmul pattern, densifies otherwise" begin
         d2 = Diagonal(elt[10, 20, 30])
         # One contracted leg: the matmul/endomorphism pattern stays Diagonal.

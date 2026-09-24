@@ -339,12 +339,16 @@ end
 
     @test size(Id) == size(A)
     @test eltype(Id) === T
+    @test typeof(Id) === typeof(A)
 
     @test TensorAlgebra.matricize(Id, splitperms(Id, 2)...) ≈ I
 
-    # `Val`, perm, and label entries agree.
+    # `Val`, perm, and label entries agree, as do the style-explicit spellings of each.
+    style = TensorAlgebra.MatricizeStyle(A)
     @test TensorAlgebra.one(A, Val(2)) ≈ Id
     @test TensorAlgebra.one(A, (1, 2), (3, 4)) ≈ Id
+    @test TensorAlgebra.one(style, A, Val(2)) ≈ Id
+    @test TensorAlgebra.one(style, A, (1, 2), (3, 4)) ≈ Id
 
     # Non-trivial codomain/domain partition: codomain (a, b) interleaved with
     # domain (c, d) in the input layout. The result is permuted into the
@@ -363,6 +367,10 @@ end
     @test Cret === C
     @test TensorAlgebra.matricize(C, splitperms(C, 2)...) ≈ I
     @test C ≈ TensorAlgebra.one(A, Val(2))
+    Cstyle = randn(T, 2, 3, 2, 3)
+    @test TensorAlgebra.one!(TensorAlgebra.MatricizeStyle(Cstyle), Cstyle, Val(2)) ===
+        Cstyle
+    @test TensorAlgebra.matricize(Cstyle, splitperms(Cstyle, 2)...) ≈ I
 
     # `unmatricize!` scatters a fused matrix back into an existing array.
     D = randn(T, 2, 3, 2, 3)
