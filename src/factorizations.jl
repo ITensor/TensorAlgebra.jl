@@ -730,7 +730,7 @@ and is not mutated.
 A tensor generalization in its own right, not an extension of `Base.one`, so it is neither
 exported nor imported. Qualify as `TensorAlgebra.one(A, ...)`.
 
-See also `MatrixAlgebraKit.one!`.
+See also [`MatrixAlgebra.one!`](@ref), the matrix-level fill this bottoms out on.
 
 # Examples
 
@@ -749,66 +749,55 @@ true
 """
 function one end
 
-function one!!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    A_mat = matricize(style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...)
-    MatrixAlgebraKit.one!(A_mat)
-    axes_codomain, axes_domain = bipartition_axes(axes(A), ndims_codomain)
-    return unmatricize(style, A_mat, axes_codomain, axes_domain)
-end
-function one!!(A, ndims_codomain::Val; kwargs...)
-    return one!!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
-end
-
 # In-place identity fill: writes the identity into `A` and returns it. Fills the memory-sharing
 # matricization directly when the style declares one at this split, and otherwise fills a
 # gathered matrix and scatters it back with `unmatricize!`.
-function one!(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
+function one!(style::MatricizeStyle, A, ndims_codomain::Val)
     perm_codomain, perm_domain = identitybiperm(ndims_codomain, Val(ndims(A)))
     if is_output_view(matricizeop, style, identity, A, perm_codomain, perm_domain)
-        MatrixAlgebraKit.one!(
+        MatrixAlgebra.one!(
             matricizeopview(style, identity, A, perm_codomain, perm_domain)
         )
         return A
     end
     A_mat = matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
-    MatrixAlgebraKit.one!(A_mat)
+    MatrixAlgebra.one!(A_mat)
     return unmatricize!(style, A, A_mat, ndims_codomain)
 end
-function one!(A, ndims_codomain::Val; kwargs...)
-    return one!(MatricizeStyle(A), A, ndims_codomain; kwargs...)
+function one!(A, ndims_codomain::Val)
+    return one!(MatricizeStyle(A), A, ndims_codomain)
 end
 
-function one(style::MatricizeStyle, A, ndims_codomain::Val; kwargs...)
-    return one!!(style, copy(A), ndims_codomain; kwargs...)
-end
-function one(A, ndims_codomain::Val; kwargs...)
-    return one!!(copy(A), ndims_codomain; kwargs...)
-end
-
-# `one` stays off the shared factorization wrappers: `one!!` is its own overload point (a
-# `TensorMap` backend fills the identity through TensorKit rather than MatrixAlgebraKit).
-function one(
-        style::MatricizeStyle, A,
-        perm_codomain, perm_domain;
-        kwargs...
+# The fill writes into the matricization, so the bipermutation form is the primitive:
+# `matricizeopcopy` permutes and matricizes in one step and hands back storage this call owns,
+# which is what makes `A` a shape prototype rather than something to copy up front.
+function one(style::MatricizeStyle, A, perm_codomain, perm_domain)
+    A_mat = matricizeopcopy(style, identity, A, perm_codomain, perm_domain)
+    MatrixAlgebra.one!(A_mat)
+    axes_codomain, axes_domain = bipartition_axes(
+        map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
+        Val(length(perm_codomain))
     )
-    A_perm = bipermutedims(A, perm_codomain, perm_domain)
-    return one!!(style, A_perm, Val(length(perm_codomain)); kwargs...)
+    return unmatricize(style, A_mat, axes_codomain, axes_domain)
+end
+function one(A, perm_codomain, perm_domain)
+    return one(MatricizeStyle(A), A, perm_codomain, perm_domain)
+end
+function one(style::MatricizeStyle, A, ndims_codomain::Val)
+    return one(style, A, identitybiperm(ndims_codomain, Val(ndims(A)))...)
+end
+function one(A, ndims_codomain::Val)
+    return one(MatricizeStyle(A), A, ndims_codomain)
 end
 function one(
-        A, perm_codomain, perm_domain; kwargs...
-    )
-    return one(MatricizeStyle(A), A, perm_codomain, perm_domain; kwargs...)
-end
-function one(
-        style::MatricizeStyle, A, labels_A, labels_codomain, labels_domain; kwargs...
+        style::MatricizeStyle, A, labels_A, labels_codomain, labels_domain
     )
     perm_codomain, perm_domain =
         biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return one(style, A, perm_codomain, perm_domain; kwargs...)
+    return one(style, A, perm_codomain, perm_domain)
 end
-function one(A, labels_A, labels_codomain, labels_domain; kwargs...)
+function one(A, labels_A, labels_codomain, labels_domain)
     perm_codomain, perm_domain =
         biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
-    return one(A, perm_codomain, perm_domain; kwargs...)
+    return one(A, perm_codomain, perm_domain)
 end

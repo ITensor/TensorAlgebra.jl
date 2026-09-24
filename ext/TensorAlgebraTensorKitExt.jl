@@ -278,6 +278,10 @@ function TensorAlgebra.matricizeop!(
     )
 end
 
+# TensorKit owns its own `one!` generic and forwards only the `AbstractMatrix` case to
+# MatrixAlgebraKit, so the identity fill on a regrouped `TensorMap` goes through TensorKit.
+TensorAlgebra.MatrixAlgebra.one!(t::AbstractTensorMap) = TensorKit.one!(t)
+
 function TensorAlgebra.unmatricize(
         ::TensorKitMatricize, m::AbstractTensorMap, axes_codomain, axes_domain
     )

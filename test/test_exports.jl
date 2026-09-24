@@ -73,6 +73,7 @@ using Test: @test, @testset
         :MatrixAlgebra,
         :invsqrt_diag_safe,
         :invsqrth_safe,
+        :var"one!",
         :pow_diag_safe,
         :pow_diag_safe!,
         :powh_safe,

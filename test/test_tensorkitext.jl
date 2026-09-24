@@ -4,8 +4,8 @@ using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, contract, matricize, project, project_aux, projectto!,
     rand_map, randn_map, similar_map, tryflattenlinear, tryproject, unchecked_project,
     unmatricize, zeros_map
-using TensorKit: @tensor, AbstractTensorMap, DiagonalTensorMap, Irrep, Rep, SU₂, TensorMap,
-    U₁, dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
+using TensorKit: TensorKit, @tensor, AbstractTensorMap, DiagonalTensorMap, Irrep, Rep, SU₂,
+    TensorMap, U₁, dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
 
 # A shared bond contracts when it sits in one operand's domain and the other's codomain, i.e.
@@ -329,8 +329,22 @@ using Test: @test, @test_throws, @testset
 
         # `tr` over a codomain/domain bipartition matches TensorKit's native trace of the endomorphism.
         t = randn(rng, elt, W ⊗ X, W ⊗ X)
+        t_before = copy(t)
         @test TensorAlgebra.tr(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp)) ≈
             LinearAlgebra.tr(t)
+
+        # The identity fill routes through `one_matrix!`, which TensorKit answers with its own
+        # `one!` rather than MatrixAlgebraKit's (that one speaks `AbstractMatrix` only).
+        Id = TensorAlgebra.one(t, Val(2))
+        @test Id ≈ TensorKit.id(TensorKit.domain(t))
+        @test Id !== t
+        @test t ≈ t_before
+        Id_labels = TensorAlgebra.one(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp))
+        @test Id_labels ≈ Id
+        # In-place, the matching split is TensorKit's own space, so it fills `t` through the view.
+        c = copy(t)
+        @test TensorAlgebra.one!(c, Val(2)) === c
+        @test c ≈ Id
     end
 end
 

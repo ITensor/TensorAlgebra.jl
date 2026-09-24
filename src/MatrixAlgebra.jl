@@ -2,6 +2,7 @@ module MatrixAlgebra
 
 export invsqrt_diag_safe,
     invsqrth_safe,
+    one!,
     pow_diag_safe,
     pow_diag_safe!,
     powh_safe,
@@ -11,6 +12,16 @@ export invsqrt_diag_safe,
 
 using LinearAlgebra: LinearAlgebra, Diagonal, isdiag, norm
 using MatrixAlgebraKit: MatrixAlgebraKit as MAK
+
+"""
+    MatrixAlgebra.one!(m) -> m
+
+Fill `m` with the identity in place. The matrix-level identity fill the tensor-level
+`TensorAlgebra.one`/`one!` bottom out on, and the customization point a backend overloads when its
+matricization is a type `MatrixAlgebraKit.one!` does not handle (TensorKit owns its own `one!`
+generic rather than extending MatrixAlgebraKit's, so a `TensorMap` fills through that).
+"""
+one!(m) = MAK.one!(m)
 
 function _clamp_kwargs_doc(arg::AbstractString)
     return join(
