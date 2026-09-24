@@ -41,7 +41,7 @@ using Test: @test, @test_throws, @testset
     end
 
     @testset "matricize(1, 1) is the identity reshape" begin
-        m = TensorAlgebra.matricize(TensorAlgebra.ReshapeMatricize(), d, Val(1))
+        m = TensorAlgebra.matricize(TensorAlgebra.ReshapeMatricize(), d, (1,), (2,))
         @test m === d
     end
 
@@ -79,6 +79,67 @@ using Test: @test, @test_throws, @testset
         @test e ≈ exp(dp)
     end
 
+    @testset "the matricize hooks cohere on the aliasing split" begin
+        style = TensorAlgebra.MatricizeStyle(d)
+        dz = Diagonal(elt <: Complex ? elt[1 + 2im, 3 - im, 2im] : elt[1, 3, 2])
+        for op in (identity, conj), (pc, pd) in (((1,), (2,)), ((2,), (1,)))
+            ref = TensorAlgebra.matricizeop(style, op, dz, pc, pd)
+            if TensorAlgebra.is_output_view(
+                    TensorAlgebra.matricizeop,
+                    style,
+                    op,
+                    dz,
+                    pc,
+                    pd
+                )
+                m = TensorAlgebra.matricizeopview(style, op, dz, pc, pd)
+                @test Base.mightalias(m, dz)
+                @test m == ref
+            end
+            m_copy = TensorAlgebra.matricizeopcopy(style, op, dz, pc, pd)
+            @test !Base.mightalias(m_copy, dz)
+            @test m_copy == ref
+        end
+        # Only the identity op on the untransposed split aliases. `matricizeopview` hands back
+        # `dz` itself, so a declared share under `conj` would silently skip the conjugation.
+        @test TensorAlgebra.is_output_view(
+            TensorAlgebra.matricizeop, style, identity, dz, (1,), (2,)
+        )
+        @test !TensorAlgebra.is_output_view(
+            TensorAlgebra.matricizeop, style, conj, dz, (1,), (2,)
+        )
+
+        dest = Diagonal(zeros(elt, 3))
+        src = Diagonal(elt[7, 8, 9])
+        @test TensorAlgebra.unmatricize!(style, dest, src, Val(1)) === dest
+        @test dest == src
+    end
+
+    @testset "one and one! preserve Diagonal" begin
+        Id = Diagonal(ones(elt, 3))
+        style = TensorAlgebra.ReshapeMatricize()
+        for got in (
+                TensorAlgebra.one(d, ("i", "j"), ("i",), ("j",)),
+                TensorAlgebra.one(d, Val(1)),
+                TensorAlgebra.one(d, (1,), (2,)),
+                TensorAlgebra.one(d, (2,), (1,)),
+                TensorAlgebra.one(style, d, Val(1)),
+                TensorAlgebra.one(style, d, (1,), (2,)),
+            )
+            @test got isa Diagonal
+            @test got == Id
+        end
+        # The allocating forms treat `d` as a shape prototype and leave it alone.
+        @test d == Diagonal(elt[2, 3, 4])
+
+        dfill = Diagonal(elt[5, 6, 7])
+        @test TensorAlgebra.one!(dfill, Val(1)) === dfill
+        @test dfill == Id
+        dstyle = Diagonal(elt[5, 6, 7])
+        @test TensorAlgebra.one!(style, dstyle, Val(1)) === dstyle
+        @test dstyle == Id
+    end
+
     @testset "contract stays Diagonal on the matmul pattern, densifies otherwise" begin
         d2 = Diagonal(elt[10, 20, 30])
         # One contracted leg: the matmul/endomorphism pattern stays Diagonal.
@@ -99,6 +160,11 @@ using Test: @test, @test_throws, @testset
         c0, = TensorAlgebra.contract(d, ("i", "j"), d2, ("i", "j"))
         @test ndims(c0) == 0
         @test c0[] ≈ sum(diag(d) .* diag(d2))
+        # A destination bipermutation that groups both free legs on one side is a `{2,0}` map,
+        # not representable as a `Diagonal`, so it densifies rather than erroring.
+        cg = TensorAlgebra.contractpermalign((1, 2), (), d, (1,), (2,), d2, (1,), (2,))
+        @test !(cg isa Diagonal)
+        @test cg ≈ d * d2
         # No contracted legs: a rank-4 outer product, densified.
         c4, = TensorAlgebra.contract(d, ("i", "j"), d2, ("k", "l"))
         @test !(c4 isa Diagonal)

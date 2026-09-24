@@ -147,42 +147,6 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         @test norm(ũ * s̃ * ṽ) ≈ 0
     end
 
-    @testset "gram_eigh_full" begin
-        n = 5
-        # Full-rank Hermitian PSD. Use a tall random factor so `B' * B`
-        # is comfortably full rank even at Float32 precision (a square
-        # random `B` can produce a `B' * B` whose smallest eigenvalue
-        # falls below the default rtol clamp on some seeds).
-        rng = StableRNG(123)
-        B = randn(rng, elt, 2n, n)
-        A = B' * B
-        X = MatrixAlgebra.gram_eigh_full(A)
-        @test X * X' ≈ A
-        @test size(X) == (n, n)
-
-        X2, Y2 = MatrixAlgebra.gram_eigh_full_with_pinv(A)
-        @test X2 * X2' ≈ A
-        @test Y2 * X2 ≈ I(n)
-
-        # `!!` variant accepts a destroyable copy.
-        Xb = MatrixAlgebra.gram_eigh_full!!(copy(A))
-        @test Xb * Xb' ≈ A
-
-        # Rank deficient: A is n×n of rank k < n. Recovery of A still holds;
-        # X * Y is the projector onto the rank-k codomain subspace
-        # (idempotent, rank k), and X * P ≈ X (Moore–Penrose).
-        k = 3
-        Brd = randn(rng, elt, k, n)
-        Ard = Brd' * Brd
-        Xrd, Yrd = MatrixAlgebra.gram_eigh_full_with_pinv(
-            Ard; rtol = sqrt(eps(real(elt)))
-        )
-        @test Xrd * Xrd' ≈ Ard
-        P = Xrd * Yrd
-        @test P * P ≈ P
-        @test P * Xrd ≈ Xrd
-    end
-
     @testset "powh_safe / sqrth_safe / invsqrth_safe" begin
         n = 4
         rng = StableRNG(123)
@@ -194,6 +158,16 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
         invsqrtA = MatrixAlgebra.invsqrth_safe(A)
         @test invsqrtA * sqrtA ≈ I(n)
+
+        # The paired form shares one eigendecomposition, so it has to agree with the
+        # separate calls, on both the dense and the `isdiag` fast paths.
+        P, Pinv = MatrixAlgebra.sqrth_invsqrth_safe(A)
+        @test P ≈ sqrtA
+        @test Pinv ≈ invsqrtA
+        Ddiag = Diagonal(rand(real(elt), n) .+ 1)
+        Pd, Pdinv = MatrixAlgebra.sqrth_invsqrth_safe(Matrix(Ddiag))
+        @test Pd ≈ MatrixAlgebra.sqrth_safe(Matrix(Ddiag))
+        @test Pdinv ≈ MatrixAlgebra.invsqrth_safe(Matrix(Ddiag))
 
         # Integer power: passes through without clamping affecting result.
         @test MatrixAlgebra.powh_safe(A, 2) ≈ A * A

@@ -1,63 +1,30 @@
 module TensorAlgebraTensorOperationsExt
 
-using TensorAlgebra: TensorAlgebra as TA, TensorOperationsAlgorithm
+using TensorAlgebra: TensorAlgebra as TA, TensorOperationsContract
 using TensorOperations: TensorOperations as TO
 
-# `TensorOperationsAlgorithm` stores `nothing` to mean "TensorOperations' default"; resolve
+# `TensorOperationsContract` stores `nothing` to mean "TensorOperations' default"; resolve
 # those here, where the defaults can be named.
-function backend(algorithm::TensorOperationsAlgorithm)
+function backend(algorithm::TensorOperationsContract)
     return @something algorithm.backend TO.DefaultBackend()
 end
-function allocator(algorithm::TensorOperationsAlgorithm)
+function allocator(algorithm::TensorOperationsContract)
     return @something algorithm.allocator TO.DefaultAllocator()
 end
 
 # Construct via the `ContractAlgorithm` public constructor seam as well.
-TA.ContractAlgorithm(backend::TO.AbstractBackend) = TensorOperationsAlgorithm(; backend)
+function TA.ContractAlgorithm(backend::TO.AbstractBackend)
+    return TensorOperationsContract(; backend)
+end
 function TA.ContractAlgorithm(backend::TO.AbstractBackend, allocator)
-    return TensorOperationsAlgorithm(; backend, allocator)
+    return TensorOperationsContract(; backend, allocator)
 end
 
 # Using TensorOperations backends as TensorAlgebra implementations
 # ----------------------------------------------------------------
 
-# not in-place
-function TA.contract(
-        algorithm::TensorOperationsAlgorithm,
-        perm_dest_codomain, perm_dest_domain,
-        a1::AbstractArray, perm1_codomain, perm1_domain,
-        a2::AbstractArray, perm2_codomain, perm2_domain
-    )
-    permblocks1 = Tuple.((perm1_codomain, perm1_domain))
-    permblocks2 = Tuple.((perm2_codomain, perm2_domain))
-    permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))
-    conj1, conj2 = false, false
-    α = true
-    return TO.tensorcontract(
-        a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, backend(algorithm), allocator(algorithm)
-    )
-end
-
-function TA.contract(
-        algorithm::TensorOperationsAlgorithm,
-        labels_dest,
-        a1::AbstractArray, labels1,
-        a2::AbstractArray, labels2
-    )
-    permblocks1, permblocks2, permblocks_dest =
-        TO.contract_indices(labels1, labels2, labels_dest)
-    conj1, conj2 = false, false
-    α = true
-    return TO.tensorcontract(
-        a1, permblocks1, conj1, a2, permblocks2, conj2,
-        permblocks_dest, α, backend(algorithm), allocator(algorithm)
-    )
-end
-
-# in-place
-function TA.contractopadd!(
-        algorithm::TensorOperationsAlgorithm,
+function TA.contractpermopadd!(
+        algorithm::TensorOperationsContract,
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,
@@ -89,7 +56,7 @@ function TO.tensorcontract!(
     )
     op1 = conj1 ? conj : identity
     op2 = conj2 ? conj : identity
-    return TA.contractopadd!(
+    return TA.contractpermopadd!(
         backend,
         a_dest, permblocks_dest...,
         op1, a1, permblocks1...,

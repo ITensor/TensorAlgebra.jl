@@ -1,9 +1,8 @@
 import TensorAlgebra
-using EllipsisNotation: var".."
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
-    contract!, contractadd!, length_codomain, length_domain, matricizeperm, unmatricize,
-    unmatricizeperm, unmatricizeperm!
+    contract!, contractadd!, contractalign, length_codomain, length_domain, matricize,
+    unmatricize, unmatricize!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -54,70 +53,68 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
     @testset "matricize (eltype=$elt)" for elt in elts
         a = randn(elt, 2, 3, 4, 5)
 
-        a_fused = matricizeperm(a, (1, 2), (3, 4))
+        a_fused = matricize(a, (1, 2), (3, 4))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, 6, 20)
-        a_fused = matricizeperm(a, (3, 1), (2, 4))
+        a_fused = matricize(a, (3, 1), (2, 4))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
-        a_fused = matricizeperm(a, (3, 1, 2), (4,))
+        a_fused = matricize(a, (3, 1, 2), (4,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (24, 5))
-        a_fused = matricizeperm(a, (..,), (3, 1))
+        a_fused = matricize(a, (2, 4), (3, 1))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(permutedims(a, (2, 4, 3, 1)), (15, 8))
-        a_fused = matricizeperm(a, (3, 1), (..,))
-        @test eltype(a_fused) === elt
-        @test a_fused ≈ reshape(permutedims(a, (3, 1, 2, 4)), (8, 15))
 
-        a_fused = matricizeperm(a, (), (..,))
+        # Degenerate splits: everything in the domain, then everything in the codomain.
+        a_fused = matricize(a, (), (1, 2, 3, 4))
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, (1, 120))
-        a_fused = matricizeperm(a, (..,), ())
+        a_fused = matricize(a, (1, 2, 3, 4), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ reshape(a, (120, 1))
 
-        @test_throws MethodError matricizeperm(a, (1, 2), (3,), (4,))
-        @test_throws MethodError matricizeperm(a, (1, 2, 3, 4))
-        @test_throws ArgumentError matricizeperm(a, (1, 2), (3,))
+        @test_throws MethodError matricize(a, (1, 2), (3,), (4,))
+        @test_throws MethodError matricize(a, (1, 2, 3, 4))
+        @test_throws ArgumentError matricize(a, (1, 2), (3,))
 
         v = ones(elt, 2)
-        a_fused = matricizeperm(v, (1,), ())
+        a_fused = matricize(v, (1,), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 2, 1)
-        a_fused = matricizeperm(v, (), (1,))
+        a_fused = matricize(v, (), (1,))
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 1, 2)
 
-        a_fused = matricizeperm(ones(elt), (), ())
+        a_fused = matricize(ones(elt), (), ())
         @test eltype(a_fused) === elt
         @test a_fused ≈ ones(elt, 1, 1)
     end
 
-    @testset "matricizeopperm (eltype=$elt)" for elt in elts
+    @testset "matricizeop (eltype=$elt)" for elt in elts
         rng = StableRNG(123)
         a = randn(rng, elt, 2, 3, 4)
 
         # identity op: should match matricize exactly
-        m = TensorAlgebra.matricizeopperm(identity, a, (1,), (2, 3))
-        m_ref = matricizeperm(a, (1,), (2, 3))
+        m = TensorAlgebra.matricizeop(identity, a, (1,), (2, 3))
+        m_ref = matricize(a, (1,), (2, 3))
         @test m ≈ m_ref
 
-        m = TensorAlgebra.matricizeopperm(identity, a, (3, 1), (2,))
-        m_ref = matricizeperm(a, (3, 1), (2,))
+        m = TensorAlgebra.matricizeop(identity, a, (3, 1), (2,))
+        m_ref = matricize(a, (3, 1), (2,))
         @test m ≈ m_ref
 
-        m = TensorAlgebra.matricizeopperm(identity, a, (2, 3), (1,))
-        m_ref = matricizeperm(a, (2, 3), (1,))
+        m = TensorAlgebra.matricizeop(identity, a, (2, 3), (1,))
+        m_ref = matricize(a, (2, 3), (1,))
         @test m ≈ m_ref
 
         # conj op
-        m = TensorAlgebra.matricizeopperm(conj, a, (1,), (2, 3))
-        m_ref = conj.(matricizeperm(a, (1,), (2, 3)))
+        m = TensorAlgebra.matricizeop(conj, a, (1,), (2, 3))
+        m_ref = conj.(matricize(a, (1,), (2, 3)))
         @test m ≈ m_ref
 
-        m = TensorAlgebra.matricizeopperm(conj, a, (3, 1), (2,))
-        m_ref = conj.(matricizeperm(a, (3, 1), (2,)))
+        m = TensorAlgebra.matricizeop(conj, a, (3, 1), (2,))
+        m_ref = conj.(matricize(a, (3, 1), (2,)))
         @test m ≈ m_ref
     end
 
@@ -130,30 +127,23 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test eltype(a) === elt
         @test a ≈ a0
 
-        a = unmatricizeperm(m, axes0, (1, 2), (3, 4))
-        @test eltype(a) === elt
-        @test a ≈ a0
-
         perm_codomain = (4, 2)
         perm_domain = (1, 3)
         invperm_codomain = (3, 2)
         invperm_domain = (4, 1)
         perm = (4, 2, 1, 3)
-        a = unmatricizeperm(m, map(i -> axes0[i], perm), invperm_codomain, invperm_domain)
-        @test eltype(a) === elt
-        @test a ≈ permutedims(a0, perm)
-
         a = similar(a0)
-        unmatricizeperm!(a, m, (1, 2), (3, 4))
+        unmatricize!(a, m, (1, 2), (3, 4))
         @test a ≈ a0
 
-        m1 = matricizeperm(a0, perm_codomain, perm_domain)
-        a = unmatricizeperm(m1, axes0, perm_codomain, perm_domain)
+        m1 = matricize(a0, perm_codomain, perm_domain)
+        a = similar(a0)
+        unmatricize!(a, m1, perm_codomain, perm_domain)
         @test a ≈ a0
 
         a1 = permutedims(a0, perm)
         a = similar(a1)
-        unmatricizeperm!(a, m, invperm_codomain, invperm_domain)
+        unmatricize!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
 
         a = unmatricize(reshape(a0, 1, 120), (), axes0)
@@ -174,8 +164,30 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test a isa Array{elt, 0}
         @test a[] == m[1, 1]
 
-        @test_throws ArgumentError unmatricizeperm(m, (), (1, 2), (3,))
-        @test_throws ArgumentError unmatricizeperm!(m, m, (1, 2), (3,))
+        @test_throws ArgumentError unmatricize!(m, m, (1, 2), (3,))
+    end
+
+    @testset "contraction algorithm selection rejects unusable keywords" begin
+        a1 = randn(2, 3)
+        a2 = randn(3, 4)
+        # Nothing in the algorithm-selection layer accepts keywords, so a keyword no
+        # algorithm can consume fails as a `MethodError`.
+        @test_throws MethodError contractalign(
+            (1, 3), a1, (1, 2), a2, (2, 3); nonsense = 1
+        )
+        @test_throws MethodError contractalign(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.MatricizeContract(),
+            nonsense = 1
+        )
+        # A non-algorithm passed as `alg` says so rather than erroring with "Not implemented".
+        @test_throws ArgumentError TensorAlgebra.select_algorithm(
+            TensorAlgebra.contract!, :nope, (a1 * a2, a1, a2)
+        )
+        # The supported spellings still work.
+        @test contractalign((1, 3), a1, (1, 2), a2, (2, 3)) ≈ a1 * a2
+        @test contractalign(
+            (1, 3), a1, (1, 2), a2, (2, 3); alg = TensorAlgebra.MatricizeContract()
+        ) ≈ a1 * a2
     end
 
     @testset "contract eltype widens like a matrix product" begin
@@ -194,8 +206,8 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         a_dest = ones(elt_dest, (1, 1))
         @test_throws ArgumentError contract(a1, (1, 2, 4), a2, (2, 3))
         @test_throws ArgumentError contract(a1, (1, 2), a2, (2, 3, 4))
-        @test_throws ArgumentError contract((1, 3, 4), a1, (1, 2), a2, (2, 3))
-        @test_throws ArgumentError contract((1, 3), a1, (1, 2), a2, (2, 4))
+        @test_throws ArgumentError contractalign((1, 3, 4), a1, (1, 2), a2, (2, 3))
+        @test_throws ArgumentError contractalign((1, 3), a1, (1, 2), a2, (2, 4))
         @test_throws ArgumentError contract!(a_dest, (1, 3, 4), a1, (1, 2), a2, (2, 3))
 
         dims = (2, 3, 4, 5, 6, 7, 8, 9, 10)
@@ -234,14 +246,14 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
             @test a_dest ≈ a_dest_tensoroperations
 
             # Specify destination labels
-            a_dest = contract(labels_dest, a1, labels1, a2, labels2)
-            a_dest_tensoroperations = contract(
+            a_dest = contractalign(labels_dest, a1, labels1, a2, labels2)
+            a_dest_tensoroperations = contractalign(
                 labels_dest, a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
             @test a_dest ≈ a_dest_tensoroperations
 
-            a_dest = contract(labels_dest′, a1, labels1, a2, labels2)
-            a_dest_tensoroperations = contract(
+            a_dest = contractalign(labels_dest′, a1, labels1, a2, labels2)
+            a_dest_tensoroperations = contractalign(
                 labels_dest′, a1, labels1, a2, labels2; alg = alg_tensoroperations
             )
             @test a_dest ≈ a_dest_tensoroperations
@@ -279,7 +291,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test labels_dest == [L(1), L(4)]
 
         # Specifying the destination labels still works for opted-in types.
-        a_dest = contract([L(1), L(4)], a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
+        a_dest = contractalign([L(1), L(4)], a1, (L(1), L(2), L(3)), a2, (L(2), L(3), L(4)))
         @test a_dest ≈ a_ref
 
         # Empty labels (e.g. a scalar operand) are handled.
@@ -302,7 +314,7 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         @test eltype(a_dest) === elt_dest
         @test a_dest ≈ reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...))
 
-        a_dest = contract(("i", "k", "j", "l"), a1, ("i", "j"), a2, ("k", "l"))
+        a_dest = contractalign(("i", "k", "j", "l"), a1, ("i", "j"), a2, ("k", "l"))
         @test eltype(a_dest) === elt_dest
         @test a_dest ≈ permutedims(
             reshape(vec(a1) * transpose(vec(a2)), (size(a1)..., size(a2)...)), (1, 3, 2, 4)
@@ -449,17 +461,17 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         size_dest_example = (3, 5, 2, 4)
 
         # Array-scalar contraction.
-        a_dest = contract(labels_dest_example, a, labels_a, s, ())
+        a_dest = contractalign(labels_dest_example, a, labels_a, s, ())
         @test size(a_dest) == size_dest_example
         @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
 
         # Scalar-array contraction.
-        a_dest = contract(labels_dest_example, s, (), a, labels_a)
+        a_dest = contractalign(labels_dest_example, s, (), a, labels_a)
         @test size(a_dest) == size_dest_example
         @test a_dest ≈ permutedims(a, (2, 4, 1, 3)) * s[]
 
         # Scalar-scalar contraction.
-        a_dest = contract((), s, (), t, ())
+        a_dest = contractalign((), s, (), t, ())
         @test size(a_dest) == ()
         @test a_dest[] ≈ s[] * t[]
 

@@ -1,5 +1,5 @@
 using TensorAlgebra:
-    ContractAlgorithm, Matricize, TensorOperationsAlgorithm, contract, contract!
+    ContractAlgorithm, MatricizeContract, TensorOperationsContract, contract, contract!
 using TensorOperations:
     @tensor, DefaultAllocator, DefaultBackend, ManualAllocator, ncon, tensorcontract
 using Test: @inferred, @test, @testset
@@ -20,7 +20,7 @@ using Test: @inferred, @test, @testset
         false,
         ((1, 5, 3, 2, 4), ()),
         1.0,
-        Matricize()
+        MatricizeContract()
     )
     @test C1 ≈ C2
 end
@@ -38,14 +38,14 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
 
     @tensor HrA12[a, s1, s2, c] :=
         rhoL[a, a'] * A1[a', t1, b] * A2[b, t2, c'] * rhoR[c', c] * H[s1, s2, t1, t2]
-    @tensor backend = Matricize() HrA12′[a, s1, s2, c] :=
+    @tensor backend = MatricizeContract() HrA12′[a, s1, s2, c] :=
         rhoL[a, a'] * A1[a', t1, b] * A2[b, t2, c'] * rhoR[c', c] * H[s1, s2, t1, t2]
 
     @test HrA12 ≈ HrA12′
     @test HrA12 ≈ ncon(
         [rhoL, H, A2, rhoR, A1],
         [[-1, 1], [-2, -3, 4, 5], [2, 5, 3], [3, -4], [1, 4, 2]];
-        backend = Matricize()
+        backend = MatricizeContract()
     )
     E = @tensor rhoL[a', a] *
         A1[a, s, b] *
@@ -54,7 +54,7 @@ elts = (Float32, Float64, ComplexF32, ComplexF64)
         H[t, t', s, s'] *
         conj(A1[a', t, b']) *
         conj(A2[b', t', c'])
-    @test E ≈ @tensor backend = Matricize() rhoL[a', a] *
+    @test E ≈ @tensor backend = MatricizeContract() rhoL[a', a] *
         A1[a, s, b] *
         A2[b, s', c] *
         rhoR[c, c'] *
@@ -121,26 +121,26 @@ end
         )
         tensors = map(splat(randn), sizes)
         result1 = ncon(tensors, indices)
-        result2 = ncon(tensors, indices; backend = Matricize())
+        result2 = ncon(tensors, indices; backend = MatricizeContract())
         @test result1 ≈ result2
     end
 end
 
-@testset "TensorOperationsAlgorithm allocator ($T)" for T in elts
+@testset "TensorOperationsContract allocator ($T)" for T in elts
     a1 = randn(T, 4, 5, 3)
     a2 = randn(T, 3, 6)
     labels1 = (:i, :j, :k)
     labels2 = (:k, :l)
     ref, ref_labels = contract(a1, labels1, a2, labels2)
 
-    @test TensorOperationsAlgorithm() isa ContractAlgorithm
+    @test TensorOperationsContract() isa ContractAlgorithm
 
     @testset "allocator = $(nameof(typeof(alloc)))" for alloc in
         (
             DefaultAllocator(),
             ManualAllocator(),
         )
-        alg = TensorOperationsAlgorithm(; allocator = alloc)
+        alg = TensorOperationsContract(; allocator = alloc)
         c, labels = contract(a1, labels1, a2, labels2; alg)
         @test labels == ref_labels
         @test c ≈ ref
@@ -155,5 +155,5 @@ end
     @test contract(a1, labels1, a2, labels2; alg = seam)[1] ≈ ref
 
     # `nothing` fields fall back to the TensorOperations defaults.
-    @test contract(a1, labels1, a2, labels2; alg = TensorOperationsAlgorithm())[1] ≈ ref
+    @test contract(a1, labels1, a2, labels2; alg = TensorOperationsContract())[1] ≈ ref
 end

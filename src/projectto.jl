@@ -72,9 +72,20 @@ end
 # The flat all-codomain (state) form: a list of `axes` with an empty domain.
 unchecked_project(raw, axes) = unchecked_project(raw, axes, ())
 
-# The codomain rank a destination reports when no split is given: its full rank by default (no
-# domain), overloaded by a backend that stores a split (a `TensorMap` returns `numout`).
+"""
+    TensorAlgebra.ndims_codomain(a) -> Int
+    TensorAlgebra.ndims_domain(a) -> Int
+
+The codomain and domain ranks of `a`'s intrinsic split, for a type that stores one. An array has
+no intrinsic split, so it defaults to all codomain and an empty domain, and a type that does store
+one overloads `ndims_codomain` (a `TensorMap` returns `numout`).
+
+Only `ndims_codomain` needs overloading: `ndims_domain` is whatever rank is left over, so the two
+agree by construction.
+"""
 ndims_codomain(a) = ndims(a)
+@doc (@doc ndims_codomain)
+ndims_domain(a) = ndims(a) - ndims_codomain(a)
 
 """
     is_projected(dest, src, ndims_codomain::Val; kwargs...) -> Bool
