@@ -2,10 +2,10 @@ using Base.Broadcast: broadcasted
 using LinearAlgebra: LinearAlgebra, norm
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, contract, contractalign, eig_full, eig_vals, eigh_full,
-    eigh_vals, left_null, left_orth, left_polar, lq_compact, lq_full, matricize, project,
-    project_aux, projectto!, qr_compact, qr_full, rand_map, randn_map, right_null,
-    right_orth, right_polar, similar_map, svd_compact, svd_full, svd_vals, tryflattenlinear,
-    tryproject, unchecked_project, unmatricize, zeros_map
+    eigh_vals, has_bipartition, left_null, left_orth, left_polar, lq_compact, lq_full,
+    matricize, project, project_aux, projectto!, qr_compact, qr_full, rand_map, randn_map,
+    right_null, right_orth, right_polar, similar_map, svd_compact, svd_full, svd_vals,
+    tryflattenlinear, tryproject, unchecked_project, unmatricize, zeros_map
 using TensorKit: TensorKit, @tensor, AbstractTensorMap, DiagonalTensorMap, Irrep, Rep, SU₂,
     TensorMap, U₁, dim, dual, fuse, isomorphism, randn, reduceddim, space, storagetype, ←, ⊗
 using Test: @test, @test_throws, @testset
@@ -492,4 +492,12 @@ end
     # A sector's dual is its conjugate.
     s = Irrep[U₁](1)
     @test TensorAlgebra.dual(s) == dual(s)
+end
+
+@testset "the codomain/domain accessors on a TensorMap" begin
+    W = Rep[U₁](0 => 1, 1 => 1)
+    t = zeros_map(Float64, (W, W), (W,))
+    @test has_bipartition(t)
+    @test TensorAlgebra.ndims_codomain(t) == 2
+    @test TensorAlgebra.ndims_domain(t) == 1
 end
