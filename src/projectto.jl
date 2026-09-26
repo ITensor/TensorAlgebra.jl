@@ -80,12 +80,27 @@ The codomain and domain ranks of `a`'s intrinsic split, for a type that stores o
 no intrinsic split, so it defaults to all codomain and an empty domain, and a type that does store
 one overloads `ndims_codomain` (a `TensorMap` returns `numout`).
 
-Only `ndims_codomain` needs overloading: `ndims_domain` is whatever rank is left over, so the two
-agree by construction.
+`ndims_domain` never needs overloading: it is whatever rank is left over, so the two agree by
+construction. A type that does overload `ndims_codomain` should also overload
+[`has_bipartition`](@ref).
 """
 ndims_codomain(a) = ndims(a)
 @doc (@doc ndims_codomain)
 ndims_domain(a) = ndims(a) - ndims_codomain(a)
+
+"""
+    TensorAlgebra.has_bipartition(a) -> Bool
+
+Whether `a`'s type stores an intrinsic codomain/domain split, so that
+[`ndims_codomain`](@ref) reports a split `a` genuinely carries rather than the all-codomain
+fallback. A `TensorMap` returns `true`, an array `false`; a type that overloads
+`ndims_codomain` should also overload this.
+
+Lets a consumer tell a genuinely all-codomain `a` apart from one with no notion of a split,
+which is what validating a caller-supplied split against `a` needs: there is nothing to
+validate it against unless `a` stores one.
+"""
+has_bipartition(a) = false
 
 """
     is_projected(dest, src, ndims_codomain::Val; kwargs...) -> Bool

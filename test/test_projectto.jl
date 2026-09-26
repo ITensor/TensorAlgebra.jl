@@ -1,6 +1,6 @@
-using TensorAlgebra: TensorAlgebra, is_projected, project, project!, project_aux,
-    projectto!, tryproject, tryproject_aux, unchecked_project, unchecked_project_aux,
-    unproject
+using TensorAlgebra: TensorAlgebra, has_bipartition, is_projected, ndims_codomain,
+    ndims_domain, project, project!, project_aux, projectto!, tryproject, tryproject_aux,
+    unchecked_project, unchecked_project_aux, unproject
 using Test: @test, @test_throws, @testset
 
 const elts = (Float32, Float64, ComplexF32, ComplexF64)
@@ -81,6 +81,14 @@ end
     t = tryproject(raw, (Base.OneTo(2), Base.OneTo(3)))
     @test t == raw
     @test tryproject(raw, (Base.OneTo(2),), (Base.OneTo(3),)) == raw
+end
+
+@testset "the codomain/domain accessors on an array" begin
+    a = randn(2, 3, 4)
+    @test ndims_codomain(a) == 3
+    @test ndims_domain(a) == 0
+    # An array is all-codomain by fallback, not because it stores that split.
+    @test !has_bipartition(a)
 end
 
 @testset "unproject (dense default) ($T)" for T in elts

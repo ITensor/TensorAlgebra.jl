@@ -23,6 +23,7 @@ TensorAlgebra.size(t::AbstractTensorMap, i::Int) = dim(space(t, i))
 TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(t))
 # A `TensorMap` stores its codomain/domain split, so its codomain rank is `numout`.
 TensorAlgebra.ndims_codomain(t::AbstractTensorMap) = numout(t)
+TensorAlgebra.has_bipartition(::AbstractTensorMap) = true
 
 # `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
 # general spelling.
