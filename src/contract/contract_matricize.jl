@@ -2,9 +2,10 @@ using LinearAlgebra: mul!
 
 # The kernel's one seam where a backend prepares both operands together: GradedArrays twists
 # the right factor of a fermionic contraction before matricizing it. Keyed on the rung whose
-# arguments these are.
+# arguments these are, and given the algorithm so a variant of the matricized kernel can
+# dispatch on it.
 function matricize_inputs(
-        ::typeof(contractpermopadd!),
+        ::typeof(contractpermopadd!), ::MatricizeContract,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain
     )
@@ -13,7 +14,7 @@ function matricize_inputs(
 end
 
 function contractpermopadd!(
-        ::MatricizeContract,
+        algorithm::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
         op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,
         op2, a2::AbstractArray, biperm2_codomain, biperm2_domain,
@@ -29,7 +30,7 @@ function contractpermopadd!(
         a2, biperm2_codomain, biperm2_domain
     )
     a1_mat, a2_mat = matricize_inputs(
-        contractpermopadd!,
+        contractpermopadd!, algorithm,
         op1, a1, biperm1_codomain, biperm1_domain,
         op2, a2, biperm2_codomain, biperm2_domain
     )

@@ -44,7 +44,8 @@ end
     a1 = randn(2, 3)
     a2 = randn(3, 4)
     a1_mat, a2_mat = TA.matricize_inputs(
-        TA.contractpermopadd!, identity, a1, (1,), (2,), identity, a2, (1,), (2,)
+        TA.contractpermopadd!, MatricizeContract(),
+        identity, a1, (1,), (2,), identity, a2, (1,), (2,)
     )
     @test a1_mat == matricize(a1, (1,), (2,))
     @test a2_mat == matricize(a2, (1,), (2,))
