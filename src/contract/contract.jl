@@ -256,8 +256,8 @@ end
 # matching `check_input`. A backend can therefore choose on the destination as well as on the
 # operands.
 function default_algorithm(
-        ::typeof(contract!), ::Type{Tuple{A_dest, A1, A2}}
-    ) where {A_dest <: AbstractArray, A1 <: AbstractArray, A2 <: AbstractArray}
+        ::typeof(contract!), ::Type{<:Tuple{AbstractArray, AbstractArray, AbstractArray}}
+    )
     return MatricizeContract()
 end
 function select_algorithm(::typeof(contract!), ::DefaultContractAlgorithm, args::Tuple)
