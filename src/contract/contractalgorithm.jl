@@ -3,15 +3,7 @@ ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 
 struct DefaultContractAlgorithm <: ContractAlgorithm end
 
-struct MatricizeContract{LeftStyle, RightStyle, OutputStyle} <: ContractAlgorithm
-    left_matricize_style::LeftStyle
-    right_matricize_style::RightStyle
-    output_matricize_style::OutputStyle
-end
-function MatricizeContract(matricize_style)
-    return MatricizeContract(matricize_style, matricize_style, matricize_style)
-end
-MatricizeContract() = MatricizeContract(ReshapeMatricize())
+struct MatricizeContract <: ContractAlgorithm end
 
 """
     TensorOperationsContract(; backend = nothing, allocator = nothing)

@@ -343,12 +343,9 @@ end
 
     @test TensorAlgebra.matricize(Id, splitperms(Id, 2)...) ≈ I
 
-    # `Val`, perm, and label entries agree, as do the style-explicit spellings of each.
-    style = TensorAlgebra.MatricizeStyle(A)
+    # `Val`, perm, and label entries agree.
     @test TensorAlgebra.one(A, Val(2)) ≈ Id
     @test TensorAlgebra.one(A, (1, 2), (3, 4)) ≈ Id
-    @test TensorAlgebra.one(style, A, Val(2)) ≈ Id
-    @test TensorAlgebra.one(style, A, (1, 2), (3, 4)) ≈ Id
 
     # Non-trivial codomain/domain partition: codomain (a, b) interleaved with
     # domain (c, d) in the input layout. The result is permuted into the
@@ -367,10 +364,6 @@ end
     @test Cret === C
     @test TensorAlgebra.matricize(C, splitperms(C, 2)...) ≈ I
     @test C ≈ TensorAlgebra.one(A, Val(2))
-    Cstyle = randn(T, 2, 3, 2, 3)
-    @test TensorAlgebra.one!(TensorAlgebra.MatricizeStyle(Cstyle), Cstyle, Val(2)) ===
-        Cstyle
-    @test TensorAlgebra.matricize(Cstyle, splitperms(Cstyle, 2)...) ≈ I
 
     # `unmatricize!` scatters a fused matrix back into an existing array.
     D = randn(T, 2, 3, 2, 3)
@@ -456,44 +449,23 @@ module FactorizationMatricizeTestUtils
     function Base.getindex(a::AliasingArray{<:Any, N}, I::Vararg{Int, N}) where {N}
         return a.parent[I...]
     end
-    struct AliasingMatricize <: TA.MatricizeStyle end
-    TA.MatricizeStyle(::Type{<:AliasingArray}) = AliasingMatricize()
-    # Delegate every hook to the dense style on the unwrapped parent, so the matricization
+    # Delegate every hook to the dense hooks on the unwrapped parent, so the matricization
     # aliases exactly where a plain `Array`'s would.
-    unwrap(a::AliasingArray) = a.parent
-    unwrap(a::AbstractArray) = a
     function TA.is_output_view(
-            ::typeof(TA.matricizeop), ::AliasingMatricize, op, a, perm_codomain, perm_domain
+            ::typeof(TA.matricizeop), op, a::AliasingArray, perm_codomain, perm_domain
         )
-        return TA.is_output_view(
-            TA.matricizeop, TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
-        )
+        return TA.is_output_view(TA.matricizeop, op, a.parent, perm_codomain, perm_domain)
     end
-    function TA.matricizeopview(
-            ::AliasingMatricize, op, a, perm_codomain, perm_domain
-        )
-        return TA.matricizeopview(
-            TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
-        )
+    function TA.matricizeopview(op, a::AliasingArray, perm_codomain, perm_domain)
+        return TA.matricizeopview(op, a.parent, perm_codomain, perm_domain)
     end
     function TA.allocate_output(
-            ::typeof(TA.matricizeop), ::AliasingMatricize, op, a, perm_codomain, perm_domain
+            ::typeof(TA.matricizeop), op, a::AliasingArray, perm_codomain, perm_domain
         )
-        return TA.allocate_output(
-            TA.matricizeop, TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
-        )
+        return TA.allocate_output(TA.matricizeop, op, a.parent, perm_codomain, perm_domain)
     end
-    function TA.matricizeop!(
-            dest, ::AliasingMatricize, op, a, perm_codomain, perm_domain
-        )
-        return TA.matricizeop!(
-            dest, TA.ReshapeMatricize(), op, unwrap(a), perm_codomain, perm_domain
-        )
-    end
-    function TA.unmatricize(::AliasingMatricize, m, axes_codomain, axes_domain)
-        return AliasingArray(
-            TA.unmatricize(TA.ReshapeMatricize(), m, axes_codomain, axes_domain)
-        )
+    function TA.matricizeop!(dest, op, a::AliasingArray, perm_codomain, perm_domain)
+        return TA.matricizeop!(dest, op, a.parent, perm_codomain, perm_domain)
     end
 end
 using .FactorizationMatricizeTestUtils: AliasingArray

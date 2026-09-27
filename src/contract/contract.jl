@@ -253,12 +253,12 @@ end
 # here rather than beside the algorithm types because dispatching on `::typeof(contract!)` needs
 # it to exist, and `contractalgorithm.jl` is included first for the types these signatures use.
 # Keyed on `contract!` rather than `contract` because the destination is in the signature,
-# matching `check_input`. A backend can therefore choose on the destination, even though the
-# generic default derives the matricization styles from the operands alone.
+# matching `check_input`. A backend can therefore choose on the destination as well as on the
+# operands.
 function default_algorithm(
         ::typeof(contract!), ::Type{Tuple{A_dest, A1, A2}}
     ) where {A_dest <: AbstractArray, A1 <: AbstractArray, A2 <: AbstractArray}
-    return MatricizeContract(MatricizeStyle(MatricizeStyle(A1), MatricizeStyle(A2)))
+    return MatricizeContract()
 end
 function select_algorithm(::typeof(contract!), ::DefaultContractAlgorithm, args::Tuple)
     return default_algorithm(contract!, args)

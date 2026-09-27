@@ -337,7 +337,6 @@ using Test: @test, @test_throws, @testset
 
         # The identity fill routes through `MatrixAlgebra.one!`, which TensorKit answers with its
         # own `one!` rather than MatrixAlgebraKit's (that one speaks `AbstractMatrix` only).
-        style = TensorAlgebra.MatricizeStyle(t)
         Id = TensorAlgebra.one(t, Val(2))
         @test Id ≈ TensorKit.id(TensorKit.domain(t))
         @test Id !== t
@@ -346,8 +345,6 @@ using Test: @test, @test_throws, @testset
         for got in (
                 TensorAlgebra.one(t, (:i, :j, :ip, :jp), (:i, :j), (:ip, :jp)),
                 TensorAlgebra.one(t, (1, 2), (3, 4)),
-                TensorAlgebra.one(style, t, Val(2)),
-                TensorAlgebra.one(style, t, (1, 2), (3, 4)),
             )
             @test space(got) == space(t)
             @test got ≈ Id
@@ -357,9 +354,6 @@ using Test: @test, @test_throws, @testset
         c = copy(t)
         @test TensorAlgebra.one!(c, Val(2)) === c
         @test c ≈ Id
-        c_style = copy(t)
-        @test TensorAlgebra.one!(style, c_style, Val(2)) === c_style
-        @test c_style ≈ Id
     end
 
     @testset "the matricize hooks cohere on the matching split" begin
@@ -367,17 +361,16 @@ using Test: @test, @test_throws, @testset
         X = Rep[U₁](0 => 1, 1 => 2)
         Z = Rep[U₁](0 => 1, 1 => 2)
         t = randn(rng, elt, W ⊗ X, Z)
-        style = TensorAlgebra.MatricizeStyle(t)
         splits = (((1, 2), (3,)), ((1, 3), (2,)), ((1, 2, 3), ()), ((), (1, 2, 3)))
         for op in (identity, conj), (pc, pd) in splits
             # Regrouping a `TensorMap` is a permuted-add, so the matricization is the tensor
             # `permutedimsop` builds, spaces included. Under `conj` that dualizes every space.
             ref = TensorAlgebra.permutedimsop(op, t, pc, pd)
-            if TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, style, op, t, pc, pd)
+            if TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, op, t, pc, pd)
                 @test op === identity # only the identity op can hand back `t` itself
-                @test TensorAlgebra.matricizeopview(style, op, t, pc, pd) === t
+                @test TensorAlgebra.matricizeopview(op, t, pc, pd) === t
             end
-            m_copy = TensorAlgebra.matricizeopcopy(style, op, t, pc, pd)
+            m_copy = TensorAlgebra.matricizeopcopy(op, t, pc, pd)
             @test m_copy !== t
             @test TensorAlgebra.data(m_copy) !== TensorAlgebra.data(t)
             @test space(m_copy) == space(ref)
@@ -385,16 +378,14 @@ using Test: @test, @test_throws, @testset
         end
         # Only the split TensorKit already stores is a view. A regrouped one has to be built.
         @test TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop, style, identity, t, (1, 2), (3,)
+            TensorAlgebra.matricizeop, identity, t, (1, 2), (3,)
         )
         @test !TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop, style, identity, t, (1, 3), (2,)
+            TensorAlgebra.matricizeop, identity, t, (1, 3), (2,)
         )
 
         dest = similar(t)
-        @test TensorAlgebra.unmatricize!(
-            style, dest, matricize(style, t, (1, 2), (3,)), Val(2)
-        ) === dest
+        @test TensorAlgebra.unmatricize!(dest, matricize(t, (1, 2), (3,)), Val(2)) === dest
         @test dest ≈ t
     end
 
