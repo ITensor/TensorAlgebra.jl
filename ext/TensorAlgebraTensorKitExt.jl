@@ -241,14 +241,12 @@ end
 # A `TensorMap` is already a linear map codomain ← domain, so "matricizing" is just regrouping
 # its indices into the requested codomain/domain bipartition (`permute`). No fusion or copy of
 # the array vocabulary is needed: MatrixAlgebraKit factorizes the regrouped `TensorMap` directly.
-struct TensorKitMatricize <: TensorAlgebra.MatricizeStyle end
-TensorAlgebra.MatricizeStyle(::Type{<:AbstractTensorMap}) = TensorKitMatricize()
 
 # `permute` at the tensor's own codomain/domain split is trivial and returns `t` itself, so that
 # split is the one memory-sharing matricization (TensorKit's own `has_shared_permute` notion). Any
 # other split, or a folded `conj`, regroups into a fresh `TensorMap`.
 function TensorAlgebra.is_output_view(
-        ::typeof(TensorAlgebra.matricizeop), ::TensorKitMatricize, op,
+        ::typeof(TensorAlgebra.matricizeop), op,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return op === identity &&
@@ -256,7 +254,7 @@ function TensorAlgebra.is_output_view(
         length(perm_codomain) == numout(t)
 end
 function TensorAlgebra.matricizeopview(
-        ::TensorKitMatricize, op, t::AbstractTensorMap, perm_codomain, perm_domain
+        op, t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return t
 end
@@ -265,7 +263,7 @@ end
 # `op === conj`, which is what `bipermutedimsopadd!` needs: `tensoradd!` realizes a conjugation
 # by adjointing its source, so a destination over the undualized space does not match it.
 function TensorAlgebra.allocate_output(
-        ::typeof(TensorAlgebra.matricizeop), ::TensorKitMatricize, op,
+        ::typeof(TensorAlgebra.matricizeop), op,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return TensorAlgebra.allocate_output(
@@ -273,7 +271,7 @@ function TensorAlgebra.allocate_output(
     )
 end
 function TensorAlgebra.matricizeop!(
-        dest::AbstractTensorMap, ::TensorKitMatricize, op,
+        dest::AbstractTensorMap, op,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return TensorAlgebra.bipermutedimsopadd!(
@@ -285,9 +283,7 @@ end
 # MatrixAlgebraKit, so the identity fill on a regrouped `TensorMap` goes through TensorKit.
 TensorAlgebra.MatrixAlgebra.one!(t::AbstractTensorMap) = TensorKit.one!(t)
 
-function TensorAlgebra.unmatricize(
-        ::TensorKitMatricize, m::AbstractTensorMap, axes_codomain, axes_domain
-    )
+function TensorAlgebra.unmatricize(m::AbstractTensorMap, axes_codomain, axes_domain)
     S = spacetype(m)
     dest = ProductSpace{S}(axes_codomain...) ← ProductSpace{S}(axes_domain...)
     space(m) == dest ||

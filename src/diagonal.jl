@@ -1,6 +1,6 @@
 using LinearAlgebra: Diagonal
 
-# `Diagonal` participates in the `ReshapeMatricize` interface like a dense matrix (it fuses with
+# `Diagonal` matricizes through the dense reshape hooks like any other matrix (it fuses with
 # the same row/column reshape order), but its structure is preserved wherever the result of
 # an operation is still diagonal. These methods hook the lowest-level primitives, so the
 # convenience wrappers built on them (`bipermutedims`, `permutedimsadd!`, `add!`, and the
@@ -43,9 +43,15 @@ end
 
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
 # reshape, so the memory-sharing matricization is `a` itself (keeping it a `Diagonal` for the
-# `Diagonal`-specialized consumers downstream).
+# `Diagonal`-specialized consumers downstream). Any other split densifies through the copy path.
+function is_output_view(
+        ::typeof(matricizeop), op, a::Diagonal, perm_codomain::Tuple{Int},
+        perm_domain::Tuple{Int}
+    )
+    return op === identity && isidentitybiperm(perm_codomain, perm_domain)
+end
 function matricizeopview(
-        ::ReshapeMatricize, op, a::Diagonal, perm_codomain::Tuple{Int}, perm_domain::Tuple{Int}
+        op, a::Diagonal, perm_codomain::Tuple{Int}, perm_domain::Tuple{Int}
     )
     return a
 end
@@ -53,7 +59,7 @@ end
 # result stays `Diagonal`, so return `m` directly. The generic `check_input(unmatricize, ...)`
 # validates the axis lengths against `m`'s size.
 function unmatricize(
-        ::ReshapeMatricize, m::Diagonal,
+        m::Diagonal,
         axes_codomain::Tuple{<:AbstractUnitRange}, axes_domain::Tuple{<:AbstractUnitRange}
     )
     check_input(unmatricize, m, axes_codomain, axes_domain)
@@ -63,10 +69,8 @@ end
 # result is not representable as a `Diagonal`, so densify and reshape like a dense matrix.
 # `copyto!(similar(m, axes(m)), m)` densifies while preserving `m`'s array backend (a plain
 # `Array` would force the result onto the CPU).
-function unmatricize(
-        style::ReshapeMatricize, m::Diagonal, axes_codomain::Tuple, axes_domain::Tuple
-    )
-    return unmatricize(style, copyto!(similar(m, axes(m)), m), axes_codomain, axes_domain)
+function unmatricize(m::Diagonal, axes_codomain::Tuple, axes_domain::Tuple)
+    return unmatricize(copyto!(similar(m, axes(m)), m), axes_codomain, axes_domain)
 end
 
 # Contracting two `Diagonal`s to a `{1,1}` destination is the matmul/endomorphism pattern

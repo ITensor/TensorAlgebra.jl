@@ -30,6 +30,12 @@ function TA.contractpermopadd!(
         op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
+    TA.check_input(
+        TA.contract!,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain
+    )
     permblocks1 = Tuple.((perm1_codomain, perm1_domain))
     permblocks2 = Tuple.((perm2_codomain, perm2_domain))
     permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))

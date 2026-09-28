@@ -36,48 +36,19 @@ const MATRIX_FUNCTIONS = [
 # the eager `bipermutedims` copy at the identity bipermutation.
 for f in MATRIX_FUNCTIONS
     @eval begin
-        function $f(style::MatricizeStyle, a, ndims_codomain::Val; kwargs...)
-            return $f(
-                style, a, identitybiperm(ndims_codomain, Val(ndims(a)))...; kwargs...
-            )
-        end
         function $f(a, ndims_codomain::Val; kwargs...)
-            return $f(MatricizeStyle(a), a, ndims_codomain; kwargs...)
+            return $f(a, identitybiperm(ndims_codomain, Val(ndims(a)))...; kwargs...)
         end
-
-        function $f(
-                style::MatricizeStyle, a,
-                perm_codomain, perm_domain;
-                kwargs...
-            )
-            a_mat = matricize(style, a, perm_codomain, perm_domain)
+        function $f(a, perm_codomain, perm_domain; kwargs...)
+            a_mat = matricize(a, perm_codomain, perm_domain)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(a, i), (perm_codomain..., perm_domain...)),
                 Val(length(perm_codomain))
             )
             fa_mat = Base.$f(a_mat; kwargs...)
-            return unmatricize(style, fa_mat, axes_codomain, axes_domain)
+            return unmatricize(fa_mat, axes_codomain, axes_domain)
         end
-        function $f(
-                a,
-                perm_codomain, perm_domain;
-                kwargs...
-            )
-            return $f(MatricizeStyle(a), a, perm_codomain, perm_domain; kwargs...)
-        end
-
-        function $f(
-                style::MatricizeStyle, a,
-                labels_a, labels_codomain, labels_domain; kwargs...
-            )
-            perm_codomain, perm_domain =
-                biperm(Tuple.((labels_a, labels_codomain, labels_domain))...)
-            return $f(style, a, perm_codomain, perm_domain; kwargs...)
-        end
-        function $f(
-                a,
-                labels_a, labels_codomain, labels_domain; kwargs...
-            )
+        function $f(a, labels_a, labels_codomain, labels_domain; kwargs...)
             perm_codomain, perm_domain =
                 biperm(Tuple.((labels_a, labels_codomain, labels_domain))...)
             return $f(a, perm_codomain, perm_domain; kwargs...)

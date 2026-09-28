@@ -32,8 +32,8 @@ using Test: @test, @testset
                 :is_output_view,
                 :is_projected, :isidentitybiperm, :label_type, :left_null, :left_orth,
                 :left_polar, :LinearBroadcasted, :linearbroadcasted, :lq_compact,
-                :lq_full, :matricize, :MatricizeContract, :matricizeop, :matricizeop!,
-                :matricizeopcopy, :matricizeopview, :MatricizeStyle, :MATRIX_FUNCTIONS,
+                :lq_full, :matricize, :MatricizeContract, :matricizeop,
+                :matricizeop!, :matricizeopcopy, :matricizeopview, :MATRIX_FUNCTIONS,
                 :ndims, :ndims_codomain, :ndims_domain, :one, :ones_map, :operation,
                 :output_axes,
                 :PermutedDims, :permuteddims, :permutedims, :permutedims!,
@@ -45,7 +45,8 @@ using Test: @test, @testset
                 :svd_trunc, :svd_vals, :TensorOperationsContract, :to_range, :tr,
                 :trivialrange, :tryflattenlinear, :tryproject, :tryproject_aux,
                 :unchecked_project, :unchecked_project_aux, :ungrade, :unmatricize,
-                :unmatricize!, :unmatricize_factors, :unproject, :unscaled, :zero!,
+                :unmatricize!, :unmatricize_factors, :unmatricizeadd!, :unproject,
+                :unscaled, :zero!,
                 :zeros_map,
             ]
         )
