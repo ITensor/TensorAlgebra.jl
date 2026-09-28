@@ -32,7 +32,7 @@ using Test: @test, @testset
                 :is_output_view,
                 :is_projected, :isidentitybiperm, :label_type, :left_null, :left_orth,
                 :left_polar, :LinearBroadcasted, :linearbroadcasted, :lq_compact,
-                :lq_full, :matricize, :matricize_inputs, :MatricizeContract, :matricizeop,
+                :lq_full, :matricize, :MatricizeContract, :matricizeop,
                 :matricizeop!, :matricizeopcopy, :matricizeopview, :MATRIX_FUNCTIONS,
                 :ndims, :ndims_codomain, :ndims_domain, :one, :ones_map, :operation,
                 :output_axes,

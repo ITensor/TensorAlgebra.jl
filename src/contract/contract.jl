@@ -211,12 +211,8 @@ function contractpermopadd!(
         α::Number, β::Number;
         alg = nothing
     )
-    check_input(
-        contract!,
-        a_dest, perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
-    )
+    # Input validation belongs to the algorithm's kernel below, which is a public rung callable
+    # directly, so this entry only selects and dispatches.
     algorithm = select_algorithm(contract!, alg, (a_dest, a1, a2))
     return contractpermopadd!(
         algorithm,

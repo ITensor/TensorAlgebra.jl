@@ -1,20 +1,11 @@
 using LinearAlgebra: mul!
 
-# The kernel's one seam where a backend prepares both operands together: GradedArrays twists
-# the right factor of a fermionic contraction before matricizing it. Keyed on the rung whose
-# arguments these are, and given the algorithm so a variant of the matricized kernel can
-# dispatch on it.
-function matricize_inputs(
-        ::typeof(contractpermopadd!), ::MatricizeContract,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain
-    )
-    return matricizeop(op1, a1, perm1_codomain, perm1_domain),
-        matricizeop(op2, a2, perm2_codomain, perm2_domain)
-end
-
+# The matricized kernel for arrays whose matricization is a plain fold: matricize both operands,
+# multiply, and write the product into the destination's matricization. An array family whose
+# contraction needs more than the fold (a fermionic twist, a block-sparse product) owns its own
+# `ContractAlgorithm` and `contractpermopadd!` method rather than hooking into this one.
 function contractpermopadd!(
-        algorithm::MatricizeContract,
+        ::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
         op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,
         op2, a2::AbstractArray, biperm2_codomain, biperm2_domain,
@@ -29,11 +20,8 @@ function contractpermopadd!(
         a1, biperm1_codomain, biperm1_domain,
         a2, biperm2_codomain, biperm2_domain
     )
-    a1_mat, a2_mat = matricize_inputs(
-        contractpermopadd!, algorithm,
-        op1, a1, biperm1_codomain, biperm1_domain,
-        op2, a2, biperm2_codomain, biperm2_domain
-    )
+    a1_mat = matricizeop(op1, a1, biperm1_codomain, biperm1_domain)
+    a2_mat = matricizeop(op2, a2, biperm2_codomain, biperm2_domain)
     if is_output_view(matricizeop, identity, a_dest, invperm_codomain, invperm_domain)
         # The matricization shares `a_dest`'s memory, so the matmul is the whole operation.
         a_dest_mat = matricizeopview(identity, a_dest, invperm_codomain, invperm_domain)

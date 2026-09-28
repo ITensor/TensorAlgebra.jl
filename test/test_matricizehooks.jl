@@ -1,5 +1,5 @@
 using LinearAlgebra: I
-using TensorAlgebra: TensorAlgebra as TA, MatricizeContract, matricize
+using TensorAlgebra: TensorAlgebra as TA, MatricizeContract
 using Test: @test, @testset
 
 module MatricizeHooksTestUtils
@@ -40,17 +40,6 @@ using .MatricizeHooksTestUtils: MyArray
         MatricizeContract()
     @test TA.default_algorithm(TA.contract!, Tuple{typeof(a2), typeof(a2), typeof(a2)}) ≡
         MatricizeContract()
-end
-
-@testset "matricize_inputs matricizes both operands" begin
-    a1 = randn(2, 3)
-    a2 = randn(3, 4)
-    a1_mat, a2_mat = TA.matricize_inputs(
-        TA.contractpermopadd!, MatricizeContract(),
-        identity, a1, (1,), (2,), identity, a2, (1,), (2,)
-    )
-    @test a1_mat == matricize(a1, (1,), (2,))
-    @test a2_mat == matricize(a2, (1,), (2,))
 end
 
 @testset "the hooks thread through the unfold" begin
