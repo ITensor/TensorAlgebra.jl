@@ -23,8 +23,10 @@ module MatricizeHooksTestUtils
     function TA.matricizeop!(dest, op, a::MyArray, perm_codomain, perm_domain)
         return TA.matricizeop!(dest, op, a.parent, perm_codomain, perm_domain)
     end
-    function TA.unmatricize!(a_dest::MyArray, m, perm_codomain, perm_domain)
-        TA.unmatricize!(a_dest.parent, m, perm_codomain, perm_domain)
+    function TA.unmatricizeadd!(
+            a_dest::MyArray, m, perm_codomain, perm_domain, α::Number, β::Number
+        )
+        TA.unmatricizeadd!(a_dest.parent, m, perm_codomain, perm_domain, α, β)
         return a_dest
     end
 end

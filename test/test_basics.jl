@@ -2,7 +2,7 @@ import TensorAlgebra
 using StableRNGs: StableRNG
 using TensorAlgebra: BiTuple, ContractAlgorithm, bipermutedims, bipermutedims!, contract,
     contract!, contractadd!, contractalign, length_codomain, length_domain, matricize,
-    unmatricize, unmatricize!
+    unmatricize, unmatricize!, unmatricizeadd!
 using TensorOperations: TensorOperations
 using Test: @test, @test_broken, @test_throws, @testset
 
@@ -145,6 +145,16 @@ TensorAlgebra.label_type(::Type{OptInLabel}) = Int
         a = similar(a1)
         unmatricize!(a, m, invperm_codomain, invperm_domain)
         @test a ≈ a1
+
+        # `unmatricizeadd!` accumulates during the scatter; `unmatricize!` is its `(1, 0)` case.
+        α, β = elt(2), elt(-3)
+        a = randn(elt, size(a1))
+        a_expected = α * a1 + β * a
+        unmatricizeadd!(a, m, invperm_codomain, invperm_domain, α, β)
+        @test a ≈ a_expected
+        a = fill(elt(NaN), size(a1))
+        unmatricizeadd!(a, m, invperm_codomain, invperm_domain, α, false)
+        @test a ≈ α * a1
 
         a = unmatricize(reshape(a0, 1, 120), (), axes0)
         @test eltype(a) === elt

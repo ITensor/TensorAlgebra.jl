@@ -38,20 +38,13 @@ function contractpermopadd!(
         # The matricization shares `a_dest`'s memory, so the matmul is the whole operation.
         a_dest_mat = matricizeopview(identity, a_dest, invperm_codomain, invperm_domain)
         mul!(a_dest_mat, a1_mat, a2_mat, α, β)
-    elseif iszero(β)
-        # `β` is a strong zero, so `a_dest`'s current data is irrelevant: let the matmul
-        # allocate its matrix result and scatter it into `a_dest`. Every coupled-sector block
-        # is materialized (the matmul zeros the ones it does not reach), so the scatter
-        # overwrites `a_dest` in full.
-        a_dest_mat = a1_mat * a2_mat
-        isone(α) || scale!(a_dest_mat, α)
-        unmatricize!(a_dest, a_dest_mat, invperm_codomain, invperm_domain)
     else
-        # `a_dest`'s data contributes through `β`, so gather it, multiply into the gathered
-        # copy, and scatter back.
-        a_dest_mat = matricizeopcopy(identity, a_dest, invperm_codomain, invperm_domain)
-        mul!(a_dest_mat, a1_mat, a2_mat, α, β)
-        unmatricize!(a_dest, a_dest_mat, invperm_codomain, invperm_domain)
+        # Let the matmul allocate its matrix result and scatter it into `a_dest` with `α` and `β`
+        # folded into the one permuted pass, so `a_dest` is never gathered. Every coupled-sector
+        # block is materialized (the matmul zeros the ones it does not reach), so the scatter
+        # reaches `a_dest` in full.
+        a_dest_mat = a1_mat * a2_mat
+        unmatricizeadd!(a_dest, a_dest_mat, invperm_codomain, invperm_domain, α, β)
     end
     return a_dest
 end

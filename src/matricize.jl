@@ -176,15 +176,17 @@ function bipartition_axes(t::Tuple, split...)
     return axes_codomain, conj.(axes_domain)
 end
 
+# `a_dest = β * a_dest + α * unmatricize(m)`, scattered across the bipermutation in one pass.
 # The bipermutation maps the destination's dimension order to the matrix's: `axes(a_dest)` grouped
 # by it gives the legs in `m`'s order, and the result is permuted back by its inverse. It is not
 # intrinsically an inverse permutation — the matricized-contraction destination path happens to
 # derive it as `invperm(biperm_dest)`, while a `matricize`/`unmatricize!` round trip passes
 # the same forward bipermutation to both. Dispatched on `a_dest`: a wrapper type scatters into its
-# parent by overloading this form.
-function unmatricize!(
+# parent by overloading this form, and `unmatricize!` is the `(1, 0)` case.
+function unmatricizeadd!(
         a_dest, m,
-        perm_codomain, perm_domain
+        perm_codomain, perm_domain,
+        α::Number, β::Number
     )
     biperm_src = BiTuple(perm_codomain, perm_domain)
     ndims(a_dest) == length(biperm_src) ||
@@ -192,7 +194,19 @@ function unmatricize!(
     axes_codomain, axes_domain = bipartition_axes(axes(a_dest), biperm_src)
     a_perm = unmatricize(m, axes_codomain, axes_domain)
     biperm_dest = BiTuple(Tuple(invperm(biperm_src)), Val(length_codomain(biperm_src)))
-    return bipermutedims!(a_dest, a_perm, biperm_dest)
+    return bipermutedimsopadd!(
+        a_dest,
+        identity,
+        a_perm,
+        biperm_dest.t1,
+        biperm_dest.t2,
+        α,
+        β
+    )
+end
+
+function unmatricize!(a_dest, m, perm_codomain, perm_domain)
+    return unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, true, false)
 end
 
 # In-place counterpart of `unmatricize`:
@@ -204,13 +218,13 @@ function unmatricize!(a_dest, m, ndims_codomain::Val)
 end
 
 # ================================  dense (reshape) hooks  ===================================
-# Every `AbstractArray` matricizes by reshaping, but only a `DenseArray` (contiguous storage:
-# `Array`, GPU arrays) declares the reshape a view. A reshape of any other array is a
-# `ReshapedArray` wrapper, which `mul!` cannot hand to BLAS, so the owned copy is the better
-# matricization there; a structured array that is not a reshape at all (a graded array) also
-# needs the fail-safe default. The dense reshape shares memory only when the data is already in
-# codomain-then-domain order and no operation has to be folded in: a reshape can neither reorder
-# nor carry a `conj`.
+# The view must be a matrix that BLAS and LAPACK handle efficiently, not merely one that shares
+# memory. A `DenseArray` (`Array`, GPU arrays) reshapes to one of its own kind, so it declares the
+# view; any other `AbstractArray` reshapes to a `ReshapedArray` wrapper that `mul!` sends to
+# generic matmul, so it takes the owned copy instead and lands on BLAS. The reshape shares memory
+# only when the data is already in codomain-then-domain order and no operation has to be folded
+# in: a reshape can neither reorder nor carry a `conj`. The copy hooks below stay generic, since
+# `similar` plus a permuted add is a correct owned matricization for any permutable array.
 function is_output_view(
         ::typeof(matricizeop), op, a::DenseArray, perm_codomain, perm_domain
     )
