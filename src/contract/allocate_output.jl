@@ -102,3 +102,18 @@ function allocate_output(
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return zero!(similar_map(a1, T, axes_codomain_dest, axes_domain_dest))
 end
+
+# Algorithms that do not allocate differently use the operand-driven method above.
+function allocate_output(
+        ::typeof(contract), algorithm,
+        perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain
+    )
+    return allocate_output(
+        contract,
+        perm_dest_codomain, perm_dest_domain,
+        a1, perm1_codomain, perm1_domain,
+        a2, perm2_codomain, perm2_domain
+    )
+end

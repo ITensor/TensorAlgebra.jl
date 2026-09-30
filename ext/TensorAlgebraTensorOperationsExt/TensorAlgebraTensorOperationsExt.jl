@@ -49,6 +49,22 @@ function TA.contractpermopadd!(
     )
 end
 
+function TA.allocate_output(
+        ::typeof(TA.contract), algorithm::TensorOperationsContract,
+        perm_dest_codomain, perm_dest_domain,
+        a1::StridedArray, perm1_codomain, perm1_domain,
+        a2::StridedArray, perm2_codomain, perm2_domain
+    )
+    T = Base.promote_op(TA.matprod, eltype(a1), eltype(a2))
+    return TO.tensoralloc_contract(
+        T,
+        a1, Tuple.((perm1_codomain, perm1_domain)), false,
+        a2, Tuple.((perm2_codomain, perm2_domain)), false,
+        Tuple.((perm_dest_codomain, perm_dest_domain)),
+        Val(algorithm.temporary), allocator(algorithm)
+    )
+end
+
 # Using TensorAlgebra implementations as TensorOperations backends
 # ----------------------------------------------------------------
 function TO.tensorcontract!(

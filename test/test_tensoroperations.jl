@@ -1,7 +1,7 @@
 using TensorAlgebra:
     ContractAlgorithm, MatricizeContract, TensorOperationsContract, contract, contract!
-using TensorOperations:
-    @tensor, DefaultAllocator, DefaultBackend, ManualAllocator, ncon, tensorcontract
+using TensorOperations: TensorOperations as TO, @tensor, DefaultAllocator, DefaultBackend,
+    ManualAllocator, ncon, tensorcontract
 using Test: @inferred, @test, @testset
 
 @testset "tensorcontract" begin
@@ -156,4 +156,28 @@ end
 
     # `nothing` fields fall back to the TensorOperations defaults.
     @test contract(a1, labels1, a2, labels2; alg = TensorOperationsContract())[1] ≈ ref
+end
+
+# Records every allocation made through it, with its temporary flag.
+struct RecordingAllocator
+    allocations::Vector{Any}
+end
+function TO.tensoralloc(ttype, structure, istemp::Val, alloc::RecordingAllocator)
+    C = TO.tensoralloc(ttype, structure, istemp, TO.DefaultAllocator())
+    push!(alloc.allocations, (C, istemp))
+    return C
+end
+
+@testset "contract allocates its output through the allocator" begin
+    a1, a2 = randn(3, 4, 5), randn(5, 4, 2)
+    ref, = contract(a1, (:i, :j, :k), a2, (:k, :j, :l))
+    for temporary in (false, true)
+        alloc = RecordingAllocator([])
+        alg = TensorOperationsContract(; allocator = alloc, temporary)
+        out, = contract(a1, (:i, :j, :k), a2, (:k, :j, :l); alg)
+        @test out ≈ ref
+        entry = only(filter(e -> e[1] === out, alloc.allocations))
+        @test entry[2] === Val(temporary)
+    end
+    @test TensorOperationsContract(DefaultBackend(), DefaultAllocator()).temporary == false
 end

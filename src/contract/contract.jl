@@ -105,10 +105,10 @@ function contractpermalign(
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
-        kwargs...
+        alg = nothing, kwargs...
     )
     a_dest = allocate_output(
-        contract,
+        contract, alg,
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
@@ -117,7 +117,7 @@ function contractpermalign(
         a_dest, perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
-        kwargs...
+        alg, kwargs...
     )
 end
 
