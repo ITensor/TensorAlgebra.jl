@@ -32,10 +32,10 @@ using Test: @test, @test_throws, @testset
         @test eltype(out) === elt
     end
 
-    @testset "add! accumulates onto a Diagonal" begin
+    @testset "scaleadd! accumulates onto a Diagonal" begin
         dest = Diagonal(elt[1, 1, 1])
-        # `add!(dest, src, α, β)` computes `α * src + β * dest`.
-        TensorAlgebra.add!(dest, d, elt(2), elt(1))
+        # `scaleadd!(dest, src, α, β)` computes `α * src + β * dest`.
+        TensorAlgebra.scaleadd!(dest, d, elt(2), elt(1))
         @test dest isa Diagonal
         @test dest == Diagonal(elt[5, 7, 9])
     end

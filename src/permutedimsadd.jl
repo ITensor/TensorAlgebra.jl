@@ -172,11 +172,11 @@ function permutedimsadd!(
 end
 
 """
-    add!(dest, src, α, β)
+    scaleadd!(dest, src, α, β)
 
 `dest = β * dest + α * src`.
 """
-function add!(dest, src, α::Number, β::Number)
+function scaleadd!(dest, src, α::Number, β::Number)
     return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), α, β)
 end
 
@@ -185,7 +185,7 @@ end
 
 `dest .+= src`.
 """
-add!(dest, src) = add!(dest, src, true, true)
+add!(dest, src) = scaleadd!(dest, src, true, true)
 
 # ---------------------------------------------------------------------------- #
 # permutedims — out-of-place, optional bipartition

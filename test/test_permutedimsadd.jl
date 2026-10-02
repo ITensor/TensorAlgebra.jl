@@ -1,7 +1,7 @@
 using Adapt: adapt
 using JLArrays: JLArray
 using TensorAlgebra: TensorAlgebra, ConjBroadcasted, PermutedDims, add!,
-    bipermutedimsopadd!, permuteddims, permutedimsadd!, permutedimsopadd!
+    bipermutedimsopadd!, permuteddims, permutedimsadd!, permutedimsopadd!, scaleadd!
 using Test: @test, @testset
 
 # A non-`AbstractArray` operand, to check that `permuteddims` falls back to `PermutedDims`.
@@ -10,26 +10,29 @@ struct NotAnArray{P}
 end
 
 @testset "[permutedims]add!" begin
-    @testset "add!(b, a, α, β) (arraytype=$arrayt)" for arrayt in (Array, JLArray)
+    @testset "scaleadd!(b, a, α, β) (arraytype=$arrayt)" for arrayt in (Array, JLArray)
         dev = adapt(arrayt)
         a = dev(randn(2, 2, 2))
         α = 2
         for β in (0, 3)
             b = dev(randn(2, 2, 2))
             b′ = copy(b)
-            add!(b′, a, α, β)
+            scaleadd!(b′, a, α, β)
             @test b′ ≈ β * b + α * a
         end
     end
-    @testset "add!(b, a::PermutedDimsArray, α, β) (arraytype=$arrayt)" for arrayt in
-        (Array, JLArray)
+    @testset "scaleadd!(b, a::PermutedDimsArray, α, β) (arraytype=$arrayt)" for arrayt in
+        (
+            Array,
+            JLArray,
+        )
         dev = adapt(arrayt)
         a = dev(randn(2, 2, 2))
         α = 2
         for β in (0, 3)
             b = dev(randn(2, 2, 2))
             b′ = copy(b)
-            add!(b′, PermutedDimsArray(a, (3, 1, 2)), α, β)
+            scaleadd!(b′, PermutedDimsArray(a, (3, 1, 2)), α, β)
             @test b′ ≈ β * b + α * permutedims(a, (3, 1, 2))
         end
     end
@@ -131,7 +134,7 @@ end
             end
         end
     end
-    @testset "add!(b, ConjBroadcasted(a)) matches eager conj (arraytype=$arrayt)" for arrayt in
+    @testset "scaleadd!(b, ConjBroadcasted(a)) matches eager conj (arraytype=$arrayt)" for arrayt in
         (
             Array,
             JLArray,
@@ -143,8 +146,8 @@ end
             b = dev(randn(ComplexF64, 2, 3, 4))
             b_lazy = copy(b)
             b_eager = copy(b)
-            add!(b_lazy, ConjBroadcasted(a), α, β)
-            add!(b_eager, conj(a), α, β)
+            scaleadd!(b_lazy, ConjBroadcasted(a), α, β)
+            scaleadd!(b_eager, conj(a), α, β)
             @test b_lazy ≈ b_eager
         end
     end
