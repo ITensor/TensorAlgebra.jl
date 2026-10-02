@@ -180,7 +180,7 @@ operation(::Mul) = *
 arguments(a::Mul) = factors(a)
 
 # ---------------------------------------------------------------------------- #
-# Materialization protocol: copy, copyto!, add!
+# Materialization protocol: copy, copyto!, scaleadd!
 # ---------------------------------------------------------------------------- #
 
 function Base.copy(a::LinearBroadcasted)
@@ -191,7 +191,7 @@ function Base.copy(a::Mul)
     return copyto!(similar(a), a)
 end
 
-# copyto! for LinearBroadcasted dispatches to add!.
+# copyto! for LinearBroadcasted dispatches to scaleadd!.
 # Stays `AbstractArray`-bound: these overload `Base.copyto!`, so widening `dest` to `Any`
 # collides with Base's own methods. A non-array destination (e.g. a wrapped `TensorMap`)
 # gets an `AbstractTensorMap`-specific `copyto!` from the backend extension instead.

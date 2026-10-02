@@ -301,10 +301,10 @@ TensorAlgebra.zero!(t::AbstractTensorMap) = VectorInterface.zerovector!(t)
 
 # A `TensorMap` is not an `AbstractArray`, so the generic in-place `TensorAlgebra` operations
 # don't apply. Forward to TensorKit's `VectorInterface` methods, its primary interface for these.
-# `add!` here is the non-permuting `y = α*x + β*y`. The permuting `bipermutedimsopadd!` handles a
+# `scaleadd!` here is the non-permuting `y = α*x + β*y`. The permuting `bipermutedimsopadd!` handles a
 # non-trivial codomain/domain permutation.
 TensorAlgebra.scale!(t::AbstractTensorMap, β::Number) = VectorInterface.scale!(t, β)
-function TensorAlgebra.add!(
+function TensorAlgebra.scaleadd!(
         y::AbstractTensorMap, x::AbstractTensorMap, α::Number, β::Number
     )
     return VectorInterface.add!(y, x, α, β)
@@ -320,7 +320,7 @@ end
 # ==================================  linear-combination broadcast  =========================
 # A `TensorMap` is not an `AbstractArray`, so it needs a `BroadcastStyle` to broadcast lazily
 # (otherwise Base tries to `collect` it). A linear combination flattens (via `tryflattenlinear`)
-# to a `LinearBroadcasted` that materializes through `add!`/`bipermutedimsopadd!` above; the
+# to a `LinearBroadcasted` that materializes through `scaleadd!`/`bipermutedimsopadd!` above; the
 # `copyto!` here is not piracy because `LinearBroadcasted` is TensorAlgebra-owned. Element-wise
 # (nonlinear) broadcast is not a meaningful operation on a symmetric tensor, so it errors rather
 # than dense-converting.
@@ -331,7 +331,7 @@ Base.Broadcast.BroadcastStyle(s::TensorMapStyle, ::Base.Broadcast.BroadcastStyle
 Base.Broadcast.broadcastable(a::AbstractTensorMap) = a
 
 function Base.copyto!(dest::AbstractTensorMap, src::TensorAlgebra.LinearBroadcasted)
-    return TensorAlgebra.add!(dest, src, true, false)
+    return TensorAlgebra.scaleadd!(dest, src, true, false)
 end
 
 # Allocation for a linear-combination `copy`/`copyto!`: seed the result off a `TensorMap` operand
