@@ -161,28 +161,28 @@ using Test: @test, @test_throws, @testset
         @test bc isa BC.Broadcasted
         @test copy(bc) ≈ 2a + conj(b)
     end
-    @testset "add! and copyto! with LinearBroadcasted" begin
+    @testset "scaleadd! and copyto! with LinearBroadcasted" begin
         a = randn(ComplexF64, 3, 3)
         b = randn(ComplexF64, 3, 3)
 
-        # add! with ScaledBroadcasted
+        # scaleadd! with ScaledBroadcasted
         dest = zeros(ComplexF64, 3, 3)
-        TA.add!(dest, linearbroadcasted(*, 2, a), true, false)
+        TA.scaleadd!(dest, linearbroadcasted(*, 2, a), true, false)
         @test dest ≈ 2a
 
-        # add! with AddBroadcasted
+        # scaleadd! with AddBroadcasted
         dest = zeros(ComplexF64, 3, 3)
-        TA.add!(dest, linearbroadcasted(+, a, b), true, false)
+        TA.scaleadd!(dest, linearbroadcasted(+, a, b), true, false)
         @test dest ≈ a + b
 
-        # add! with a ConjBroadcasted
+        # scaleadd! with a ConjBroadcasted
         dest = zeros(ComplexF64, 3, 3)
-        TA.add!(dest, linearbroadcasted(conj, a), true, false)
+        TA.scaleadd!(dest, linearbroadcasted(conj, a), true, false)
         @test dest ≈ conj(a)
 
-        # add! with β accumulation
+        # scaleadd! with β accumulation
         dest = ones(ComplexF64, 3, 3)
-        TA.add!(dest, linearbroadcasted(*, 2, a), 3, 1)
+        TA.scaleadd!(dest, linearbroadcasted(*, 2, a), 3, 1)
         @test dest ≈ ones(ComplexF64, 3, 3) + 6a
     end
     @testset "0-dimensional permutedimsopadd!" begin

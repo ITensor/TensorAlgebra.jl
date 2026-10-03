@@ -18,7 +18,7 @@ Abstract supertype for lazy linear broadcast expressions. Analogous to
 
 Materializes via the protocol:
 copy(lb) = copyto!(similar(lb), lb)
-copyto!(dest, lb) → add!(dest, lb, 1, 0)
+copyto!(dest, lb) → scaleadd!(dest, lb, 1, 0)
 """
 abstract type LinearBroadcasted end
 
@@ -180,7 +180,7 @@ operation(::Mul) = *
 arguments(a::Mul) = factors(a)
 
 # ---------------------------------------------------------------------------- #
-# Materialization protocol: copy, copyto!, add!
+# Materialization protocol: copy, copyto!, scaleadd!
 # ---------------------------------------------------------------------------- #
 
 function Base.copy(a::LinearBroadcasted)
@@ -191,12 +191,12 @@ function Base.copy(a::Mul)
     return copyto!(similar(a), a)
 end
 
-# copyto! for LinearBroadcasted dispatches to add!.
+# copyto! for LinearBroadcasted dispatches to scaleadd!.
 # Stays `AbstractArray`-bound: these overload `Base.copyto!`, so widening `dest` to `Any`
 # collides with Base's own methods. A non-array destination (e.g. a wrapped `TensorMap`)
 # gets an `AbstractTensorMap`-specific `copyto!` from the backend extension instead.
 function Base.copyto!(dest::AbstractArray, src::LinearBroadcasted)
-    return add!(dest, src, true, false)
+    return scaleadd!(dest, src, true, false)
 end
 
 # copyto! for Mul dispatches to mul!. Materialize factors first since
