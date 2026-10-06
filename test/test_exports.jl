@@ -44,7 +44,7 @@ using Test: @test, @testset
                 :similar_map,
                 :size, :sqrth_invsqrth_safe, :sqrth_safe, :sum, :svd_compact, :svd_full,
                 :svd_trunc, :svd_vals, :TensorOperationsContract, :to_range, :tr,
-                :trivialrange, :tryflattenlinear, :tryproject, :tryproject_aux,
+                :trivialrange, :tryflattenlinear, :tryproject, :tryproject_aux, :twist!,
                 :unchecked_project, :unchecked_project_aux, :ungrade, :unmatricize,
                 :unmatricize!, :unmatricize_factors, :unmatricizeadd!, :unproject,
                 :unscaled, :zero!,
