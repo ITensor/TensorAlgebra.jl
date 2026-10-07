@@ -10,7 +10,7 @@ The first argument is conjugated, following `LinearAlgebra.dot`.
 Both operands are matricized with the codomain/domain split of `a`, then paired using
 `LinearAlgebra.dot` on their native matrix representations.
 
-See also [`matricize`](@ref) and [`ndims_codomain`](@ref).
+See also [`dot`](@ref).
 """
 function dotperm(a, b, perm)
     perm = Tuple(perm)
