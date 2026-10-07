@@ -11,11 +11,11 @@ using Test: @test, @test_throws, @testset
     b = randn(rng, elt, 3, 4, 2)
     @test dotperm(a, a, (1, 2, 3)) ≈ norm(a)^2
     @test dotperm(a, b, (3, 1, 2)) ≈ dot(a, permutedims(b, (3, 1, 2)))
-    @test dotperm(a, b, (3, 1, 2), ()) ≈ dot(a, permutedims(b, (3, 1, 2)))
+    @test dotperm(a, b, [3, 1, 2]) ≈ dot(a, permutedims(b, (3, 1, 2)))
     @test dotperm(im * a, b, (3, 1, 2)) ≈ -im * dotperm(a, b, (3, 1, 2))
-    @test_throws ArgumentError dotperm(a, b, (3, 1), ())
-    @test_throws ArgumentError dotperm(a, b, (3, 1, 1), ())
-    @test_throws ArgumentError dotperm(a, b, (3, 1), (2,))
+    @test_throws ArgumentError dotperm(a, b, (3, 1))
+    @test_throws ArgumentError dotperm(a, b, (3, 1, 1))
+    @test_throws ArgumentError dotperm(a, b, (3, 1, 4))
     @test_throws DimensionMismatch dotperm(a, zeros(elt, 3, 4, 3), (3, 1, 2))
     @test dotperm(fill(elt(2)), fill(elt(3)), ()) == 6
 end
@@ -27,10 +27,10 @@ end
     V = sector === U₁ ? Rep[U₁](0 => 2, 1 => 1) : Rep[SU₂](0 => 2, 1 // 2 => 1)
     a = randn(rng, elt, V ⊗ V ← V)
     b = randn(rng, elt, V ⊗ V ← V)
-    @test dotperm(a, a, (1, 2), (3,)) ≈ norm(a)^2
-    @test dotperm(a, b, (1, 2), (3,)) ≈ dot(a, b)
-    @test dotperm(a, b, (2, 1), (3,)) ≈ dot(a, TensorKit.permute(b, ((2, 1), (3,))))
-    @test_throws ArgumentError dotperm(a, b, (1, 2, 3))
+    @test dotperm(a, a, (1, 2, 3)) ≈ norm(a)^2
+    @test dotperm(a, b, (1, 2, 3)) ≈ dot(a, b)
+    @test dotperm(a, b, (2, 1, 3)) ≈ dot(a, TensorKit.permute(b, ((2, 1), (3,))))
+    @test_throws ArgumentError dotperm(a, b, (1, 2))
 end
 
 @testset "dotperm fermionic TensorKit rebasing" begin
@@ -38,11 +38,19 @@ end
     V = Vect[FermionParity](0 => 2, 1 => 2)
     a = randn(rng, ComplexF64, V ⊗ V ← V)
     b = randn(rng, ComplexF64, V ⊗ V ← V)
-    @test dotperm(a, b, (2, 1), (3,)) ≈ dot(a, TensorKit.permute(b, ((2, 1), (3,))))
+    @test dotperm(a, b, (2, 1, 3)) ≈ dot(a, TensorKit.permute(b, ((2, 1), (3,))))
     b_rebased = TensorKit.permute(b, ((1,), (2, 3)))
-    @test dotperm(a, b_rebased, (1, 2), (3,)) ≈ dot(a, b)
+    @test dotperm(a, b_rebased, (1, 2, 3)) ≈ dot(a, b)
     a_rebased = TensorKit.permute(a, ((1,), (2, 3)))
-    @test dotperm(a, a_rebased, (1, 2), (3,)) ≈ norm(a)^2
+    @test dotperm(a, a_rebased, (1, 2, 3)) ≈ norm(a)^2
+    for n in 0:3
+        pc, pd = Tuple(1:n), Tuple((n + 1):3)
+        a_split = TensorKit.permute(a, (pc, pd))
+        b_split = TensorKit.permute(b, (pc, pd))
+        @test dotperm(a_split, b_rebased, (1, 2, 3)) ≈ dot(a_split, b_split)
+    end
+    b_permuted = TensorKit.permute(b, ((2,), (1, 3)))
+    @test dotperm(a, b_permuted, (2, 1, 3)) ≈ dot(a, b)
 end
 
 @testset "labeled dot" begin

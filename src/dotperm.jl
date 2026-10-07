@@ -2,29 +2,20 @@ using LinearAlgebra: LinearAlgebra
 
 """
     dotperm(a, b, perm)
-    dotperm(a, b, perm_codomain, perm_domain)
 
 Compute the inner product of `a` with `b` after aligning the dimensions of `b`.
 The first argument is conjugated, following `LinearAlgebra.dot`.
 
-The groups `perm_codomain` and `perm_domain` must partition the dimensions of `b`,
-with `length(perm_codomain) == ndims_codomain(a)`. Both operands are matricized
-with the codomain/domain split of `a`, then paired using `LinearAlgebra.dot`
-on their native matrix representations. The three-argument form uses an empty domain.
+`perm` must be a permutation of the dimensions of `b`, bringing them into the order of `a`.
+Both operands are matricized with the codomain/domain split of `a`, then paired using
+`LinearAlgebra.dot` on their native matrix representations.
 
 See also [`matricize`](@ref) and [`ndims_codomain`](@ref).
 """
 function dotperm(a, b, perm)
-    return dotperm(a, b, perm, ())
-end
-
-function dotperm(a, b, perm_codomain, perm_domain)
-    check_biperm(b, perm_codomain, perm_domain)
-    length(perm_codomain) == ndims_codomain(a) || throw(
-        ArgumentError(
-            "The codomain permutation must match the codomain dimension count of the first operand"
-        )
-    )
+    perm = Tuple(perm)
+    check_biperm(b, perm, ())
+    perm_codomain, perm_domain = bipartition(perm, Val(ndims_codomain(a)))
     return LinearAlgebra.dot(
         matricize(a, Val(ndims_codomain(a))), matricize(b, perm_codomain, perm_domain)
     )
@@ -61,5 +52,5 @@ function dot(a, labels_a, b, labels_b)
     allunique(labels_a) && allunique(labels_b) && issetequal(labels_a, labels_b) ||
         throw(ArgumentError("Inner product labels must be unique and matching"))
     perm = map(label -> something(findfirst(isequal(label), labels_b)), labels_a)
-    return dotperm(a, b, bipartition(perm, Val(ndims_codomain(a)))...)
+    return dotperm(a, b, perm)
 end
