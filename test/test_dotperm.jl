@@ -18,6 +18,7 @@ using Test: @test, @test_throws, @testset
     @test_throws ArgumentError dotperm(a, b, [3, 1, 2, 4])
     @test_throws ArgumentError dotperm(a, b, (3, 1, 1))
     @test_throws ArgumentError dotperm(a, b, (3, 1, 4))
+    @test_throws ArgumentError dotperm(a, vec(b), (3, 1, 2))
     @test_throws DimensionMismatch dotperm(a, zeros(elt, 3, 4, 3), (3, 1, 2))
     @test_throws DimensionMismatch dotperm(a, zeros(elt, 4, 3, 2), (3, 1, 2))
     @test dotperm(fill(elt(2)), fill(elt(3)), ()) == 6

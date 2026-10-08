@@ -28,13 +28,11 @@ function dotperm(a, b, perm)
 end
 
 function check_input(::typeof(dotperm), a, b, perm)
-    length(perm) == ndims(a) ||
+    ndims(a) == length(perm) == ndims(b) ||
         throw(
-        ArgumentError(
-            "Permutation length must match the first operand's dimension count"
-        )
+        ArgumentError("Permutation length must match both operands' dimension counts")
     )
-    check_biperm(b, perm, ())
+    isperm(perm) || throw(ArgumentError("Invalid dimension permutation"))
     for i in 1:ndims(a)
         axes(a, i) == axes(b, perm[i]) || throw(
             DimensionMismatch(
