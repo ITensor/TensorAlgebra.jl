@@ -5,7 +5,7 @@ using LinearAlgebra: LinearAlgebra
 
 Compute the inner product of `a` and `b` after applying the full dimension permutation
 `perm` to `b`, using the codomain/domain split of `a`.
-The aligned axes must match: `axes(a, i) == axes(b, perm[i])`.
+The permuted axes must match: `axes(a, i) == axes(b, perm[i])`.
 
 # Examples
 
