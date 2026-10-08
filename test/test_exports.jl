@@ -39,7 +39,7 @@ using Test: @test, @testset
                 :output_axes,
                 :PermutedDims, :permuteddims, :permutedims, :permutedims!,
                 :permutedimsadd!, :permutedimsop, :permutedimsopadd!, :project,
-                :project!, :project_aux, :project_hermitian, :projectto!, :qr_compact,
+                :project!, :project_aux, :project_hermitian, :projectto!, :qr_compact, :qr_compact!,
                 :qr_full, :rand_map, :randn_map, :right_null, :right_orth, :right_polar,
                 :scalar, :scale!, :scaleadd!, :ScaledBroadcasted, :select_algorithm,
                 :similar_map,
