@@ -14,9 +14,12 @@ using Test: @test, @test_throws, @testset
     @test dotperm(a, b, [3, 1, 2]) ≈ dot(a, permutedims(b, (3, 1, 2)))
     @test dotperm(im * a, b, (3, 1, 2)) ≈ -im * dotperm(a, b, (3, 1, 2))
     @test_throws ArgumentError dotperm(a, b, (3, 1))
+    @test_throws ArgumentError dotperm(a, b, [3, 1])
+    @test_throws ArgumentError dotperm(a, b, [3, 1, 2, 4])
     @test_throws ArgumentError dotperm(a, b, (3, 1, 1))
     @test_throws ArgumentError dotperm(a, b, (3, 1, 4))
     @test_throws DimensionMismatch dotperm(a, zeros(elt, 3, 4, 3), (3, 1, 2))
+    @test_throws DimensionMismatch dotperm(a, zeros(elt, 4, 3, 2), (3, 1, 2))
     @test dotperm(fill(elt(2)), fill(elt(3)), ()) == 6
 end
 
@@ -67,6 +70,12 @@ end
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :i, :k), b, (:j, :k, :i))
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :j, :k), b, (:j, :j, :i))
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :j, :k), b, (:j, :k, :l))
+    @test_throws DimensionMismatch TensorAlgebra.dot(
+        a,
+        (:i, :j, :k),
+        zeros(ComplexF64, 4, 3, 2),
+        (:j, :k, :i)
+    )
     @test TensorAlgebra.dot([1 2; 3 4], (:i, :j), [5 6; 7 8], (:j, :i)) == 69
 end
 
