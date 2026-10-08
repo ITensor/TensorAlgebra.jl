@@ -66,6 +66,8 @@ end
     @test TensorAlgebra.dot(a, [10, 20, 30], b, [20, 30, 10]) ≈ expected
     @test TensorAlgebra.dot(im * a, (:i, :j, :k), b, (:j, :k, :i)) ≈ -im * expected
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :j), b, (:j, :k, :i))
+    @test_throws ArgumentError TensorAlgebra.dot(a, [10, 20], b, [20, 30, 10])
+    @test_throws ArgumentError TensorAlgebra.dot(a, [10, 20, 30], b, [20, 30, 10, 40])
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :j, :k), b, (:j, :k))
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :i, :k), b, (:j, :k, :i))
     @test_throws ArgumentError TensorAlgebra.dot(a, (:i, :j, :k), b, (:j, :j, :i))

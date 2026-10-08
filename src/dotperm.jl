@@ -67,12 +67,14 @@ julia> TensorAlgebra.dot(a, (:i, :j), b, (:j, :i))
 See also [`dotperm`](@ref) and [`matricize`](@ref).
 """
 function dot(a, labels_a, b, labels_b)
-    labels_a, labels_b = Tuple(labels_a), Tuple(labels_b)
     length(labels_a) == ndims(a) && length(labels_b) == ndims(b) ||
         throw(ArgumentError("Each operand must have one label per dimension"))
-    allunique(labels_a) && allunique(labels_b) && issetequal(labels_a, labels_b) ||
+    labels_a_tuple = NTuple{ndims(a)}(labels_a)
+    labels_b_tuple = NTuple{ndims(b)}(labels_b)
+    allunique(labels_a_tuple) && allunique(labels_b_tuple) &&
+        issetequal(labels_a_tuple, labels_b_tuple) ||
         throw(ArgumentError("Inner product labels must be unique and matching"))
-    labels_codomain, labels_domain = bipartition(labels_a, Val(ndims_codomain(a)))
-    perm_codomain, perm_domain = biperm(labels_b, labels_codomain, labels_domain)
+    labels_codomain, labels_domain = bipartition(labels_a_tuple, Val(ndims_codomain(a)))
+    perm_codomain, perm_domain = biperm(labels_b_tuple, labels_codomain, labels_domain)
     return dotperm(a, b, (perm_codomain..., perm_domain...))
 end
