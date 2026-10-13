@@ -1,8 +1,9 @@
 using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, norm
 using MatrixAlgebraKit: truncrank
 using TensorAlgebra: TensorAlgebra, contract, contractalign, eig_full, eig_vals, eigh_full,
-    eigh_vals, left_null, left_orth, left_polar, lq_compact, lq_full, qr_compact, qr_full,
-    right_null, right_orth, right_polar, svd_compact, svd_full, svd_trunc, svd_vals
+    eigh_vals, left_null, left_orth, left_polar, lq_compact, lq_full, qr_compact,
+    qr_compact!, qr_full, right_null, right_orth, right_polar, svd_compact, svd_full,
+    svd_trunc, svd_vals
 using Test: @test, @testset
 using TestExtras: @constinferred
 
@@ -45,6 +46,29 @@ end
     A′ = contractalign(labels_A, Q, (labels_Q..., :q), R, (:q, labels_R...))
     @test A ≈ A′
     @test size(Q, 3) == min(size(A, 1) * size(A, 2), size(A, 3) * size(A, 4))
+end
+
+@testset "In-place compact QR ($T)" for T in elts
+    A = randn(T, 4, 5, 2, 3)
+    labels_A = (:a, :b, :c, :d)
+
+    # Tall: `Q` is formed in `A`'s memory, with or without a permutation.
+    Q_ref, R_ref = qr_compact(A, Val(2))
+    A′ = copy(A)
+    Q, R = @constinferred qr_compact!(A′, Val(2))
+    @test Q ≈ Q_ref && R ≈ R_ref
+    @test pointer(Q) == pointer(A′)
+
+    Q_ref, R_ref = qr_compact(A, labels_A, (:b, :d), (:c, :a))
+    A′ = copy(A)
+    Q, R = qr_compact!(A′, labels_A, (:b, :d), (:c, :a))
+    @test Q ≈ Q_ref && R ≈ R_ref
+    @test pointer(Q) == pointer(A′)
+
+    # Wide: `Q` is allocated.
+    Q_ref, R_ref = qr_compact(A, Val(1))
+    Q, R = qr_compact!(copy(A), Val(1))
+    @test Q ≈ Q_ref && R ≈ R_ref
 end
 
 # LQ Decomposition
