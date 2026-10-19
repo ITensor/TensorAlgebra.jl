@@ -1,6 +1,6 @@
 module TensorAlgebraGPUArraysCoreExt
 
-using GPUArraysCore: AnyGPUArray, @allowscalar
+using GPUArraysCore: @allowscalar, AnyGPUArray
 using TensorAlgebra: TensorAlgebra
 
 # `a[]` on a GPU array is a scalar index, which GPU array packages disallow by default.
