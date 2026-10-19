@@ -163,6 +163,46 @@ See also `MatrixAlgebraKit.qr_compact!`.
 qr_compact
 
 """
+    qr_compact!(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
+    qr_compact!(A, perm_codomain, perm_domain; kwargs...) -> Q, R
+    qr_compact!(A, ndims_codomain::Val; kwargs...) -> Q, R
+
+Like [`qr_compact`](@ref), but `A` may be overwritten. When `A` is dense and its matricization
+has no more columns than rows, `Q` is formed in `A`'s memory.
+"""
+function qr_compact!(A, perm_codomain, perm_domain; kwargs...)
+    ndims(A) == length(perm_codomain) + length(perm_domain) ||
+        throw(ArgumentError("Invalid bipermutation"))
+
+    m = prod(i -> size(A, i), perm_codomain; init = 1)
+    n = prod(i -> size(A, i), perm_domain; init = 1)
+    if A isa DenseArray && m >= n
+        A_mat = reshape(A, (m, n))
+        # The permuted matricization is a temporary; copying it back puts `Q` in `A`'s memory.
+        if !is_output_view(matricizeop, identity, A, perm_codomain, perm_domain)
+            copyto!(A_mat, matricizeopcopy(identity, A, perm_codomain, perm_domain))
+        end
+        F = MatrixAlgebraKit.qr_compact!(A_mat, (A_mat, similar(A_mat, (n, n))); kwargs...)
+    else
+        F = MatrixAlgebraKit.qr_compact!(matricize(A, perm_codomain, perm_domain); kwargs...)
+    end
+
+    axes_codomain, axes_domain = bipartition_axes(
+        map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
+        Val(length(perm_codomain))
+    )
+    return unmatricize_factors(qr_compact, F, axes_codomain, axes_domain)
+end
+function qr_compact!(A, ndims_codomain::Val; kwargs...)
+    return qr_compact!(A, identitybiperm(ndims_codomain, Val(ndims(A)))...; kwargs...)
+end
+function qr_compact!(A, labels_A, labels_codomain, labels_domain; kwargs...)
+    perm_codomain, perm_domain =
+        biperm(Tuple.((labels_A, labels_codomain, labels_domain))...)
+    return qr_compact!(A, perm_codomain, perm_domain; kwargs...)
+end
+
+"""
     qr_full(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Q, R
     qr_full(A, perm_codomain, perm_domain; kwargs...) -> Q, R
     qr_full(A, ndims_codomain::Val; kwargs...) -> Q, R
