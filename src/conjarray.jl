@@ -51,7 +51,7 @@ end
 # Materialize through the eager `conj.(a)` path, so a lazy and an eager conjugate agree
 # (including any parent-specific behavior such as a graded fermion sign).
 Base.copy(a::ConjArray) = copy(ConjBroadcasted(parent(a)))
-Base.Array{T, N}(a::ConjArray{<:Any, N}) where {T, N} = Array{T, N}(copy(a))
+Base.Array{T, N}(a::ConjArray{<:Any, N}) where {T, N} = convert(Array{T, N}, copy(a))
 # Base `collect` iterates elements, which scalar indexing disallows.
 Base.collect(a::ConjArray) = Array(a)
 # Like `conj(::Adjoint)` in LinearAlgebra, this returns the parent rather than a copy.
