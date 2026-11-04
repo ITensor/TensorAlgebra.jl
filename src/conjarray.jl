@@ -38,7 +38,8 @@ end
 # Materialize through the eager `conj.(a)` path, so a lazy and an eager conjugate agree
 # (including any parent-specific behavior such as a graded fermion sign).
 Base.copy(a::ConjArray) = copy(ConjBroadcasted(parent(a)))
-Base.conj(a::ConjArray) = copy(parent(a))
+# Like `conj(::Adjoint)` in LinearAlgebra, this returns the parent rather than a copy.
+Base.conj(a::ConjArray) = parent(a)
 
 function Base.Broadcast.BroadcastStyle(::Type{<:ConjArray{<:Any, <:Any, P}}) where {P}
     return Base.Broadcast.BroadcastStyle(P)

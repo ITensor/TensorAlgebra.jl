@@ -15,7 +15,7 @@ function contractpermopadd!(
     invperm_codomain, invperm_domain =
         bipartition(invperm(biperm_dest), Val(length(biperm1_codomain)))
     check_input(
-        contract!,
+        contractpermopadd!,
         a_dest, invperm_codomain, invperm_domain,
         op1, a1, biperm1_codomain, biperm1_domain,
         op2, a2, biperm2_codomain, biperm2_domain

@@ -13,7 +13,7 @@ using Test: @test, @test_throws, @testset
     @test axes(c) == axes(a)
     @test c[2, 3] == conj(a[2, 3])
     @test copy(c) == conj(a)
-    @test conj(c) == a
+    @test conj(c) === a
     @test c .+ a == conj(a) .+ a
 end
 
@@ -66,8 +66,28 @@ end
 @testset "op-aware contraction check_input" begin
     a = randn(ComplexF64, 2, 3)
     b = randn(ComplexF64, 3, 4)
-    @test isnothing(TA.check_input(contract, conj, a, (1,), (2,), identity, b, (1,), (2,)))
+    @test isnothing(
+        TA.check_input(
+            TA.contractpermopadd!,
+            zeros(ComplexF64, 2, 4),
+            (1,),
+            (2,),
+            conj,
+            a,
+            (1,),
+            (2,),
+            identity,
+            b,
+            (1,),
+            (2,)
+        )
+    )
     @test_throws ArgumentError TA.check_input(
-        contract, conj, a, (1,), (2,), identity, randn(4, 4), (1,), (2,)
+        TA.contractpermopadd!, zeros(ComplexF64, 2, 4), (1,), (2,),
+        abs, a, (1,), (2,), identity, b, (1,), (2,)
+    )
+    @test_throws ArgumentError TA.check_input(
+        TA.contractpermopadd!, zeros(ComplexF64, 2, 4), (1,), (2,),
+        conj, a, (1,), (2,), identity, randn(4, 4), (1,), (2,)
     )
 end
