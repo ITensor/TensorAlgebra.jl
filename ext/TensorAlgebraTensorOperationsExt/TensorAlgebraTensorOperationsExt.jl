@@ -30,19 +30,19 @@ function TA.contractpermopadd!(
         op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
-    TA.check_input(
-        TA.contract!,
-        a_dest, perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
-    )
-    permblocks1 = Tuple.((perm1_codomain, perm1_domain))
-    permblocks2 = Tuple.((perm2_codomain, perm2_domain))
-    permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))
     conj1 = op1 === conj
     conj2 = op2 === conj
     a1′ = (op1 === identity || op1 === conj) ? a1 : op1.(a1)
     a2′ = (op2 === identity || op2 === conj) ? a2 : op2.(a2)
+    TA.check_input(
+        TA.contract!,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        conj1 ? conj : identity, a1′, perm1_codomain, perm1_domain,
+        conj2 ? conj : identity, a2′, perm2_codomain, perm2_domain
+    )
+    permblocks1 = Tuple.((perm1_codomain, perm1_domain))
+    permblocks2 = Tuple.((perm2_codomain, perm2_domain))
+    permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))
     return TO.tensorcontract!(
         a_dest, a1′, permblocks1, conj1, a2′, permblocks2, conj2,
         permblocks_dest, α, β, backend(algorithm), allocator(algorithm)

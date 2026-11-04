@@ -212,7 +212,10 @@ function contractpermopadd!(
         alg = nothing
     )
     # Input validation belongs to the algorithm's kernel below, which is a public rung callable
-    # directly, so this entry only selects and dispatches.
+    # directly, so this entry only unwraps lazy conjugates, selects and dispatches. Unwrapping
+    # before selection lets a backend kernel see its own array type with `op = conj`.
+    op1, a1 = _unwrap_conj(op1, a1)
+    op2, a2 = _unwrap_conj(op2, a2)
     algorithm = select_algorithm(contract!, alg, (a_dest, a1, a2))
     return contractpermopadd!(
         algorithm,

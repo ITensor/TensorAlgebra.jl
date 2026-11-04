@@ -11,22 +11,34 @@ function check_input(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
+    return check_input(
+        contract,
+        identity, a1, perm1_codomain, perm1_domain,
+        identity, a2, perm2_codomain, perm2_domain
+    )
+end
+function check_input(
+        ::typeof(contract),
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
     check_biperm(a1, perm1_codomain, perm1_domain)
     check_biperm(a2, perm2_codomain, perm2_domain)
-    # The contracted axes of `a1` (its domain) pair with the contracted axes of `a2` (its codomain),
-    # and each pair must be a dual pair: `dual(ax1) == ax2`. `dual` falls back to the identity for
-    # plain ranges, so this reduces to `ax1 == ax2` for non-graded arrays.
+    # The contracted axes of `op1(a1)` (its domain) pair with the contracted axes of `op2(a2)` (its
+    # codomain), and each pair must be a dual pair: `dual(ax1) == ax2`. `op` is `identity` or `conj`,
+    # and `conj` dualizes a graded axis. `dual` and `conj` fall back to the identity for plain
+    # ranges, so this reduces to `ax1 == ax2` for non-graded arrays.
     length(perm1_domain) == length(perm2_codomain) || throw(
         ArgumentError(
             "Number of contracted axes do not match: `a1` has $(length(perm1_domain)), `a2` has $(length(perm2_codomain))"
         )
     )
     for (i, j) in zip(perm1_domain, perm2_codomain)
-        ax1 = axes(a1, i)
-        ax2 = axes(a2, j)
+        ax1 = op1(axes(a1, i))
+        ax2 = op2(axes(a2, j))
         dual(ax1) == ax2 || throw(
             ArgumentError(
-                "Contracted axes do not match: `axes(a1, $i) = $ax1` and `axes(a2, $j) = $ax2`"
+                "Contracted axes do not match: `$op1(axes(a1, $i)) = $ax1` and `$op2(axes(a2, $j)) = $ax2`"
             )
         )
     end
@@ -39,15 +51,24 @@ function check_input(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
+    return check_input(
+        contract!,
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        identity, a1, perm1_codomain, perm1_domain,
+        identity, a2, perm2_codomain, perm2_domain
+    )
+end
+function check_input(
+        ::typeof(contract!),
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
     # TODO: FIXME: Check that uncontracted axes match.
     check_input(
         contract,
-        a1,
-        perm1_codomain,
-        perm1_domain,
-        a2,
-        perm2_codomain,
-        perm2_domain
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
     )
     check_biperm(a_dest, perm_dest_codomain, perm_dest_domain)
     return nothing
