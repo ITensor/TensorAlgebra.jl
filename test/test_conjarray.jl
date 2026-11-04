@@ -1,6 +1,6 @@
-using LinearAlgebra: Diagonal
+using LinearAlgebra: Diagonal, norm
 using TensorAlgebra: TensorAlgebra as TA, ConjArray, bipermutedimsopadd!, conjed, contract,
-    contractopadd!, matricize, permutedims
+    contractopadd!, matricize, permutedims, qr_compact
 using Test: @test, @test_throws, @testset
 
 @testset "ConjArray (plain arrays)" begin
@@ -12,10 +12,50 @@ using Test: @test, @test_throws, @testset
     @test eltype(c) === eltype(a)
     @test size(c) == size(a)
     @test axes(c) == axes(a)
-    @test c[2, 3] == conj(a[2, 3])
     @test copy(c) == conj(a)
     @test conj(c) === a
-    @test c .+ a == conj(a) .+ a
+end
+
+@testset "ConjArray goes through its parent instead of indexing" begin
+    a = randn(ComplexF64, 3, 4)
+    b = randn(ComplexF64, 3, 4)
+    c = conjed(a)
+    @test_throws ArgumentError c[2, 3]
+    @test_throws ArgumentError c[2, 3] = 1
+    @test collect(c) == conj(a)
+
+    @test c == conj(a)
+    @test conj(a) == c
+    @test c == conjed(copy(a))
+    @test c ≈ conj(a)
+    @test norm(c) == norm(a)
+    @test Array(c) == conj(a)
+    @test sum(c) ≈ sum(conj(a))
+    @test maximum(real, c) == maximum(real, a)
+    @test Base.permutedims(c, (2, 1)) == permutedims(conj(a), (2, 1))
+    @test c .+ b == conj(a) .+ b
+    @test abs.(c) == abs.(a)
+    @test sprint(show, c) == "conjed($(sprint(show, a)))"
+    @test startswith(sprint(show, MIME"text/plain"(), c), "conjed of ")
+
+    # Writes go to the parent as the conjugate of what is written.
+    d = conjed(zeros(ComplexF64, 3, 4))
+    @test copyto!(d, b) === d
+    @test parent(d) == conj(b)
+    @test copyto!(similar(b), d) == b
+    @test fill!(d, 2im) === d
+    @test parent(d) == fill(-2im, 3, 4)
+    @test TA.zero!(d) === d
+    @test iszero(parent(d))
+    @test similar(c, Float64, (2, 5)) isa Matrix{Float64}
+end
+
+@testset "factorizations of a ConjArray" begin
+    a = randn(ComplexF64, 2, 3, 4)
+    Q, R = qr_compact(conjed(a), (1, 2), (3,))
+    Qe, Re = qr_compact(conj(a), (1, 2), (3,))
+    @test Q ≈ Qe
+    @test R ≈ Re
 end
 
 @testset "ConjArray is absorbed by permutation and matricize" begin
