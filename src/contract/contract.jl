@@ -107,17 +107,34 @@ function contractpermalign(
         a2, perm2_codomain, perm2_domain;
         kwargs...
     )
-    a_dest = allocate_output(
-        contract,
+    return contractpermop(
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
-    )
-    return contractperm!(
-        a_dest, perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain;
+        identity, a1, perm1_codomain, perm1_domain,
+        identity, a2, perm2_codomain, perm2_domain;
         kwargs...
+    )
+end
+function contractpermop(
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain;
+        kwargs...
+    )
+    # Unwrap lazy conjugates before allocating, so the destination is allocated for the operands'
+    # own array types.
+    op1, a1 = _unwrap_conj(op1, a1)
+    op2, a2 = _unwrap_conj(op2, a2)
+    a_dest = allocate_output(
+        contractpermop,
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
+    return contractpermopadd!(
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain,
+        true, false; kwargs...
     )
 end
 

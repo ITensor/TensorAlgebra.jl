@@ -60,8 +60,8 @@ function check_input(
 end
 
 function check_input(
-        ::typeof(contractpermopadd!),
-        a_dest, perm_dest_codomain, perm_dest_domain,
+        ::typeof(contractpermop),
+        perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain
     )
@@ -69,24 +69,52 @@ function check_input(
         op === identity || op === conj ||
             throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
     end
-    # TODO: FIXME: Check that uncontracted axes match.
     check_biperm(a1, perm1_codomain, perm1_domain)
     check_biperm(a2, perm2_codomain, perm2_domain)
     check_contracted_axes(op1, a1, perm1_domain, op2, a2, perm2_codomain)
+    return nothing
+end
+
+function check_input(
+        ::typeof(contractpermopadd!),
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
+    # TODO: FIXME: Check that uncontracted axes match.
+    check_input(
+        contractpermop,
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
     check_biperm(a_dest, perm_dest_codomain, perm_dest_domain)
     return nothing
 end
 
-# TODO: Use `ArrayLayouts`-like `MulAdd` object,
-# i.e. `ContractAdd`?
 function output_axes(
         ::typeof(contract),
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
-    axes_codomain, _ = bipartition(axes(a1), perm1_codomain, perm1_domain)
-    _, axes_domain = bipartition(axes(a2), perm2_codomain, perm2_domain)
+    return output_axes(
+        contractpermop,
+        perm_dest_codomain, perm_dest_domain,
+        identity, a1, perm1_codomain, perm1_domain,
+        identity, a2, perm2_codomain, perm2_domain
+    )
+end
+# TODO: Use `ArrayLayouts`-like `MulAdd` object,
+# i.e. `ContractAdd`?
+function output_axes(
+        ::typeof(contractpermop),
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
+    axes_codomain = map(i -> op1(axes(a1, i)), perm1_codomain)
+    axes_domain = map(i -> op2(axes(a2, i)), perm2_domain)
     axes_uncontracted = (axes_codomain..., axes_domain...)
     axes_codomain_dest, axes_domain_dest = bipartition(
         axes_uncontracted, perm_dest_codomain, perm_dest_domain
@@ -96,32 +124,42 @@ function output_axes(
     return axes_codomain_dest, conj.(axes_domain_dest)
 end
 
-# TODO: Use `ArrayLayouts`-like `MulAdd` object,
-# i.e. `ContractAdd`?
-# The destination `contract` writes into. A structured operand type overloads this directly, deriving
-# the axes and element type from `output_axes` and `Base.promote_op` as below; the permutations are
-# part of the signature because the contraction pattern is not recoverable from the destination leg
-# counts alone.
 function allocate_output(
         ::typeof(contract),
         perm_dest_codomain, perm_dest_domain,
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain
     )
+    return allocate_output(
+        contractpermop,
+        perm_dest_codomain, perm_dest_domain,
+        identity, a1, perm1_codomain, perm1_domain,
+        identity, a2, perm2_codomain, perm2_domain
+    )
+end
+# TODO: Use `ArrayLayouts`-like `MulAdd` object,
+# i.e. `ContractAdd`?
+# The destination `contractpermop` writes into. A structured operand type overloads this directly,
+# deriving the axes and element type from `output_axes` and `Base.promote_op` as below; the
+# permutations are part of the signature because the contraction pattern is not recoverable from the
+# destination leg counts alone.
+function allocate_output(
+        ::typeof(contractpermop),
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
+    )
     check_input(
-        contract,
-        a1,
-        perm1_codomain,
-        perm1_domain,
-        a2,
-        perm2_codomain,
-        perm2_domain
+        contractpermop,
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
     )
     axes_codomain_dest, axes_domain_dest = output_axes(
-        contract,
+        contractpermop,
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return zero!(similar_map(a1, T, axes_codomain_dest, axes_domain_dest))

@@ -1,3 +1,4 @@
+using LinearAlgebra: Diagonal
 using TensorAlgebra: TensorAlgebra as TA, ConjArray, bipermutedimsopadd!, conjed, contract,
     contractopadd!, matricize, permutedims
 using Test: @test, @test_throws, @testset
@@ -61,6 +62,33 @@ end
         false
     )
     @test dest == first(contract(a, labels_a, b, labels_b))
+end
+
+@testset "contractpermop allocates for the unwrapped operands" begin
+    a = randn(ComplexF64, 2, 3)
+    b = randn(ComplexF64, 3, 4)
+    @test TA.contractpermop((1,), (2,), conj, a, (1,), (2,), identity, b, (1,), (2,)) ≈
+        conj(a) * b
+    @test TA.contractpermop(
+        (1,),
+        (2,),
+        identity,
+        conjed(a),
+        (1,),
+        (2,),
+        identity,
+        b,
+        (1,),
+        (2,)
+    ) ≈
+        conj(a) * b
+
+    # Allocation sees the parent, so a `Diagonal` pair still allocates a `Diagonal`.
+    d1 = Diagonal(randn(ComplexF64, 3))
+    d2 = Diagonal(randn(ComplexF64, 3))
+    r, _ = contract(conjed(d1), (:i, :j), d2, (:j, :k))
+    @test r isa Diagonal
+    @test r ≈ conj(d1) * d2
 end
 
 @testset "op-aware contraction check_input" begin
