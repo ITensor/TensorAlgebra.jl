@@ -58,7 +58,14 @@ Base.collect(a::ConjArray) = Array(a)
 Base.conj(a::ConjArray) = parent(a)
 
 function Base.copyto!(dest::AbstractArray, src::ConjArray)
-    return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), true, false)
+    return permutedimsopadd!(
+        dest,
+        conj,
+        parent(src),
+        ntuple(identity, ndims(src)),
+        true,
+        false
+    )
 end
 # Write into the parent the conjugate of what the lazy conjugate should hold. `conj` is an
 # involution, fermion signs included, so this is exact.
