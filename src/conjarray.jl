@@ -70,11 +70,9 @@ function Base.copyto!(dest::ConjArray, src::ConjArray)
     copyto!(parent(dest), parent(src))
     return dest
 end
-# `conj` can carry per-block signs (fermions), so a nonzero fill writes the conjugate of a filled
-# array rather than filling the parent with `conj(value)`.
 function Base.fill!(a::ConjArray, value)
-    iszero(value) && return (fill!(parent(a), value); a)
-    return copyto!(a, fill!(similar(a), value))
+    fill!(parent(a), conj(value))
+    return a
 end
 
 Base.:(==)(a::ConjArray, b::ConjArray) = parent(a) == parent(b)
