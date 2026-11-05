@@ -73,6 +73,7 @@ function Base.copyto!(dest::ConjArray, src::AbstractArray)
     permutedimsopadd!(parent(dest), conj, src, ntuple(identity, ndims(src)), true, false)
     return dest
 end
+# Also resolves the ambiguity between the two methods above.
 function Base.copyto!(dest::ConjArray, src::ConjArray)
     copyto!(parent(dest), parent(src))
     return dest
@@ -82,6 +83,7 @@ function Base.fill!(a::ConjArray, value)
     return a
 end
 
+# Also resolves the ambiguity between the two mixed methods below.
 Base.:(==)(a::ConjArray, b::ConjArray) = parent(a) == parent(b)
 # A fused two-array reduction rather than a copy, so it maps to a single kernel on GPU.
 function Base.:(==)(a::ConjArray, b::AbstractArray)
@@ -93,17 +95,20 @@ Base.:(==)(a::AbstractArray, b::ConjArray) = b == a
 LinearAlgebra.norm(a::ConjArray, p::Real = 2) = LinearAlgebra.norm(parent(a), p)
 Base.iszero(a::ConjArray) = iszero(parent(a))
 # `conj` is antiunitary, fermion signs included, so a pair of lazy conjugates reduces to the parents.
-# With one lazy operand there is no such identity, so it is materialized.
+# This also resolves the ambiguity between the two mixed methods below.
 function LinearAlgebra.dot(a::ConjArray, b::ConjArray)
     return conj(LinearAlgebra.dot(parent(a), parent(b)))
 end
-LinearAlgebra.dot(a::ConjArray, b::AbstractArray) = LinearAlgebra.dot(copy(a), b)
-LinearAlgebra.dot(a::AbstractArray, b::ConjArray) = LinearAlgebra.dot(a, copy(b))
+# Against a plain array, the lazy conjugate cancels the conjugation in `dot`, leaving the bilinear
+# pairing of the parent with `b` (BLAS `dotu` for dense arrays).
+LinearAlgebra.dot(a::ConjArray, b::AbstractArray) = transpose(vec(parent(a))) * vec(b)
+LinearAlgebra.dot(a::AbstractArray, b::ConjArray) = conj(LinearAlgebra.dot(b, a))
+# Resolve ambiguities with LinearAlgebra's `dot(::AbstractMatrix, ::Diagonal)` and its reverse.
 function LinearAlgebra.dot(a::ConjArray{<:Any, 2}, b::LinearAlgebra.Diagonal)
-    return LinearAlgebra.dot(copy(a), b)
+    return transpose(vec(parent(a))) * vec(b)
 end
 function LinearAlgebra.dot(a::LinearAlgebra.Diagonal, b::ConjArray{<:Any, 2})
-    return LinearAlgebra.dot(a, copy(b))
+    return conj(LinearAlgebra.dot(b, a))
 end
 function Base.mapreduce(f, op, a::ConjArray; kwargs...)
     return mapreduce(f ∘ conj, op, parent(a); kwargs...)
