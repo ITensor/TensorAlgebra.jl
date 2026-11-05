@@ -1,4 +1,4 @@
-using LinearAlgebra: Diagonal, norm
+using LinearAlgebra: Diagonal, dot, norm
 using TensorAlgebra: TensorAlgebra as TA, ConjArray, bipermutedimsopadd!, conjed, contract,
     contractopadd!, matricize, permutedims, qr_compact
 using Test: @test, @test_throws, @testset
@@ -29,6 +29,15 @@ end
     @test c == conjed(copy(a))
     @test c ≈ conj(a)
     @test norm(c) == norm(a)
+    @test !iszero(c)
+    @test iszero(conjed(zero(a)))
+    @test dot(c, b) ≈ dot(conj(a), b)
+    @test dot(b, c) ≈ dot(b, conj(a))
+    @test dot(c, conjed(b)) ≈ dot(conj(a), conj(b))
+    d = Diagonal(randn(ComplexF64, 3))
+    m = randn(ComplexF64, 3, 3)
+    @test dot(conjed(m), d) ≈ dot(conj(m), d)
+    @test dot(d, conjed(m)) ≈ dot(d, conj(m))
     @test Array(c) == conj(a)
     @test sum(c) ≈ sum(conj(a))
     @test maximum(real, c) == maximum(real, a)

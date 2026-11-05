@@ -91,6 +91,20 @@ end
 Base.:(==)(a::AbstractArray, b::ConjArray) = b == a
 # Conjugation, and any sign it carries, preserves every p-norm. `isapprox` goes through `norm`.
 LinearAlgebra.norm(a::ConjArray, p::Real = 2) = LinearAlgebra.norm(parent(a), p)
+Base.iszero(a::ConjArray) = iszero(parent(a))
+# `conj` is antiunitary, fermion signs included, so a pair of lazy conjugates reduces to the parents.
+# With one lazy operand there is no such identity, so it is materialized.
+function LinearAlgebra.dot(a::ConjArray, b::ConjArray)
+    return conj(LinearAlgebra.dot(parent(a), parent(b)))
+end
+LinearAlgebra.dot(a::ConjArray, b::AbstractArray) = LinearAlgebra.dot(copy(a), b)
+LinearAlgebra.dot(a::AbstractArray, b::ConjArray) = LinearAlgebra.dot(a, copy(b))
+function LinearAlgebra.dot(a::ConjArray{<:Any, 2}, b::LinearAlgebra.Diagonal)
+    return LinearAlgebra.dot(copy(a), b)
+end
+function LinearAlgebra.dot(a::LinearAlgebra.Diagonal, b::ConjArray{<:Any, 2})
+    return LinearAlgebra.dot(a, copy(b))
+end
 function Base.mapreduce(f, op, a::ConjArray; kwargs...)
     return mapreduce(f ∘ conj, op, parent(a); kwargs...)
 end
