@@ -21,6 +21,12 @@ Lazy conjugate of `a`, returning a [`ConjArray`](@ref). The lazy companion to th
 conjed(a::AbstractArray) = ConjArray(a)
 conjed(a::ConjArray) = parent(a)
 
+# Most methods below either go through an op-aware kernel (`permutedimsopadd!`, `matricizeop`,
+# contraction), which owns what `conj` means for its array type, or use identities that hold for any
+# antiunitary involution (`norm`, `iszero`, `dot` of two lazy conjugates). `fill!`, `==`, `mapreduce`
+# and `dot` with one lazy operand instead assume `conj` acts elementwise, so an array type where it
+# does not (a fermionic graded array, whose conjugate carries per-block signs) must overload them.
+
 Base.parent(a::ConjArray) = a.parent
 
 # Conjugating an axis is identity for plain integer ranges and dualizes graded axes (where
