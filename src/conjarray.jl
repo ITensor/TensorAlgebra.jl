@@ -83,8 +83,12 @@ function Base.fill!(a::ConjArray, value)
 end
 
 Base.:(==)(a::ConjArray, b::ConjArray) = parent(a) == parent(b)
-Base.:(==)(a::ConjArray, b::AbstractArray) = copy(a) == b
-Base.:(==)(a::AbstractArray, b::ConjArray) = a == copy(b)
+# A fused two-array reduction rather than a copy, so it maps to a single kernel on GPU.
+function Base.:(==)(a::ConjArray, b::AbstractArray)
+    axes(a) == axes(b) || return false
+    return mapreduce((x, y) -> conj(x) == y, &, parent(a), b; init = true)
+end
+Base.:(==)(a::AbstractArray, b::ConjArray) = b == a
 # Conjugation, and any sign it carries, preserves every p-norm. `isapprox` goes through `norm`.
 LinearAlgebra.norm(a::ConjArray, p::Real = 2) = LinearAlgebra.norm(parent(a), p)
 function Base.mapreduce(f, op, a::ConjArray; kwargs...)
