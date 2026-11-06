@@ -38,6 +38,11 @@ end
     m = randn(ComplexF64, 3, 3)
     @test_throws ArgumentError dot(conjed(m), d)
     @test_throws ArgumentError dot(d, conjed(m))
+    # Elementwise methods are only defined for a dense parent.
+    @test_throws ArgumentError dot(conjed(d), m)
+    @test_throws ArgumentError conjed(d) == conj(d)
+    @test_throws ArgumentError sum(conjed(d))
+    @test_throws ArgumentError fill!(conjed(copy(d)), 1)
     @test Array(c) == conj(a)
     @test sum(c) ≈ sum(conj(a))
     @test maximum(real, c) == maximum(real, a)

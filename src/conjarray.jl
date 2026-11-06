@@ -5,8 +5,9 @@ Lazy conjugate of `a`: an `AbstractArray` whose axes are the conjugated (dualize
 and whose elements are the conjugated parent elements. Constructed by [`conjed`](@ref).
 Permutation, matricization and contraction absorb it by unwrapping to the parent and folding
 `conj` into their `op`, so it is never materialized on its way into those operations. Whole-array
-reads, writes, broadcasting and reductions go through the parent as well, and scalar indexing is
-disallowed, so an operation without such a path errors instead of silently looping over elements.
+reads, writes and broadcasting go through the parent as well, as do reductions for a dense parent.
+Scalar indexing is disallowed, so an operation without such a path errors instead of silently
+looping over elements.
 """
 struct ConjArray{T, N, P <: AbstractArray{T, N}} <: AbstractArray{T, N}
     parent::P
@@ -24,8 +25,9 @@ conjed(a::ConjArray) = parent(a)
 # Most methods below either go through an op-aware kernel (`permutedimsopadd!`, `matricizeop`,
 # contraction), which owns what `conj` means for its array type, or use identities that hold for any
 # antiunitary involution (`norm`, `iszero`, `dot` of two lazy conjugates). `fill!`, `==`, `mapreduce`
-# and `dot` with one lazy operand instead assume `conj` acts elementwise, so an array type where it
-# does not (a fermionic graded array, whose conjugate carries per-block signs) must overload them.
+# and `dot` with one lazy operand instead assume `conj` acts elementwise on a flat memory layout, so
+# they are only defined for a dense parent, and other array types opt in.
+const ConjDenseArray{T, N} = ConjArray{T, N, <:DenseArray{T, N}}
 
 Base.parent(a::ConjArray) = a.parent
 
@@ -84,44 +86,30 @@ function Base.copyto!(dest::ConjArray, src::ConjArray)
     copyto!(parent(dest), parent(src))
     return dest
 end
-function Base.fill!(a::ConjArray, value)
+function Base.fill!(a::ConjDenseArray, value)
     fill!(parent(a), conj(value))
     return a
 end
 
-# Also resolves the ambiguity between the two mixed methods below.
 Base.:(==)(a::ConjArray, b::ConjArray) = parent(a) == parent(b)
 # A fused two-array reduction rather than a copy, so it maps to a single kernel on GPU.
-function Base.:(==)(a::ConjArray, b::AbstractArray)
+function Base.:(==)(a::ConjDenseArray, b::DenseArray)
     axes(a) == axes(b) || return false
     return mapreduce((x, y) -> conj(x) == y, &, parent(a), b; init = true)
 end
-Base.:(==)(a::AbstractArray, b::ConjArray) = b == a
+Base.:(==)(a::DenseArray, b::ConjDenseArray) = b == a
 # Conjugation, and any sign it carries, preserves every p-norm. `isapprox` goes through `norm`.
 LinearAlgebra.norm(a::ConjArray, p::Real = 2) = LinearAlgebra.norm(parent(a), p)
 Base.iszero(a::ConjArray) = iszero(parent(a))
 # `conj` is antiunitary, fermion signs included, so a pair of lazy conjugates reduces to the parents.
-# This also resolves the ambiguity between the two mixed methods below.
 function LinearAlgebra.dot(a::ConjArray, b::ConjArray)
     return conj(LinearAlgebra.dot(parent(a), parent(b)))
 end
-# Against a plain array, the lazy conjugate cancels the conjugation in `dot`, leaving the bilinear
-# pairing of the parent with `b` (BLAS `dotu` for dense arrays).
-LinearAlgebra.dot(a::ConjArray, b::AbstractArray) = transpose(vec(parent(a))) * vec(b)
-LinearAlgebra.dot(a::AbstractArray, b::ConjArray) = conj(LinearAlgebra.dot(b, a))
-# Resolve ambiguities with LinearAlgebra's `dot(::AbstractMatrix, ::Diagonal)` and its reverse.
-# Neither generic method suits a `Diagonal`, so error until there is a use case.
-function LinearAlgebra.dot(a::ConjArray{<:Any, 2}, b::LinearAlgebra.Diagonal)
-    return throw(
-        ArgumentError(
-            "`dot` of a lazy `ConjArray` and a `Diagonal` is not implemented, materialize it with `copy` first"
-        )
-    )
-end
-function LinearAlgebra.dot(a::LinearAlgebra.Diagonal, b::ConjArray{<:Any, 2})
-    return LinearAlgebra.dot(b, a)
-end
-function Base.mapreduce(f, op, a::ConjArray; kwargs...)
+# Against a dense array, the lazy conjugate cancels the conjugation in `dot`, leaving the bilinear
+# pairing of the parent with `b` (BLAS `dotu`).
+LinearAlgebra.dot(a::ConjDenseArray, b::DenseArray) = transpose(vec(parent(a))) * vec(b)
+LinearAlgebra.dot(a::DenseArray, b::ConjDenseArray) = conj(LinearAlgebra.dot(b, a))
+function Base.mapreduce(f, op, a::ConjDenseArray; kwargs...)
     return mapreduce(f ∘ conj, op, parent(a); kwargs...)
 end
 Base.permutedims(a::ConjArray, perm) = permutedims(a, perm)
