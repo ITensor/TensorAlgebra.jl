@@ -80,19 +80,22 @@ end
 # not match this signature, falling back to the generic dense allocation the way `Diagonal`/dense
 # mixing does.
 function allocate_output(
-        ::typeof(contract),
+        ::typeof(contractpermop),
         perm_dest_codomain::Tuple{Int}, perm_dest_domain::Tuple{Int},
-        a1::Diagonal, perm1_codomain, perm1_domain,
-        a2::Diagonal, perm2_codomain, perm2_domain
+        op1, a1::Diagonal, perm1_codomain, perm1_domain,
+        op2, a2::Diagonal, perm2_codomain, perm2_domain
     )
     check_input(
-        contract, a1, perm1_codomain, perm1_domain, a2, perm2_codomain, perm2_domain
+        contractpermop,
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
     )
     axes_codomain_dest, _ = output_axes(
-        contract,
+        contractpermop,
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return Diagonal(zero!(similar(a1.diag, T, (only(axes_codomain_dest),))))

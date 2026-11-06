@@ -26,6 +26,23 @@ using Test: @test, @test_throws, @testset
         @test c ≈ a * b
     end
 
+    @testset "contract with a conjugated operand" begin
+        W = Rep[U₁](0 => 2, 1 => 1)
+        X = Rep[U₁](0 => 1, 1 => 2)
+        Y = Rep[U₁](-1 => 1, 0 => 2)
+        a = randn(rng, elt, W, X)
+        b = randn(rng, elt, W, Y)
+        # `conj(a)` dualizes the spaces, so its first leg contracts with `b`'s codomain leg `W`.
+        ref, labels = contract(
+            copy(TensorAlgebra.ConjBroadcasted(a)), (:i, :j), b, (:i, :k)
+        )
+        c = zero(ref)
+        TensorAlgebra.contractopadd!(
+            c, labels, conj, a, (:i, :j), identity, b, (:i, :k), true, false
+        )
+        @test c ≈ ref
+    end
+
     @testset "contract abelian, rank-3 with permuted output" begin
         A1 = Rep[U₁](0 => 2, 1 => 1)
         A2 = Rep[U₁](0 => 1, 1 => 1)
