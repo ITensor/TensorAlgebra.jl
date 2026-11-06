@@ -110,11 +110,16 @@ end
 LinearAlgebra.dot(a::ConjArray, b::AbstractArray) = transpose(vec(parent(a))) * vec(b)
 LinearAlgebra.dot(a::AbstractArray, b::ConjArray) = conj(LinearAlgebra.dot(b, a))
 # Resolve ambiguities with LinearAlgebra's `dot(::AbstractMatrix, ::Diagonal)` and its reverse.
+# Neither generic method suits a `Diagonal`, so error until there is a use case.
 function LinearAlgebra.dot(a::ConjArray{<:Any, 2}, b::LinearAlgebra.Diagonal)
-    return transpose(vec(parent(a))) * vec(b)
+    return throw(
+        ArgumentError(
+            "`dot` of a lazy `ConjArray` and a `Diagonal` is not implemented, materialize it with `copy` first"
+        )
+    )
 end
 function LinearAlgebra.dot(a::LinearAlgebra.Diagonal, b::ConjArray{<:Any, 2})
-    return conj(LinearAlgebra.dot(b, a))
+    return LinearAlgebra.dot(b, a)
 end
 function Base.mapreduce(f, op, a::ConjArray; kwargs...)
     return mapreduce(f ∘ conj, op, parent(a); kwargs...)
