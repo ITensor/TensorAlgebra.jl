@@ -1,3 +1,4 @@
+using LinearAlgebra: Adjoint
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, MatricizeContract, contractperm, contractperm!,
     contractpermadd!, contractpermalign, contractpermopadd!
@@ -103,4 +104,54 @@ using Test: @test, @test_throws, @testset
             ) ≈ expected
         end
     end
+end
+
+# The matricized kernel lays the contraction out with the contracted legs in either operand's
+# storage order and as `a1 * a2` or `a2 * a1`, so every storage order of the operands and the
+# destination, with and without a conjugate, has to give the same result.
+@testset "matricized contraction in every storage layout (eltype=$elt)" for elt in
+    (
+        Float64,
+        ComplexF64,
+    )
+    rng = StableRNG(1234)
+    # `a[i, j, k] b[k, j, l] -> c[i, l]`, with each array stored in a permuted order.
+    a = randn(rng, elt, 2, 3, 4)
+    b = randn(rng, elt, 4, 3, 5)
+    for pa in ((1, 2, 3), (3, 2, 1), (2, 3, 1)), pb in ((1, 2, 3), (3, 2, 1), (2, 1, 3)),
+            pc in ((1, 2), (2, 1)),
+            (op1, op2) in ((identity, identity), (conj, identity), (conj, conj))
+
+        ap, bp = permutedims(a, pa), permutedims(b, pb)
+        # Positions of `a`'s and `b`'s logical legs in the stored arrays.
+        ia, ib = invperm(pa), invperm(pb)
+        dest = zeros(elt, (2, 5)[collect(pc)]...)
+        contractpermopadd!(
+            dest, (pc[1],), (pc[2],),
+            op1, ap, (ia[1],), (ia[2], ia[3]),
+            op2, bp, (ib[2], ib[1]), (ib[3],),
+            true, false
+        )
+        expected = reshape(op1.(a), 2, 12) * reshape(permutedims(op2.(b), (2, 1, 3)), 12, 5)
+        @test dest ≈ permutedims(expected, pc)
+    end
+end
+
+@testset "contract_matricizeop takes the swapped split lazily" begin
+    a = randn(ComplexF64, 3, 4, 5)
+    pc, pd = (3,), (1, 2)
+    @test TensorAlgebra.contract_matricizeop(identity, a, pc, pd) ==
+        transpose(reshape(a, 12, 5))
+    m = TensorAlgebra.contract_matricizeop(conj, a, pc, pd)
+    @test m isa Adjoint
+    @test m == reshape(a, 12, 5)'
+    @test TensorAlgebra.contract_matricizeop(conj, a, (1, 2), (3,)) ==
+        conj(reshape(a, 12, 5))
+    @test !TensorAlgebra.is_output_view(
+        TensorAlgebra.contract_matricizeop,
+        identity,
+        a,
+        (2,),
+        (1, 3)
+    )
 end
