@@ -55,30 +55,48 @@ true
 function contractalign(
         labels_dest, a1, labels1, a2, labels2; kwargs...
     )
+    return contractop(labels_dest, identity, a1, labels1, identity, a2, labels2; kwargs...)
+end
+
+# contractop (labels, with operations on the operands)
+"""
+    contractop(labels_dest, op1, a1, labels1, op2, a2, labels2; alg = nothing) -> a_dest
+
+Like [`contractalign`](@ref), but contracting `op1(a1)` with `op2(a2)`, where each `op` is
+`identity` or `conj`.
+"""
+function contractop(
+        labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...
+    )
+    # Unwrap lazy conjugates here, so nothing below sees a `ConjArray` and the destination is
+    # allocated for the operands' own array types.
+    op1, a1 = _unwrap_conj(op1, a1)
+    op2, a2 = _unwrap_conj(op2, a2)
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
     # Cross into a `Val(K)` method (a function-barrier on the contracted count) so the
     # bipartitioned permutations and the contraction below them are type-stable.
-    return _contractalign(
-        Val(count(contracted1)),
-        labels_dest,
-        a1,
-        t1,
-        a2,
-        t2,
-        contracted1;
+    return _contractop(
+        Val(count(contracted1)), labels_dest, op1, a1, t1, op2, a2, t2, contracted1;
         kwargs...
     )
 end
-function _contractalign(
-        ::Val{K}, labels_dest, a1, labels1, a2, labels2,
-        contracted1; kwargs...
-    ) where {K}
+# `op1::Op1` and `op2::Op2` force specialization: these methods are reached through a run-time
+# dispatch on `Val(K)` and only pass the operations on, so Julia would otherwise compile them for
+# `op::Function` and dispatch everything below at run time.
+function _contractop(
+        ::Val{K}, labels_dest, op1::Op1, a1, labels1, op2::Op2, a2, labels2, contracted1;
+        kwargs...
+    ) where {K, Op1, Op2}
     biperm_dest, biperm1, biperm2 =
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
-    return contractpermalign(
-        biperm_dest..., a1, biperm1..., a2, biperm2...; kwargs...
+    a_dest = allocate_output(
+        contractpermop, biperm_dest..., op1, a1, biperm1..., op2, a2, biperm2...
+    )
+    return contractpermopadd!(
+        a_dest, biperm_dest..., op1, a1, biperm1..., op2, a2, biperm2..., true, false;
+        kwargs...
     )
 end
 
@@ -199,6 +217,8 @@ function contractopadd!(
         α::Number, β::Number;
         kwargs...
     )
+    op1, a1 = _unwrap_conj(op1, a1)
+    op2, a2 = _unwrap_conj(op2, a2)
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
@@ -209,11 +229,12 @@ function contractopadd!(
         op1, a1, t1, op2, a2, t2, α, β, contracted1; kwargs...
     )
 end
+# Specialized on the operations for the same reason as `_contractop`.
 function _contractopadd!(
         ::Val{K}, a_dest, labels_dest,
-        op1, a1, labels1, op2, a2, labels2,
+        op1::Op1, a1, labels1, op2::Op2, a2, labels2,
         α::Number, β::Number, contracted1; kwargs...
-    ) where {K}
+    ) where {K, Op1, Op2}
     biperm_dest, biperm1, biperm2 =
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
     return contractpermopadd!(

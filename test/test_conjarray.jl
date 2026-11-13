@@ -1,6 +1,6 @@
 using LinearAlgebra: Diagonal, dot, norm
 using TensorAlgebra: TensorAlgebra as TA, ConjArray, bipermutedimsopadd!, conjed, contract,
-    contractopadd!, matricize, permutedims, qr_compact
+    contractalign, contractop, contractopadd!, matricize, permutedims, qr_compact
 using Test: @test, @test_throws, @testset
 
 @testset "ConjArray (plain arrays)" begin
@@ -116,6 +116,10 @@ end
         false
     )
     @test dest == first(contract(a, labels_a, b, labels_b))
+    @test contractop((:i, :l), conj, conjed(a), labels_a, identity, b, labels_b) ==
+        first(contract(a, labels_a, b, labels_b))
+    @test contractop((:l, :i), conj, a, labels_a, identity, conjed(b), labels_b) ==
+        contractalign((:l, :i), conj(a), labels_a, conj(b), labels_b)
 end
 
 @testset "contractpermop allocates for the unwrapped operands" begin

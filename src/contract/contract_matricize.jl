@@ -4,13 +4,14 @@ using LinearAlgebra: mul!
 # multiply, and write the product into the destination's matricization. An array family whose
 # contraction needs more than the fold (a fermionic twist, a block-sparse product) owns its own
 # `ContractAlgorithm` and `contractpermopadd!` method rather than hooking into this one.
+# Specialized on the operations for the same reason as `check_input(contractpermop, ...)`.
 function contractpermopadd!(
         ::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
-        op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,
-        op2, a2::AbstractArray, biperm2_codomain, biperm2_domain,
+        op1::Op1, a1::AbstractArray, biperm1_codomain, biperm1_domain,
+        op2::Op2, a2::AbstractArray, biperm2_codomain, biperm2_domain,
         α::Number, β::Number
-    )
+    ) where {Op1, Op2}
     biperm_dest = (biperm_dest_codomain..., biperm_dest_domain...)
     invperm_codomain, invperm_domain =
         bipartition(invperm(biperm_dest), Val(length(biperm1_codomain)))
