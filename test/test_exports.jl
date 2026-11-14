@@ -23,7 +23,7 @@ using Test: @test, @testset
                 :bipermutedims!, :bipermutedimsopadd!, :cat_axis, :cat_similar,
                 :check_input, :concatenate, :concatenate!, :ConjArray, :ConjBroadcasted,
                 :conjed,
-                :contractadd!, :ContractAlgorithm, :contract_matricizeop, :contractop,
+                :contractadd!, :ContractAlgorithm, :contractop,
                 :contractopadd!,
                 :contractperm,
                 :contractperm!,

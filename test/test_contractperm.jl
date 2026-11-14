@@ -1,4 +1,3 @@
-using LinearAlgebra: Adjoint
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, MatricizeContract, contractperm, contractperm!,
     contractpermadd!, contractpermalign, contractpermopadd!
@@ -135,23 +134,4 @@ end
         expected = reshape(op1.(a), 2, 12) * reshape(permutedims(op2.(b), (2, 1, 3)), 12, 5)
         @test dest ≈ permutedims(expected, pc)
     end
-end
-
-@testset "contract_matricizeop takes the swapped split lazily" begin
-    a = randn(ComplexF64, 3, 4, 5)
-    pc, pd = (3,), (1, 2)
-    @test TensorAlgebra.contract_matricizeop(identity, a, pc, pd) ==
-        transpose(reshape(a, 12, 5))
-    m = TensorAlgebra.contract_matricizeop(conj, a, pc, pd)
-    @test m isa Adjoint
-    @test m == reshape(a, 12, 5)'
-    @test TensorAlgebra.contract_matricizeop(conj, a, (1, 2), (3,)) ==
-        conj(reshape(a, 12, 5))
-    @test !TensorAlgebra.is_output_view(
-        TensorAlgebra.contract_matricizeop,
-        identity,
-        a,
-        (2,),
-        (1, 3)
-    )
 end

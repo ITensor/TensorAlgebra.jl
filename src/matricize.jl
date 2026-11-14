@@ -222,17 +222,24 @@ end
 # memory. A `DenseArray` (`Array`, GPU arrays) reshapes to one of its own kind, so it declares the
 # view; any other `AbstractArray` reshapes to a `ReshapedArray` wrapper that `mul!` sends to
 # generic matmul, so it takes the owned copy instead and lands on BLAS. The reshape shares memory
-# only when the data is already in codomain-then-domain order and no operation has to be folded
-# in: a reshape can neither reorder nor carry a `conj`. The copy hooks below stay generic, since
-# `similar` plus a permuted add is a correct owned matricization for any permutable array.
+# when the data is already in codomain-then-domain order with no operation to fold in, and at the
+# swapped split as the reshape's `transpose`, or its `adjoint` when the operation is `conj`, which
+# `mul!` passes to BLAS directly. A reshape cannot otherwise reorder or carry a `conj`. The
+# copy hooks below stay generic, since `similar` plus a permuted add is a correct owned
+# matricization for any permutable array.
 function is_output_view(
         ::typeof(matricizeop), op, a::DenseArray, perm_codomain, perm_domain
     )
-    return op === identity && isidentitybiperm(perm_codomain, perm_domain)
+    return op === identity && isidentitybiperm(perm_codomain, perm_domain) ||
+        (op === identity || op === conj) && isidentitybiperm(perm_domain, perm_codomain)
 end
 function matricizeopview(op, a::DenseArray, perm_codomain, perm_domain)
-    size_codomain, size_domain = bipartition(size(a), Val(length(perm_codomain)))
-    return reshape(a, (prod(size_codomain), prod(size_domain)))
+    length_codomain = prod(i -> size(a, i), perm_codomain; init = 1)
+    length_domain = prod(i -> size(a, i), perm_domain; init = 1)
+    op === identity && isidentitybiperm(perm_codomain, perm_domain) &&
+        return reshape(a, (length_codomain, length_domain))
+    m = reshape(a, (length_domain, length_codomain))
+    return op === conj ? adjoint(m) : transpose(m)
 end
 function allocate_output(
         ::typeof(matricizeop), op, a::AbstractArray, perm_codomain, perm_domain
