@@ -78,13 +78,14 @@ end
 # allocate a `Diagonal`. Every other destination shape (rank-4 outer product, scalar full
 # contraction, or both free legs grouped on one side) is not representable as a `Diagonal` and does
 # not match this signature, falling back to the generic dense allocation the way `Diagonal`/dense
-# mixing does.
+# mixing does. Specialized on the operations for the same reason as
+# `check_input(contractpermop, ...)`.
 function allocate_output(
         ::typeof(contractpermop),
         perm_dest_codomain::Tuple{Int}, perm_dest_domain::Tuple{Int},
-        op1, a1::Diagonal, perm1_codomain, perm1_domain,
-        op2, a2::Diagonal, perm2_codomain, perm2_domain
-    )
+        op1::Op1, a1::Diagonal, perm1_codomain, perm1_domain,
+        op2::Op2, a2::Diagonal, perm2_codomain, perm2_domain
+    ) where {Op1, Op2}
     check_input(
         contractpermop,
         perm_dest_codomain, perm_dest_domain,
@@ -94,8 +95,8 @@ function allocate_output(
     axes_codomain_dest, _ = output_axes(
         contractpermop,
         perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain
+        op1, axes(a1), perm1_codomain, perm1_domain,
+        op2, axes(a2), perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return Diagonal(zero!(similar(a1.diag, T, (only(axes_codomain_dest),))))
