@@ -1,3 +1,4 @@
+using LinearAlgebra: Adjoint, Transpose
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, is_output_view, matricize, matricizeop, matricizeop!,
     matricizeopcopy, matricizeopview
@@ -22,23 +23,28 @@ end
     @test m ≈ matricize_ref(a, (1,), (2, 3))
     @test Base.mightalias(m, a)
 
-    # Every other bipermutation is a fresh permuted copy in matricized layout (no lazy
-    # wrappers), including the codomain/domain swap.
-    for (pc, pd) in (((2, 3), (1,)), ((3, 1), (2,)))
-        m = matricize(a, pc, pd)
-        @test m ≈ matricize_ref(a, pc, pd)
-        @test m isa Matrix
-        @test !Base.mightalias(m, a)
-    end
+    # The codomain/domain swap is a lazy `transpose` of that view.
+    m = matricize(a, (2, 3), (1,))
+    @test m ≈ matricize_ref(a, (2, 3), (1,))
+    @test m isa Transpose
+    @test Base.mightalias(m, a)
+
+    # Any other bipermutation is a fresh permuted copy in matricized layout.
+    m = matricize(a, (3, 1), (2,))
+    @test m ≈ matricize_ref(a, (3, 1), (2,))
+    @test m isa Matrix
+    @test !Base.mightalias(m, a)
     @test_throws ArgumentError matricize(a, (1,), (2,))
 
-    # `conj` cannot ride a view, so it copies even on the identity bipermutation.
+    # A reshape cannot carry `conj`, so it copies on the identity bipermutation, while the swap
+    # is a lazy `adjoint`.
     m = matricizeop(conj, a, (1,), (2, 3))
     @test m ≈ conj.(matricize_ref(a, (1,), (2, 3)))
     @test !Base.mightalias(m, a)
     m = matricizeop(conj, a, (2, 3), (1,))
     @test m ≈ conj.(matricize_ref(a, (2, 3), (1,)))
-    @test !Base.mightalias(m, a)
+    @test m isa Adjoint
+    @test Base.mightalias(m, a)
 end
 
 @testset "is_output_view" begin
@@ -49,11 +55,17 @@ end
     @test is_output_view(matricizeop, identity, a, (), (1, 2, 3))
     @test is_output_view(matricizeop, identity, a, (1, 2, 3), ())
 
-    # Not at a swap or an interleaving, which route through the gather branch instead.
-    @test !is_output_view(matricizeop, identity, a, (2, 3), (1,))
+    # At the swapped split the view is the reshape's lazy `transpose`, or its `adjoint` with
+    # `conj` folded in. Not at an interleaving, which routes through the gather branch instead.
+    @test is_output_view(matricizeop, identity, a, (2, 3), (1,))
+    @test matricizeopview(identity, a, (2, 3), (1,)) isa Transpose
+    @test matricizeop(identity, a, (2, 3), (1,)) == matricize_ref(a, (2, 3), (1,))
+    @test is_output_view(matricizeop, conj, a, (2, 3), (1,))
+    @test matricizeopview(conj, a, (2, 3), (1,)) isa Adjoint
+    @test matricizeop(conj, a, (2, 3), (1,)) == conj.(matricize_ref(a, (2, 3), (1,)))
     @test !is_output_view(matricizeop, identity, a, (3, 1), (2,))
 
-    # And never with an operation folded in, since a reshape cannot carry a `conj`.
+    # A reshape cannot carry a `conj` at the stored split.
     @test !is_output_view(matricizeop, conj, a, (1,), (2, 3))
 
     # A type without hooks declares nothing (fail-safe default) and has no aliasing form.
@@ -140,12 +152,15 @@ end
     a .= randn(rng, 2, 3, 4)
     @test m ≈ matricize_ref(a, (1,), (2, 3))
 
-    # Permuted copies are independent of later updates to `a`.
-    for (pc, pd) in (((2, 3), (1,)), ((3, 1), (2,)))
-        a = randn(rng, 2, 3, 4)
-        m = matricize(a, pc, pd)
-        snapshot = copy(m)
-        a .= a .+ 1
-        @test m == snapshot
-    end
+    # So does the lazy transpose at the swap.
+    m = matricize(a, (2, 3), (1,))
+    a .= randn(rng, 2, 3, 4)
+    @test m ≈ matricize_ref(a, (2, 3), (1,))
+
+    # A permuted copy is independent of later updates to `a`.
+    a = randn(rng, 2, 3, 4)
+    m = matricize(a, (3, 1), (2,))
+    snapshot = copy(m)
+    a .= a .+ 1
+    @test m == snapshot
 end

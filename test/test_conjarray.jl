@@ -98,7 +98,9 @@ end
         r, labels_r = contract(x, labels_a, y, labels_b)
         re, labels_re = contract(xe, labels_a, ye, labels_b)
         @test labels_r == labels_re
-        @test r == re
+        # A lazy conjugate can take a copy-free layout the copied one does not, so the matmul
+        # may round differently.
+        @test r ≈ re
     end
 
     # The conjugate is folded into the op passed alongside it.

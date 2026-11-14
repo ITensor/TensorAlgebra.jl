@@ -142,7 +142,10 @@ $(_clamp_kwargs_doc("M"))
 """
 function powh_safe(M, p; alg = nothing, kwargs...)
     isdiag(M) && return pow_diag_safe(M, p; kwargs...)
-    D, V = MAK.eigh_full(M; alg)
+    # `eigh_full` selects its default algorithm from the input type, which it does not do for a
+    # lazy `transpose` or `adjoint` (a matricization at the swapped split), so select it from the
+    # owned copy instead.
+    D, V = MAK.eigh_full!(MAK.copy_input(MAK.eigh_full, M); alg)
     return V * pow_diag_safe(D, p; kwargs...) * V'
 end
 
@@ -197,7 +200,7 @@ function sqrth_invsqrth_safe(M; alg = nothing, kwargs...)
     if isdiag(M)
         return pow_diag_safe(M, 1 // 2; kwargs...), pow_diag_safe(M, -1 // 2; kwargs...)
     end
-    D, V = MAK.eigh_full(M; alg)
+    D, V = MAK.eigh_full!(MAK.copy_input(MAK.eigh_full, M); alg)
     return V * pow_diag_safe(D, 1 // 2; kwargs...) * V',
         V * pow_diag_safe(D, -1 // 2; kwargs...) * V'
 end

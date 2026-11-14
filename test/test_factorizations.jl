@@ -438,6 +438,30 @@ end
     end
 end
 
+# At the swapped split the matricization is a lazy `transpose`, or an `adjoint` for a lazily
+# conjugated input, which the read-only tier hands straight to the matrix-level function.
+@testset "Swapped split, lazy transpose and adjoint ($T)" for T in elts
+    X = randn(T, 6, 6)
+    H = X * X'
+    B = reshape(Matrix(transpose(H)), 2, 3, 2, 3)
+    perm_codomain, perm_domain = (3, 4), (1, 2)
+    for (A, A_mat) in ((B, H), (TensorAlgebra.conjed(B), conj(H)))
+        @test TensorAlgebra.matricize(A, perm_codomain, perm_domain) ≈ A_mat
+        S = TensorAlgebra.sqrth_safe(A, perm_codomain, perm_domain)
+        Sinv = TensorAlgebra.invsqrth_safe(A, perm_codomain, perm_domain)
+        S_mat = TensorAlgebra.matricize(S, Val(2))
+        @test S_mat^2 ≈ A_mat
+        @test S_mat * TensorAlgebra.matricize(Sinv, Val(2)) ≈ I
+        S′, Sinv′ = TensorAlgebra.sqrth_invsqrth_safe(A, perm_codomain, perm_domain)
+        @test S′ ≈ S
+        @test Sinv′ ≈ Sinv
+        D, V = eigh_full(A, perm_codomain, perm_domain)
+        V_mat = TensorAlgebra.matricize(V, Val(2))
+        @test A_mat * V_mat ≈ V_mat * D
+        @test TensorAlgebra.tr(A, perm_codomain, perm_domain) ≈ LinearAlgebra.tr(A_mat)
+    end
+end
+
 # A wrapper whose `matricize` reshapes the parent's buffer but declares nothing about it (no
 # `Base.dataids` overload), so any ownership inference from aliasing checks misclassifies it.
 module FactorizationMatricizeTestUtils
