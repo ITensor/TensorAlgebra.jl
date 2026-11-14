@@ -96,7 +96,9 @@ Has "maybe alias" semantics: the result may share `a`'s memory or be fresh stora
 the array type. Treat it as read-only. Use `matricizeopcopy` for a matrix the caller owns, and
 `matricizeopview` (partial) for one guaranteed to alias.
 """
-function matricizeop(op, a, perm_codomain, perm_domain)
+# `op::Op` forces specialization: `op` is only passed on, so a call that is not inlined would
+# otherwise compile for `op::Function` and dispatch on it at run time.
+function matricizeop(op::Op, a, perm_codomain, perm_domain) where {Op}
     check_biperm(a, perm_codomain, perm_domain)
     is_output_view(matricizeop, op, a, perm_codomain, perm_domain) &&
         return matricizeopview(op, a, perm_codomain, perm_domain)

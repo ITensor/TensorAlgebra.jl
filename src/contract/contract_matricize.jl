@@ -33,34 +33,18 @@ function contractpermopadd!(
     p = TupleTools.sortperm(biperm2_codomain)
     biperm1_domain_alt = map(i -> biperm1_domain[i], p)
     biperm2_codomain_alt = map(i -> biperm2_codomain[i], p)
-    # Lengths are permutation-invariant, so read them once rather than for every layout.
-    n1, n2, n_dest = length(a1), length(a2), length(a_dest)
-    # The destination is written through its view only when that view is the direct one, since
-    # `mul!` into a lazy `transpose` falls off BLAS. A lazy view only arises at a non-identity
-    # bipermutation, and the transposed-product layout covers that one with a direct destination.
-    n_dest_copy = if isidentitybiperm(invperm_codomain, invperm_domain)
-        matricize_copy_length(n_dest, identity, a_dest, invperm_codomain, invperm_domain)
-    else
-        n_dest
-    end
-    n_dest_copy_swapped = if isidentitybiperm(invperm_domain, invperm_codomain)
-        matricize_copy_length(n_dest, identity, a_dest, invperm_domain, invperm_codomain)
-    else
-        n_dest
-    end
+    l1 = matricize_copy_lengths(
+        op1, a1, biperm1_codomain, biperm1_domain, biperm1_domain_alt
+    )
+    l2 = matricize_copy_lengths(
+        op2, a2, biperm2_domain, biperm2_codomain, biperm2_codomain_alt
+    )
+    l_dest, l_dest_swapped = dest_copy_lengths(a_dest, invperm_codomain, invperm_domain)
     costs = (
-        n_dest_copy +
-            matricize_copy_length(n1, op1, a1, biperm1_codomain, biperm1_domain) +
-            matricize_copy_length(n2, op2, a2, biperm2_codomain, biperm2_domain),
-        n_dest_copy +
-            matricize_copy_length(n1, op1, a1, biperm1_codomain, biperm1_domain_alt) +
-            matricize_copy_length(n2, op2, a2, biperm2_codomain_alt, biperm2_domain),
-        n_dest_copy_swapped +
-            matricize_copy_length(n2, op2, a2, biperm2_domain, biperm2_codomain) +
-            matricize_copy_length(n1, op1, a1, biperm1_domain, biperm1_codomain),
-        n_dest_copy_swapped +
-            matricize_copy_length(n2, op2, a2, biperm2_domain, biperm2_codomain_alt) +
-            matricize_copy_length(n1, op1, a1, biperm1_domain_alt, biperm1_codomain),
+        l_dest + l1[1] + l2[3],
+        l_dest + l1[2] + l2[4],
+        l_dest_swapped + l2[1] + l1[3],
+        l_dest_swapped + l2[2] + l1[4],
     )
     i = argmin(costs)
     biperm1_contracted, biperm2_contracted = if isodd(i)
@@ -86,10 +70,39 @@ function contractpermopadd!(
     return a_dest
 end
 
-# The number of elements copied to matricize `op(a)`, of length `n`: none when the matricization is
-# a view.
-function matricize_copy_length(n, op, a, perm_codomain, perm_domain)
-    return is_output_view(matricizeop, op, a, perm_codomain, perm_domain) ? 0 : n
+# The scoring helpers below each see one array, and are not inlined, so they compile once per
+# array type rather than once per pair of operands.
+
+# The number of elements copied to matricize `op(a)` as the left factor `(open | contracted)` and
+# as the right factor `(contracted | open)`, for both orders of the contracted legs: none when the
+# matricization is a view.
+@noinline function matricize_copy_lengths(
+        op, a, perm_open, perm_contracted, perm_contracted_alt
+    )
+    n = length(a)
+    copy_length(perm_codomain, perm_domain) =
+        is_output_view(matricizeop, op, a, perm_codomain, perm_domain) ? 0 : n
+    return (
+        copy_length(perm_open, perm_contracted),
+        copy_length(perm_open, perm_contracted_alt),
+        copy_length(perm_contracted, perm_open),
+        copy_length(perm_contracted_alt, perm_open),
+    )
+end
+
+# The number of elements copied to write the destination through its direct and its swapped
+# split. The destination is written through its view only when that view is the direct one,
+# since `mul!` into a lazy `transpose` falls off BLAS. A lazy view only arises at a non-identity
+# bipermutation, and the transposed-product layout covers that one with a direct destination.
+@noinline function dest_copy_lengths(a_dest, perm_codomain, perm_domain)
+    n = length(a_dest)
+    function copy_length(perm_codomain, perm_domain)
+        isidentitybiperm(perm_codomain, perm_domain) &&
+            is_output_view(matricizeop, identity, a_dest, perm_codomain, perm_domain) &&
+            return 0
+        return n
+    end
+    return copy_length(perm_codomain, perm_domain), copy_length(perm_domain, perm_codomain)
 end
 
 """
