@@ -1,4 +1,6 @@
-function check_biperm(a, perm_codomain, perm_domain)
+# Kept out of line, so a caller that takes two operands calls the copy compiled for each array type
+# rather than carrying its own.
+@noinline function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipartitioned permutation"))
     isbiperm(perm_codomain, perm_domain) ||
@@ -12,8 +14,9 @@ end
 # so this reduces to `ax1 == ax2` for non-graded arrays. It takes the axes rather than the arrays so
 # that it compiles once per axes type: a structured array's type can record more than its axes (a
 # graded array's records its codomain/domain split), which would otherwise compile it once per pair
-# of operand types.
-function check_contracted_axes(
+# of operand types. For the same reason it is kept out of line: inlined into a caller that takes the
+# arrays, it would be compiled again for every pair of operand types.
+@noinline function check_contracted_axes(
         op1, axes1::Tuple, perm1_domain, op2, axes2::Tuple, perm2_codomain
     )
     length(perm1_domain) == length(perm2_codomain) || throw(
@@ -104,8 +107,9 @@ end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
-# Takes the operands' axes rather than the arrays, for the reason given at `check_contracted_axes`.
-function output_axes(
+# Takes the operands' axes rather than the arrays, and is kept out of line, for the reason given at
+# `check_contracted_axes`.
+@noinline function output_axes(
         ::typeof(contractpermop),
         perm_dest_codomain, perm_dest_domain,
         op1, axes1::Tuple, perm1_codomain, perm1_domain,
