@@ -66,8 +66,8 @@ Like [`contractalign`](@ref), but contracting `op1(a1)` with `op2(a2)`, where ea
 `identity` or `conj`.
 """
 function contractop(
-        labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...
-    )
+        labels_dest, op1::Op1, a1, labels1, op2::Op2, a2, labels2; kwargs...
+    ) where {Op1, Op2}
     # Unwrap lazy conjugates here, so nothing below sees a `ConjArray` and the destination is
     # allocated for the operands' own array types.
     op1, a1 = _unwrap_conj(op1, a1)
@@ -75,11 +75,12 @@ function contractop(
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
-    # Cross into a `Val(K)` method (a function-barrier on the contracted count) so the
-    # bipartitioned permutations and the contraction below them are type-stable.
+    # The contracted count follows from the dimensions alone, so it is a compile-time constant
+    # when `labels_dest` is a tuple and the contraction below is type-stable.
+    K = (ndims(a1) + ndims(a2) - length(labels_dest)) ÷ 2
+    count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
     return _contractop(
-        Val(count(contracted1)), labels_dest, op1, a1, t1, op2, a2, t2, contracted1;
-        kwargs...
+        Val(K), labels_dest, op1, a1, t1, op2, a2, t2, contracted1; kwargs...
     )
 end
 # `op1::Op1` and `op2::Op2` force specialization: these methods are reached through a run-time
@@ -134,10 +135,10 @@ function contractpermalign(
 end
 function contractpermop(
         perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain;
+        op1::Op1, a1, perm1_codomain, perm1_domain,
+        op2::Op2, a2, perm2_codomain, perm2_domain;
         kwargs...
-    )
+    ) where {Op1, Op2}
     # Unwrap lazy conjugates before allocating, so the destination is allocated for the operands'
     # own array types.
     op1, a1 = _unwrap_conj(op1, a1)
@@ -212,20 +213,22 @@ end
 # contractopadd! (labels)
 function contractopadd!(
         a_dest, labels_dest,
-        op1, a1, labels1,
-        op2, a2, labels2,
+        op1::Op1, a1, labels1,
+        op2::Op2, a2, labels2,
         α::Number, β::Number;
         kwargs...
-    )
+    ) where {Op1, Op2}
     op1, a1 = _unwrap_conj(op1, a1)
     op2, a2 = _unwrap_conj(op2, a2)
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
-    # Cross into a `Val(K)` method (a function-barrier on the contracted count) so the
-    # bipartitioned permutations and the contraction below them are type-stable.
+    # The contracted count follows from the dimensions alone, so it is a compile-time constant
+    # and the contraction below is type-stable.
+    K = (ndims(a1) + ndims(a2) - ndims(a_dest)) ÷ 2
+    count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
     return _contractopadd!(
-        Val(count(contracted1)), a_dest, labels_dest,
+        Val(K), a_dest, labels_dest,
         op1, a1, t1, op2, a2, t2, α, β, contracted1; kwargs...
     )
 end
@@ -244,11 +247,11 @@ end
 # contractpermopadd! (bipartitioned permutations, algorithm selection)
 function contractpermopadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain,
+        op1::Op1, a1, perm1_codomain, perm1_domain,
+        op2::Op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number;
         alg = nothing
-    )
+    ) where {Op1, Op2}
     # Input validation belongs to the algorithm's kernel below, which is a public rung callable
     # directly, so this entry only unwraps lazy conjugates, selects and dispatches. Unwrapping
     # before selection lets a backend kernel see its own array type with `op = conj`.
@@ -268,10 +271,10 @@ end
 function contractpermopadd!(
         algorithm::ContractAlgorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain,
+        op1::Op1, a1, perm1_codomain, perm1_domain,
+        op2::Op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
-    )
+    ) where {Op1, Op2}
     return throw(
         MethodError(
             contractpermopadd!,

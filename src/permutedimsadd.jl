@@ -51,9 +51,9 @@ function bipermutedimsopadd! end
 # of which act on axes: `conj` dualizes a graded axis (and is a no-op on a dense axis),
 # `identity` leaves it unchanged.
 function check_input(
-        ::typeof(bipermutedimsopadd!), dest, op, src,
+        ::typeof(bipermutedimsopadd!), dest, op::Op, src,
         perm_codomain, perm_domain
-    )
+    ) where {Op}
     op === identity || op === conj ||
         throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
     perm = (perm_codomain..., perm_domain...)
@@ -82,20 +82,21 @@ element-wise, permutes, then accumulates via broadcasting with Strided.jl
 optimization when possible.
 """
 function bipermutedimsopadd!(
-        dest, op, src,
+        dest, op::Op, src,
         perm_codomain, perm_domain,
         α::Number, β::Number
-    )
+    ) where {Op}
     perm = (perm_codomain..., perm_domain...)
     check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
 
-    src′ = permuteddims(src, perm)
-    if SV.isstrided(dest) && SV.isstrided(src′)
-        _opadd!(SV.StridedView(dest), op, SV.StridedView(src′), α, β)
+    if SV.isstrided(dest) && SV.isstrided(src)
+        # `StridedView` stores the permutation in a field, unlike `PermutedDimsArray`, so a run-time
+        # permutation does not construct a new type on every call.
+        _opadd!(SV.StridedView(dest), op, Base.permutedims(SV.StridedView(src), perm), α, β)
     else
         # Non-strided operands (e.g. structured matrices like `Diagonal`) accumulate
         # through generic broadcasting.
-        _opadd!(dest, op, src′, α, β)
+        _opadd!(dest, op, permuteddims(src, perm), α, β)
     end
     return dest
 end
@@ -151,8 +152,8 @@ bipartitioned permutation version; this flat-permutation overload forwards to it
 with `perm_domain = ()`.
 """
 function permutedimsopadd!(
-        dest, op, src, perm, α::Number, β::Number
-    )
+        dest, op::Op, src, perm, α::Number, β::Number
+    ) where {Op}
     return bipermutedimsopadd!(dest, op, src, perm, (), α, β)
 end
 

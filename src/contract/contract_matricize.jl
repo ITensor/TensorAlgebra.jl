@@ -8,7 +8,7 @@ using TupleTools: TupleTools
 # The contraction can be laid out four ways: the contracted legs in `a1`'s or in `a2`'s storage
 # order, times `a1 * a2` or `a2 * a1` (the transposed product, written into the destination's
 # swapped split). Each layout is scored by the number of elements it copies to matricize the
-# operands and the destination, and the cheapest is passed to `matricized_mul_add!`.
+# operands and the destination, and the cheapest is passed to `_contractpermopadd_matricized!`.
 # Specialized on the operations for the same reason as `check_input(contractpermop, ...)`.
 function contractpermopadd!(
         ::MatricizeContract,
@@ -50,14 +50,14 @@ function contractpermopadd!(
         (biperm1_domain_alt, biperm2_codomain_alt)
     end
     if i ≤ 2
-        matricized_mul_add!(
+        _contractpermopadd_matricized!(
             a_dest, invperm_codomain, invperm_domain,
             op1, a1, biperm1_codomain, biperm1_contracted,
             op2, a2, biperm2_contracted, biperm2_domain,
             α, β
         )
     else
-        matricized_mul_add!(
+        _contractpermopadd_matricized!(
             a_dest, invperm_domain, invperm_codomain,
             op2, a2, biperm2_domain, biperm2_contracted,
             op1, a1, biperm1_contracted, biperm1_codomain,
@@ -104,7 +104,7 @@ end
 
 # `a_dest = β * a_dest + α * m1 * m2` for the operands matricized as `m1` and `m2`, with the
 # product's rows and columns placed in `a_dest` by `(perm_dest_codomain, perm_dest_domain)`.
-function matricized_mul_add!(
+function _contractpermopadd_matricized!(
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,

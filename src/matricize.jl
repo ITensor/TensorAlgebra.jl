@@ -26,7 +26,7 @@ trivialrange(::Type{<:AbstractUnitRange}, n::Integer) = Base.OneTo(n)
 Non-mutating version of `bipermutedimsopadd!`: returns
 `op.(permutedims(src, (perm_codomain..., perm_domain...)))`.
 """
-function permutedimsop(op, src, perm_codomain, perm_domain)
+function permutedimsop(op::Op, src, perm_codomain, perm_domain) where {Op}
     # Validate against `src` here: `bipermutedimsopadd!`'s `check_input` compares against `dest`,
     # which `allocate_output` builds from the same perms, so it cannot catch a non-covering perm.
     check_biperm(src, perm_codomain, perm_domain)
@@ -37,7 +37,7 @@ end
 # The output holds `op.(src)` permuted, so `op` applies to the axes too: `conj` dualizes a
 # graded axis (a no-op on a dense axis), `identity` leaves it unchanged, keeping axes and
 # data in sync.
-function allocate_output(::typeof(permutedimsop), op, src, perm_co, perm_do)
+function allocate_output(::typeof(permutedimsop), op::Op, src, perm_co, perm_do) where {Op}
     T = Base.promote_op(op, eltype(src))
     axes_co = map(i -> op(axes(src, i)), perm_co)
     axes_do = map(i -> op(axes(src, i)), perm_do)
@@ -125,7 +125,7 @@ function matricizeop(op, a, ndims_codomain::Val)
 end
 
 # Total: always fresh storage the caller owns.
-function matricizeopcopy(op, a, perm_codomain, perm_domain)
+function matricizeopcopy(op::Op, a, perm_codomain, perm_domain) where {Op}
     check_biperm(a, perm_codomain, perm_domain)
     dest = allocate_output(matricizeop, op, a, perm_codomain, perm_domain)
     return matricizeop!(dest, op, a, perm_codomain, perm_domain)
@@ -244,8 +244,8 @@ function matricizeopview(op, a::DenseArray, perm_codomain, perm_domain)
     return op === conj ? adjoint(m) : transpose(m)
 end
 function allocate_output(
-        ::typeof(matricizeop), op, a::AbstractArray, perm_codomain, perm_domain
-    )
+        ::typeof(matricizeop), op::Op, a::AbstractArray, perm_codomain, perm_domain
+    ) where {Op}
     T = Base.promote_op(op, eltype(a))
     size_codomain = map(i -> size(a, i), perm_codomain)
     size_domain = map(i -> size(a, i), perm_domain)
@@ -253,7 +253,7 @@ function allocate_output(
 end
 # The destination is a dense matrix, so reshaping it to the permuted tensor shape is a view and
 # the permuted-add writes straight through it.
-function matricizeop!(dest, op, a::AbstractArray, perm_codomain, perm_domain)
+function matricizeop!(dest, op::Op, a::AbstractArray, perm_codomain, perm_domain) where {Op}
     perm = (perm_codomain..., perm_domain...)
     dest_tensor = reshape(dest, map(i -> size(a, i), perm))
     bipermutedimsopadd!(dest_tensor, op, a, perm_codomain, perm_domain, true, false)
