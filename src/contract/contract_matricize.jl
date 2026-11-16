@@ -8,10 +8,7 @@ using TupleTools: TupleTools
 # The contraction can be laid out four ways: the contracted legs in `a1`'s or in `a2`'s storage
 # order, times `a1 * a2` or `a2 * a1` (the transposed product, written into the destination's
 # swapped split). Each layout is scored by the number of elements it copies to matricize the
-# operands and the destination, and the cheapest is passed to `matricized_mul_add!`. An array
-# family whose product needs more than the fold (a fermionic twist on the contracted legs)
-# overloads `matricized_mul_add!` and keeps this layout choice. The score ignores any copy that
-# extra work forces.
+# operands and the destination, and the cheapest is passed to `matricized_mul_add!`.
 # Specialized on the operations for the same reason as `check_input(contractpermop, ...)`.
 function contractpermopadd!(
         ::MatricizeContract,
@@ -105,23 +102,8 @@ end
     return copy_length(perm_codomain, perm_domain), copy_length(perm_domain, perm_codomain)
 end
 
-"""
-    matricized_mul_add!(
-        a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain,
-        α, β
-    )
-
-Set `a_dest = β * a_dest + α * m1 * m2`, where `m1` and `m2` are the operands matricized with
-`matricizeop(op1, a1, perm1_codomain, perm1_domain)` and
-`matricizeop(op2, a2, perm2_codomain, perm2_domain)`, and the product's rows and columns are
-placed in `a_dest` by the destination bipermutation `(perm_dest_codomain, perm_dest_domain)`.
-
-The body of the `MatricizeContract` kernel for one storage layout. The kernel calls it with the
-operands in either order, so an overload treats `a1` and `a2` as the left and right factor rather
-than as the contraction's first and second operand.
-"""
+# `a_dest = β * a_dest + α * m1 * m2` for the operands matricized as `m1` and `m2`, with the
+# product's rows and columns placed in `a_dest` by `(perm_dest_codomain, perm_dest_domain)`.
 function matricized_mul_add!(
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
