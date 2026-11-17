@@ -1,14 +1,9 @@
-using LinearAlgebra: Adjoint, Transpose, mul!
+using LinearAlgebra: mul!
 using TupleTools: TupleTools
 
-# ===============================  matricized contraction  ==================================
-# The matricized kernel: matricize both operands, multiply, and write the product into the
-# destination's matricization.
-#
-# The contraction can be laid out four ways: the contracted legs in `a1`'s or in `a2`'s storage
-# order, times `a1 * a2` or `a2 * a1` (the transposed product, written into the destination's
-# swapped split). Each layout is scored by the number of elements it copies to matricize the
-# operands and the destination, and the cheapest is passed to `_contractpermconjadd_matricized!`.
+# Matricize both operands, multiply, and write the product into the destination. There are four
+# layouts: the contracted legs in `a1`'s or in `a2`'s order, times `a1 * a2` or the transposed
+# `a2 * a1`. The one that copies the fewest elements is used.
 function contractpermconjadd!(
         ::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
@@ -66,12 +61,11 @@ function contractpermconjadd!(
     return a_dest
 end
 
-# The scoring helpers below each see one array, and are not inlined, so they compile once per
-# array type rather than once per pair of operands.
+# The scoring helpers each see one array and are kept out of line, so they compile per array type
+# rather than per pair of operands.
 
-# The number of elements copied to matricize `a` (conjugated under `isconj`) as the left factor `(open | contracted)` and
-# as the right factor `(contracted | open)`, for both orders of the contracted legs: none when the
-# matricization is a view.
+# The number of elements copied to matricize `a` as the left factor `(open | contracted)` and as
+# the right factor `(contracted | open)`, for both orders of the contracted legs.
 @noinline function matricize_copy_lengths(
         isconj::Bool, a, perm_open, perm_contracted, perm_contracted_alt
     )
@@ -86,10 +80,9 @@ end
     )
 end
 
-# The number of elements copied to write the destination through its direct and its swapped
-# split. The destination is written through its view only when that view is the direct one,
-# since `mul!` into a lazy `transpose` falls off BLAS. A lazy view only arises at a non-identity
-# bipermutation, and the transposed-product layout covers that one with a direct destination.
+# The number of elements copied to write the destination through its direct and its swapped split.
+# Only a plain (not transposed) view is written through, since `mul!` into a lazy `transpose` does
+# not use BLAS.
 @noinline function dest_copy_lengths(a_dest, perm_codomain, perm_domain)
     n = length(a_dest)
     function copy_length(perm_codomain, perm_domain)
@@ -113,12 +106,10 @@ function _contractpermconjadd_matricized!(
     a2_mat = matricizeconj(isconj2, a2, perm2_codomain, perm2_domain)
     if isidentitybiperm(perm_dest_codomain, perm_dest_domain) &&
             is_output_view(matricizeconj, false, a_dest, perm_dest_codomain, perm_dest_domain)
-        # The matricization shares `a_dest`'s memory, so the matmul is the whole operation.
         a_dest_mat = matricizeconjview(false, a_dest, perm_dest_codomain, perm_dest_domain)
-        # A dense matricization is inferred as a `Union` of `Matrix`, `Transpose` and `Adjoint`,
-        # too many combinations to split, so inferring the matrix product here would analyze it on
-        # that `Union` signature, which no package caches. Dispatching at run time reaches the
-        # method for the concrete matrix types instead.
+        # The matricizations are inferred as a `Union` of `Matrix`, `Transpose` and `Adjoint`, which
+        # would make the compiler analyze the matrix product on that `Union`. Dispatching at run
+        # time reaches the method for the concrete types, which is usually already compiled.
         Base.inferencebarrier(mul!)(a_dest_mat, a1_mat, a2_mat, α, β)
     else
         Base.inferencebarrier(unmatricizemuladd!)(
@@ -128,20 +119,8 @@ function _contractpermconjadd_matricized!(
     return a_dest
 end
 
-# `a_dest = β * a_dest + α * unmatricize(m1 * m2)`, with `α` and `β` folded into the one permuted
-# scatter so `a_dest` is never gathered. Every coupled-sector block of the product is materialized
-# (the matmul zeros the ones it does not reach), so the scatter reaches `a_dest` in full.
+# `a_dest = β * a_dest + α * unmatricize(m1 * m2)`.
 function unmatricizemuladd!(a_dest, m1, m2, perm_codomain, perm_domain, α, β)
     unmatricizeadd!(a_dest, m1 * m2, perm_codomain, perm_domain, α, β)
     return nothing
-end
-
-# The concrete matrix products the dense contraction reaches, which no other package's cache
-# reliably holds for these scalar types.
-for T in (Float64, ComplexF64),
-        A in (Matrix{T}, Adjoint{T, Matrix{T}}, Transpose{T, Matrix{T}}),
-        B in (Matrix{T}, Adjoint{T, Matrix{T}}, Transpose{T, Matrix{T}})
-
-    precompile(mul!, (Matrix{T}, A, B, Bool, Bool))
-    precompile(*, (A, B))
 end

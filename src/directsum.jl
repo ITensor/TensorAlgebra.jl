@@ -1,3 +1,2 @@
-# `directsum` is a plain concatenation for now, kept as its own entry point so a fusing/rotating
-# variant can later be dispatched on the array type, the way `matricize` is.
+# Kept separate from `concatenate` so array types can overload it with a fusing variant.
 directsum(dims, as...) = concatenate(dims, as...)

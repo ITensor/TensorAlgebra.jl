@@ -1,9 +1,7 @@
 import TupleTools
 
-# `a ∖ b` as a `Vector`, preserving the order of `a`, via a linear scan. For the small
-# collections here `Base.setdiff` is slower because it builds a `Set` and hashes; it
-# assumes set-like (unique) inputs. Used to assemble the destination labels in
-# `contract_labels`.
+# `a ∖ b` as a `Vector`, preserving the order of `a`. A linear scan is faster than `Base.setdiff`
+# for the small collections here.
 smallsetdiff(a, b) = [x for x in a if x ∉ b]
 
 # Position of each element of `x` in `y`, as a tuple. Linear scan, no hashing
@@ -44,10 +42,8 @@ function biperms(::typeof(contract), labels_dest, labels1, labels2)
     contracted1 = map(in(t2), t1)
     return biperms(contract, Val(count(contracted1)), labels_dest, t1, t2, contracted1)
 end
-# `K` is the number of contracted labels. Passing it as a `Val` makes the group sizes
-# compile-time constants, so the permutations below come out as concretely-typed tuples and
-# the rest of the contraction stays type-stable. `contracted1` is the boolean mask of which
-# of `labels1`'s labels are contracted (its `count` is `K`), threaded in from the caller.
+# `K`, the number of contracted labels, is a `Val` so the permutations are concretely typed
+# tuples. `contracted1` is the mask of contracted labels in `labels1`.
 function biperms(
         ::typeof(contract), ::Val{K}, labels_dest, labels1, labels2, contracted1
     ) where {K}
@@ -60,9 +56,8 @@ function biperms(
         bipartition(TupleTools.sortperm(map(in(labels1), labels2)), Val(n2 - K))
     # Align the contracted groups: list operand 2's contracted labels in operand 1's order.
     perm2_codomain = map(p -> checked_findfirst(==(labels1[p]), labels2), perm1_domain)
-    # The operands partition into (un)contracted groups by construction; the only label
-    # consistency left to check is that the destination carries exactly the uncontracted
-    # labels. Locating each below then checks they all land in the destination.
+    # The operand groups are consistent by construction, so only the destination labels need
+    # checking. `checked_findfirst` below catches any that are missing.
     length(labels_dest) == (n1 - K) + (n2 - K) ||
         throw(ArgumentError("Invalid contraction labels"))
     pos_dest = (

@@ -1,8 +1,5 @@
-# TensorAlgebra's generic operations describe their operands in the `AbstractArray` vocabulary of
-# `ndims`, `axes`, and `size`. These are TensorAlgebra-owned functions, distinct from `Base.ndims`/
-# `Base.axes`/`Base.size`, that forward to Base by default. A backend for a non-`AbstractArray`
-# tensor type (such as a `TensorMap`, whose "axes" are its index spaces) overloads these instead of
-# committing type piracy on the `Base` functions.
+# Owned by TensorAlgebra and forwarding to Base, so a non-`AbstractArray` tensor type (such as a
+# `TensorMap`) can overload them without type piracy.
 function ndims end
 ndims(a) = Base.ndims(a)
 
@@ -17,7 +14,7 @@ size(a, i::Int) = Base.size(a, i)
 """
     scalar(a)
 
-The single scalar held by a rank-0 (zero-dimensional) `a`, i.e. `a[]`.
+The single scalar held by a zero-dimensional `a`, the equivalent of `a[]`.
 
 # Examples
 

@@ -36,5 +36,6 @@ include("similar_map.jl")
 include("projectto.jl")
 include("linearbroadcasted.jl")
 include("conjarray.jl")
+include("precompile.jl")
 
 end

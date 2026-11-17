@@ -1,9 +1,5 @@
-# A bipartitioned tuple: a flat tuple carrying an extra codomain/domain split. It acts like the
-# flat tuple `(t1..., t2...)` for iteration, indexing, and `length`, with the split exposed only
-# through the `t1` and `t2` fields (the way `Pair` exposes its two halves through fields rather
-# than a collection interface). When its entries are `Int`s forming a permutation it acts as a
-# "biperm"; whether it is a valid permutation is the concern of the operation using it as one
-# (e.g. `matricize`), not of the type.
+# A bipartitioned tuple. It acts like the flat tuple `(t1..., t2...)` for iteration, indexing, and
+# `length`, with the codomain/domain split exposed only through the `t1` and `t2` fields.
 
 unval(::Val{N}) where {N} = N
 
@@ -29,10 +25,7 @@ function Base.show(io::IO, bt::BiTuple)
     return print(io, "BiTuple(", bt.t1, ", ", bt.t2, ")")
 end
 
-# Equality ignores the split: it compares the flattened contents, so a `(2, 0)` and a `(1, 1)` split
-# with the same flat entries are equal, and a `BiTuple` equals the plain tuple it flattens to. This
-# mirrors how comparing arrays ignores how they are partitioned into blocks. `hash` matches, hashing
-# the flat form so the equality relation stays hash-consistent.
+# Equality and `hash` ignore the split and compare the flattened contents.
 Base.:(==)(a::BiTuple, b::BiTuple) = Tuple(a) == Tuple(b)
 Base.:(==)(bt::BiTuple, t::Tuple) = Tuple(bt) == t
 Base.:(==)(t::Tuple, bt::BiTuple) = t == Tuple(bt)
@@ -40,9 +33,8 @@ Base.hash(bt::BiTuple, h::UInt) = hash(Tuple(bt), h)
 
 Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
 
-# A single-argument `map` preserves the split, mapping each block: with one operand there is no
-# ambiguity about which split to keep. (The multi-argument case is the ambiguous one and is left to
-# collapse to the flat tuple.)
+# Only single-argument `map` preserves the split, since with several operands the split to keep
+# would be ambiguous.
 Base.map(f, bt::BiTuple) = BiTuple(map(f, bt.t1), map(f, bt.t2))
 bipartition_axes(bt::BiTuple, split...) = bipartition_axes(Tuple(bt), split...)
 bipartition(bt::BiTuple, length1::Val) = bipartition(Tuple(bt), length1)
@@ -71,24 +63,17 @@ end
 # Split `t` by the two groups of a `BiTuple`.
 bipartition(t::Tuple, bt::BiTuple) = bipartition(t, bt.t1, bt.t2)
 
-# Whether `perm_codomain` and `perm_domain` together permute `1:n`, i.e. whether they are a valid
-# bipartitioned permutation. The two halves only make sense jointly, so this takes them as a pair
-# rather than leaving every caller to splat and call `isperm`.
+# Whether `perm_codomain` and `perm_domain` together form a valid bipartitioned permutation.
 isbiperm(perm_codomain, perm_domain) = isperm((perm_codomain..., perm_domain...))
 
-# Whether `perm_codomain` and `perm_domain` are the identity bipermutation, i.e. leave every
-# dimension where it is. Takes the halves for the same reason `isbiperm` does: both call sites had
-# a bipermutation in hand and were splatting it to ask.
+# Whether `perm_codomain` and `perm_domain` are the identity bipermutation.
 function isidentitybiperm(perm_codomain, perm_domain)
     perm = (perm_codomain..., perm_domain...)
     return perm == ntuple(identity, length(perm))
 end
 
-# The identity bipermutation splitting `K` dimensions after `K_codomain`, i.e. the one
-# `isidentitybiperm` accepts. The split-only `Val` conveniences build it to reach the
-# bipermutation forms. Takes the codomain rank and the total, the same shape as `bipartition`,
-# which reads the total off the container being split. Both are `Val`s so the tuple lengths stay
-# compile-time constants and the result is inferrable.
+# The identity bipermutation of `K` dimensions with the first `K_codomain` in the codomain. Both
+# are `Val`s so the result is inferrable.
 function identitybiperm(::Val{K_codomain}, ::Val{K}) where {K_codomain, K}
     return ntuple(identity, Val(K_codomain)),
         ntuple(i -> K_codomain + i, Val(K - K_codomain))

@@ -16,10 +16,7 @@ using MatrixAlgebraKit: MatrixAlgebraKit as MAK
 """
     MatrixAlgebra.one!(m) -> m
 
-Fill `m` with the identity in place. The matrix-level identity fill the tensor-level
-`TensorAlgebra.one`/`one!` bottom out on, and the customization point a backend overloads when its
-matricization is a type `MatrixAlgebraKit.one!` does not handle (TensorKit owns its own `one!`
-generic rather than extending MatrixAlgebraKit's, so a `TensorMap` fills through that).
+Fill `m` with the identity in place.
 """
 one!(m) = MAK.one!(m)
 
@@ -41,15 +38,11 @@ Raise a diagonal-structured matrix `D` to the power `p`. Diagonal entries
 `tol = max(atol, rtol * norm(D, Inf))` (the largest-magnitude entry, which
 is the largest-magnitude diagonal entry for a diagonal-structured matrix). The
 three-argument form takes `tol` directly. Negative `d` above `tol` cause `d^p`
-to error for fractional `p` (e.g. `p = 1//2`) and pass through for integer `p`,
-so the operation itself enforces the PSD precondition per-power. Errors if
-`isdiag(D)` is `false`.
+to error for fractional `p` (e.g. `p = 1//2`) and pass through for integer `p`.
+Errors if `isdiag(D)` is `false`.
 
-The clamped powers are written onto a `copy` of `D` via [`pow_diag_safe!`](@ref),
-so the result keeps the input's type and structure. This drives
-[`sqrt_diag_safe`](@ref), [`invsqrt_diag_safe`](@ref), and the [`powh_safe`](@ref)
-family, and works for any diagonal-structured backend (dense, graded, or a
-`TensorMap`).
+The result keeps the type and structure of `D`, so this works for any
+diagonal-structured matrix (dense, graded, or a `TensorMap`).
 
 ## Keyword arguments
 
@@ -74,23 +67,17 @@ function pow_diag_safe(D, p, tol)
     return Dp
 end
 
-# Clamp-then-power one diagonal entry: entries below `tol` go to zero, and a negative entry
-# above `tol` lets `real(d)^p` error for fractional `p`, enforcing the PSD precondition
-# per-power. Branching also skips the power for clamped entries.
+# A negative entry above `tol` makes `real(d)^p` error for fractional `p`, which enforces the PSD
+# precondition.
 _clamped_pow(d, p, tol) = abs(d) < tol ? zero(d) : real(d)^p
 
 """
     pow_diag_safe!(Dp, D, p, tol) -> Dp
 
-In-place kernel behind [`pow_diag_safe`](@ref): write the clamped powers of
-`D`'s diagonal onto `Dp`, where entries `d` with `abs(d) < tol` become zero and
-the rest become `d^p`. `Dp` must be diagonal-structured with the same structure
-as `D` (in the allocating [`pow_diag_safe`](@ref) path it is `copy(D)`).
-
-This is the backend overload point. The generic method maps over `MAK.diagview`,
-valid when the diagonal view is a single in-place-mappable vector (dense). A
-backend whose diagonal is stored per sector (a `TensorMap`, or a graded matrix)
-overloads this method to clamp each reduced block.
+In-place version of [`pow_diag_safe`](@ref): write the clamped powers of `D`'s
+diagonal onto `Dp`, where entries `d` with `abs(d) < tol` become zero and the
+rest become `d^p`. `Dp` must be diagonal-structured with the same structure as
+`D`.
 """
 function pow_diag_safe!(Dp, D, p, tol)
     map!(d -> _clamped_pow(d, p, tol), MAK.diagview(Dp), MAK.diagview(D))
@@ -142,9 +129,7 @@ $(_clamp_kwargs_doc("M"))
 """
 function powh_safe(M, p; alg = nothing, kwargs...)
     isdiag(M) && return pow_diag_safe(M, p; kwargs...)
-    # `eigh_full` selects its default algorithm from the input type, which it does not do for a
-    # lazy `transpose` or `adjoint` (a matricization at the swapped split), so select it from the
-    # owned copy instead.
+    # `eigh_full` does not select a default algorithm for a lazy `transpose` or `adjoint`.
     D, V = MAK.eigh_full!(MAK.copy_input(MAK.eigh_full, M); alg)
     return V * pow_diag_safe(D, p; kwargs...) * V'
 end
@@ -245,12 +230,10 @@ function MatrixAlgebraKit.findtruncated(
     indices_collection == indices ||
         throw(ArgumentError("Truncation must be a contiguous range."))
     if length(indices_collection) == length(values)
-        # No truncation occurred.
         return indices
     end
     # The largest truncated value.
     truncval = values[last(indices) + 1]
-    # Tolerance of determining if a value is degenerate.
     atol = max(strategy.atol, strategy.rtol * abs(truncval))
     for rank in reverse(indices)
         ≈(values[rank], truncval; atol, rtol = 0) || return Base.OneTo(rank)

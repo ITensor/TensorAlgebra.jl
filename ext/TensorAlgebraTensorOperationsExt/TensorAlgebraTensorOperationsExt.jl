@@ -12,7 +12,6 @@ function allocator(algorithm::TensorOperationsContract)
     return @something algorithm.allocator TO.DefaultAllocator()
 end
 
-# Construct via the `ContractAlgorithm` public constructor seam as well.
 function TA.ContractAlgorithm(backend::TO.AbstractBackend)
     return TensorOperationsContract(; backend)
 end

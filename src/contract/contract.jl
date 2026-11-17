@@ -28,8 +28,7 @@ true
 See also [`contractalign`](@ref) to name the output dimensions and get back just the array.
 """
 function contract(a1, labels1, a2, labels2; kwargs...)
-    # Optionally convert the labels to a representation cheaper to run the bookkeeping on (see
-    # `label_type`). `encode_contraction_labels`/`decode_contraction_labels` are no-ops unless the label type opts in.
+    # A no-op unless the label type opts in through `label_type`.
     l1, l2 = encode_contraction_labels(labels1, labels2)
     l_dest = contract_labels(l1, l2)
     a_dest = contractalign(l_dest, a1, l1, a2, l2; kwargs...)
@@ -58,17 +57,17 @@ function contractalign(
     return contractconj(labels_dest, false, a1, labels1, false, a2, labels2; kwargs...)
 end
 
-# The contraction functions come in two forms. The `op` forms take each operand's operation as
-# `identity` or `conj`, and forward to the `conj` forms, which take it as a `Bool` conjugation
-# flag. Everything below the public entry points calls the `conj` forms, so the contraction compiles
-# once for all four combinations of operations, and array types overload the `conj` forms.
+# The `op` forms take each operand's operation as `identity` or `conj` and forward to the `conj`
+# forms, which take a conjugation flag and are the ones to overload.
 
 # contractop (labels, with operations on the operands)
 """
     contractop(labels_dest, op1, a1, labels1, op2, a2, labels2; alg = nothing) -> a_dest
 
 Like [`contractalign`](@ref), but contracting `op1(a1)` with `op2(a2)`, where each `op` is
-`identity` or `conj`. Forwards to [`contractconj`](@ref).
+`identity` or `conj`.
+
+See also [`contractconj`](@ref).
 """
 function contractop(labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...)
     return contractconj(
@@ -83,15 +82,12 @@ Like [`contractop`](@ref), with each operation given as a conjugation flag.
 function contractconj(
         labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2; kwargs...
     )
-    # Unwrap lazy conjugates here, so nothing below sees a `ConjArray` and the destination is
-    # allocated for the operands' own array types.
     isconj1, a1 = _unwrap_conj(isconj1, a1)
     isconj2, a2 = _unwrap_conj(isconj2, a2)
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
-    # The contracted count follows from the dimensions alone, so it is a compile-time constant
-    # when `labels_dest` is a tuple and the contraction below is type-stable.
+    # Computed from the dimensions, so it is a compile-time constant when `labels_dest` is a tuple.
     K = (ndims(a1) + ndims(a2) - length(labels_dest)) ÷ 2
     count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
     return _contractconj(
@@ -116,8 +112,6 @@ function _contractconj(
 end
 
 # contractperm (bipartitioned permutations)
-# `perm` marks the whole biperm ladder: every rung has a labels-form sibling under the plain name,
-# so the suffix says which form a call site is in without the reader counting arguments.
 function contractperm(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
@@ -166,8 +160,6 @@ function contractpermconj(
         isconj2::Bool, a2, perm2_codomain, perm2_domain;
         kwargs...
     )
-    # Unwrap lazy conjugates before allocating, so the destination is allocated for the operands'
-    # own array types.
     isconj1, a1 = _unwrap_conj(isconj1, a1)
     isconj2, a2 = _unwrap_conj(isconj2, a2)
     a_dest = allocate_output(
@@ -262,8 +254,7 @@ function contractconjadd!(
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
-    # The contracted count follows from the dimensions alone, so it is a compile-time constant
-    # and the contraction below is type-stable.
+    # Computed from the dimensions, so it is a compile-time constant.
     K = (ndims(a1) + ndims(a2) - ndims(a_dest)) ÷ 2
     count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
     return _contractconjadd!(
@@ -305,9 +296,6 @@ function contractpermconjadd!(
         α::Number, β::Number;
         alg = nothing
     )
-    # Input validation belongs to the algorithm's kernel below, which is a public rung callable
-    # directly, so this entry only unwraps lazy conjugates, selects and dispatches. Unwrapping
-    # before selection lets a backend kernel see its own array type with the flag set.
     isconj1, a1 = _unwrap_conj(isconj1, a1)
     isconj2, a2 = _unwrap_conj(isconj2, a2)
     algorithm = select_algorithm(contract!, alg, (a_dest, a1, a2))
@@ -357,12 +345,8 @@ function contractpermconjadd!(
     )
 end
 
-# The contraction methods of the operation-generic algorithm layer in `algorithm.jl`. They live
-# here rather than beside the algorithm types because dispatching on `::typeof(contract!)` needs
-# it to exist, and `contractalgorithm.jl` is included first for the types these signatures use.
-# Keyed on `contract!` rather than `contract` because the destination is in the signature,
-# matching `check_input`. A backend can therefore choose on the destination as well as on the
-# operands.
+# Keyed on `contract!` rather than `contract` so a backend can choose on the destination as well
+# as on the operands.
 function default_algorithm(
         ::typeof(contract!), ::Type{<:Tuple{AbstractArray, AbstractArray, AbstractArray}}
     )

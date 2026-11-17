@@ -1,13 +1,9 @@
 """
     ConjArray(a::AbstractArray)
 
-Lazy conjugate of `a`: an `AbstractArray` whose axes are the conjugated (dualized) parent axes
-and whose elements are the conjugated parent elements. Constructed by [`conjed`](@ref).
-Permutation, matricization and contraction absorb it by unwrapping to the parent and folding
-`conj` into their `op`, so it is never materialized on its way into those operations. Whole-array
-reads, writes and broadcasting go through the parent as well, as do reductions for a dense parent.
-Scalar indexing is disallowed, so an operation without such a path errors instead of silently
-looping over elements.
+Lazy conjugate of `a`, constructed by [`conjed`](@ref). Its axes are the conjugated (dualized)
+axes of `a` and its elements are the conjugated elements of `a`. Permuting, matricizing or
+contracting it does not materialize the conjugate. Scalar indexing is disallowed.
 """
 struct ConjArray{T, N, P <: AbstractArray{T, N}} <: AbstractArray{T, N}
     parent::P
@@ -16,23 +12,18 @@ end
 """
     conjed(a::AbstractArray)
 
-Lazy conjugate of `a`, returning a [`ConjArray`](@ref). The lazy companion to the eager
-`conj(a)`, mirroring `adjoint`/`Adjoint`. `conjed(conjed(a))` returns `a`.
+Lazy conjugate of `a`, returning a [`ConjArray`](@ref). `conjed(conjed(a))` returns `a`.
 """
 conjed(a::AbstractArray) = ConjArray(a)
 conjed(a::ConjArray) = parent(a)
 
-# Most methods below either go through a conjugation-aware kernel (`permutedimsconjadd!`, `matricizeconj`,
-# contraction), which owns what `conj` means for its array type, or use identities that hold for any
-# antiunitary involution (`norm`, `iszero`, `dot` of two lazy conjugates). `fill!`, `==`, `mapreduce`
-# and `dot` with one lazy operand instead assume `conj` acts elementwise on a flat memory layout, so
-# they are only defined for a dense parent, and other array types opt in.
+# Methods that assume `conj` acts elementwise on the stored data (`fill!`, `==`, `mapreduce`, `dot`
+# with one lazy operand) are defined only for a dense parent. For a graded array, conjugation also
+# dualizes the axes and can carry fermion signs.
 const ConjDenseArray{T, N} = ConjArray{T, N, <:DenseArray{T, N}}
 
 Base.parent(a::ConjArray) = a.parent
 
-# Conjugating an axis is identity for plain integer ranges and dualizes graded axes (where
-# `conj` is overloaded as `dual` downstream).
 Base.axes(a::ConjArray) = map(conj, axes(parent(a)))
 Base.size(a::ConjArray) = size(parent(a))
 
@@ -51,18 +42,16 @@ function Base.setindex!(a::ConjArray, value, I::Int...)
     )
 end
 
-# Allocate like the parent, so a graded parent yields a graded array.
 function Base.similar(a::ConjArray, ::Type{T}, dims::Dims) where {T}
     return similar(parent(a), T, dims)
 end
 
-# Materialize through the eager `conj.(a)` path, so a lazy and an eager conjugate agree
-# (including any parent-specific behavior such as a graded fermion sign).
+# Materialize as the eager `conj.(a)`, so array types with their own `conj` (graded fermion signs)
+# agree.
 Base.copy(a::ConjArray) = copy(ConjBroadcasted(parent(a)))
 Base.Array{T, N}(a::ConjArray{<:Any, N}) where {T, N} = convert(Array{T, N}, copy(a))
 # Base `collect` iterates elements, which scalar indexing disallows.
 Base.collect(a::ConjArray) = Array(a)
-# Like `conj(::Adjoint)` in LinearAlgebra, this returns the parent rather than a copy.
 Base.conj(a::ConjArray) = parent(a)
 
 function Base.copyto!(dest::AbstractArray, src::ConjArray)
@@ -75,13 +64,10 @@ function Base.copyto!(dest::AbstractArray, src::ConjArray)
         false
     )
 end
-# Write into the parent the conjugate of what the lazy conjugate should hold. `conj` is an
-# involution, fermion signs included, so this is exact.
 function Base.copyto!(dest::ConjArray, src::AbstractArray)
     permutedimsconjadd!(parent(dest), true, src, ntuple(identity, ndims(src)), true, false)
     return dest
 end
-# Also resolves the ambiguity between the two methods above.
 function Base.copyto!(dest::ConjArray, src::ConjArray)
     copyto!(parent(dest), parent(src))
     return dest
@@ -92,21 +78,16 @@ function Base.fill!(a::ConjDenseArray, value)
 end
 
 Base.:(==)(a::ConjArray, b::ConjArray) = parent(a) == parent(b)
-# A fused two-array reduction rather than a copy, so it maps to a single kernel on GPU.
 function Base.:(==)(a::ConjDenseArray, b::DenseArray)
     axes(a) == axes(b) || return false
     return mapreduce((x, y) -> conj(x) == y, &, parent(a), b; init = true)
 end
 Base.:(==)(a::DenseArray, b::ConjDenseArray) = b == a
-# Conjugation, and any sign it carries, preserves every p-norm. `isapprox` goes through `norm`.
 LinearAlgebra.norm(a::ConjArray, p::Real = 2) = LinearAlgebra.norm(parent(a), p)
 Base.iszero(a::ConjArray) = iszero(parent(a))
-# `conj` is antiunitary, fermion signs included, so a pair of lazy conjugates reduces to the parents.
 function LinearAlgebra.dot(a::ConjArray, b::ConjArray)
     return conj(LinearAlgebra.dot(parent(a), parent(b)))
 end
-# Against a dense array, the lazy conjugate cancels the conjugation in `dot`, leaving the bilinear
-# pairing of the parent with `b` (BLAS `dotu`).
 LinearAlgebra.dot(a::ConjDenseArray, b::DenseArray) = transpose(vec(parent(a))) * vec(b)
 LinearAlgebra.dot(a::DenseArray, b::ConjDenseArray) = conj(LinearAlgebra.dot(b, a))
 function Base.mapreduce(f, op, a::ConjDenseArray; kwargs...)
@@ -120,37 +101,12 @@ function Base.show(io::IO, mime::MIME"text/plain", a::ConjArray)
     return show(io, mime, copy(a))
 end
 
-# A broadcast over a lazy conjugate reads it as `conj.(parent)`, so it never indexes the wrapper
-# and a linear one lowers to a `ConjBroadcasted` leaf.
 Base.Broadcast.broadcastable(a::ConjArray) = Base.Broadcast.broadcasted(conj, parent(a))
 function Base.Broadcast.BroadcastStyle(::Type{<:ConjArray{<:Any, <:Any, P}}) where {P}
     return Base.Broadcast.BroadcastStyle(P)
 end
 
 linearbroadcasted(::typeof(conj), a::ConjArray) = parent(a)
-
-# Each operation unwraps a `ConjArray` to its parent and folds `conj` into `op`
-# (`identity -> conj`, `conj -> identity`), before any backend dispatch.
-function bipermutedimsconjadd!(
-        dest, isconj::Bool, src::ConjArray,
-        perm_codomain, perm_domain,
-        α::Number, β::Number
-    )
-    return bipermutedimsconjadd!(
-        dest, !isconj, parent(src),
-        perm_codomain, perm_domain,
-        α, β
-    )
-end
-function permutedimsconj(isconj::Bool, src::ConjArray, perm_codomain, perm_domain)
-    return permutedimsconj(!isconj, parent(src), perm_codomain, perm_domain)
-end
-function matricizeconj(isconj::Bool, a::ConjArray, perm_codomain, perm_domain)
-    return matricizeconj(!isconj, parent(a), perm_codomain, perm_domain)
-end
-function matricizeconjcopy(isconj::Bool, a::ConjArray, perm_codomain, perm_domain)
-    return matricizeconjcopy(!isconj, parent(a), perm_codomain, perm_domain)
-end
 
 _unwrap_conj(isconj::Bool, a) = (isconj, a)
 _unwrap_conj(isconj::Bool, a::ConjArray) = (!isconj, parent(a))

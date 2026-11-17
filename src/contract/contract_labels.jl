@@ -10,13 +10,9 @@ end
 """
     label_type(::Type{L}) -> Type
 
-The label type to use when deriving a contraction.
-
-Deriving a contraction makes several passes comparing labels, so a label type that is costly to
-compare can map here to a cheaper integer type: the labels are matched to integers by equality
-pattern, the bookkeeping runs on the integers, and the derived labels are mapped back. The default
-is the identity `label_type(::Type{L}) = L`, so the bookkeeping runs on the labels as-is. A label
-type with expensive equality opts in by defining e.g.
+The label type used internally when deriving a contraction from labels of type `L`. Defaults
+to `L`. A label type that is expensive to compare can map to an integer type, which makes the
+contraction compare integers instead, for example
 
 ```julia
 TensorAlgebra.label_type(::Type{MyLabel}) = Int
@@ -24,12 +20,8 @@ TensorAlgebra.label_type(::Type{MyLabel}) = Int
 """
 label_type(::Type{T}) where {T} = T
 
-# Convert the operands' labels to `label_type`, a no-op when it already matches the labels. When
-# it differs (an integer type) the labels are matched to integers by equality pattern: `labels1`
-# becomes `1:length(labels1)`, and each of `labels2`'s labels reuses operand 1's integer where
-# they match (the contracted labels) and otherwise gets a fresh integer `length(labels1) +
-# position`. Encoding the fresh integers by position lets `decode_contraction_labels` map the
-# derived labels back.
+# `labels1` becomes `1:n1`, and each label of `labels2` reuses its match in `labels1` or else gets
+# `n1 + i2`. `decode_contraction_labels` relies on this positional encoding.
 function encode_contraction_labels(labels1, labels2)
     L = label_type(eltype(labels1))
     L === eltype(labels1) && return labels1, labels2
@@ -41,8 +33,7 @@ function encode_contraction_labels(labels1, labels2)
     return Base.OneTo(L(n1)), int2
 end
 
-# Invert `encode_contraction_labels`: a no-op when the labels were not converted, otherwise map
-# the integer labels back to the original labels by position.
+# Invert `encode_contraction_labels`.
 function decode_contraction_labels(labels_dest, labels1, labels2)
     label_type(eltype(labels1)) === eltype(labels1) && return labels_dest
     n1 = length(labels1)

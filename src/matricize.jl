@@ -8,9 +8,8 @@ using LinearAlgebra: Diagonal
 
 Return the identity range for fusing ranges of type `R`: a one-dimensional range
 `t` for which fusing `t` with any other range of the same family leaves that range
-unchanged. Defaults to `Base.OneTo(1)`. Downstream packages overload the type-level
-methods to return their own identity (for example, a charge-0 one-dimensional sector
-for a graded range).
+unchanged. Defaults to `Base.OneTo(1)`, and for a graded range it is a charge-0
+one-dimensional sector.
 
 With a length `n`, return the `n`-dimensional analogue: `n` copies of the identity
 range stacked into one range (for a graded range, a charge-0 sector of dimension `n`).
@@ -24,8 +23,9 @@ trivialrange(::Type{<:AbstractUnitRange}, n::Integer) = Base.OneTo(n)
     permutedimsop(op, src, perm_codomain, perm_domain)
 
 Non-mutating version of `bipermutedimsopadd!`: returns
-`op.(permutedims(src, (perm_codomain..., perm_domain...)))`. Forwards to
-[`permutedimsconj`](@ref).
+`op.(permutedims(src, (perm_codomain..., perm_domain...)))`.
+
+See also [`permutedimsconj`](@ref).
 """
 function permutedimsop(op, src, perm_codomain, perm_domain)
     return permutedimsconj(_isconj(op), src, perm_codomain, perm_domain)
@@ -36,22 +36,19 @@ end
 Like [`permutedimsop`](@ref), with the operation given as a conjugation flag.
 """
 function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
-    # Validate against `src` here: `bipermutedimsconjadd!`'s `check_input` compares against
-    # `dest`, which `allocate_output` builds from the same perms, so it cannot catch a
-    # non-covering perm.
+    src isa ConjArray &&
+        return permutedimsconj(!isconj, parent(src), perm_codomain, perm_domain)
+    # `bipermutedimsconjadd!` checks against the destination built from the same permutation, so
+    # it cannot catch an invalid one.
     check_biperm(src, perm_codomain, perm_domain)
     dest = allocate_output(permutedimsconj, isconj, src, perm_codomain, perm_domain)
     return bipermutedimsconjadd!(dest, isconj, src, perm_codomain, perm_domain, true, false)
 end
 
-# The output holds the permuted source, conjugated under `isconj`, so the conjugation applies to
-# the axes too: `conj` dualizes a graded axis (a no-op on a dense axis), keeping axes and data in
-# sync.
 function allocate_output(::typeof(permutedimsconj), isconj::Bool, src, perm_co, perm_do)
     axes_co = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_co)
     axes_do = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_do)
-    # `axes_do` are in the stored/dualized convention (from `axes(src)`), so un-dualize them
-    # into `similar_map`'s codomain-facing convention.
+    # `similar_map` takes the domain axes un-dualized.
     return similar_map(src, eltype(src), axes_co, conj.(axes_do))
 end
 
@@ -79,23 +76,8 @@ end
 #   `matricizeconjview(isconj, a, pc, pd)`               partial: the aliasing form
 #   `is_output_view(matricizeconj, isconj, a, pc, pd)`   whether the aliasing form applies
 #
-# Everything else is derived. `matricizeconjcopy` allocates and writes, so it always returns fresh
-# storage the caller owns. `matricizeconj` returns the view where the array type declares one and
-# the copy otherwise, i.e. it has maybe-alias semantics and its result must be treated as
-# read-only. `matricize` is `matricizeconj` without conjugation. `matricizeop`, `matricizeopcopy`,
-# `matricizeopview` and `matricizeop!` take the operation as `identity` or `conj` instead of the
-# flag and forward to the `conj` forms, which are the ones to overload.
-#
-# Allocation is a hook rather than generic machinery because computing a matricized destination
-# needs the fused axes, which only the array type knows: TensorAlgebra deliberately has no generic
-# axis-fusion interface. It is also what makes the copy path terminate, since `matricizeconj!` is a
-# distinct function from the router rather than a re-entry into it.
-#
-# `matricizeconjcopy` is itself an overload point for an array type whose owned matricization
-# already falls out of an allocating operation it has (for a graded array, permuting into fresh
-# storage whose stored matrix is the answer). Such a type overloads the copy instead of
-# `allocate_output`/`matricizeconj!`, which would copy that storage a second time, and then owes
-# only `matricizeconjview` and `is_output_view`.
+# `matricizeconjcopy` and `matricizeconj` are derived from these. A type that already has an
+# allocating matricization can overload `matricizeconjcopy` instead of the first two.
 
 """
     matricizeop(op, a, perm_codomain, perm_domain)
@@ -104,10 +86,10 @@ Matricize `a` across the bipermutation with the element-wise operation `op` fold
 matrix representing `op.(permutedims(a, (perm_codomain..., perm_domain...)))` with the codomain
 fused to rows and the domain to columns.
 
-Has "maybe alias" semantics: the result may share `a`'s memory or be fresh storage, depending on
-the array type. Treat it as read-only. Use `matricizeconjcopy` for a matrix the caller owns,
-and `matricizeconjview` (partial) for one guaranteed to alias. Forwards to
-[`matricizeconj`](@ref).
+The result may share `a`'s memory or be fresh storage, depending on the array type, so treat it
+as read-only.
+
+See also [`matricizeconj`](@ref).
 """
 function matricizeop(op, a, perm_codomain, perm_domain)
     return matricizeconj(_isconj(op), a, perm_codomain, perm_domain)
@@ -118,6 +100,7 @@ end
 Like [`matricizeop`](@ref), with the operation given as a conjugation flag.
 """
 function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
+    a isa ConjArray && return matricizeconj(!isconj, parent(a), perm_codomain, perm_domain)
     check_biperm(a, perm_codomain, perm_domain)
     is_output_view(matricizeconj, isconj, a, perm_codomain, perm_domain) &&
         return matricizeconjview(isconj, a, perm_codomain, perm_domain)
@@ -127,15 +110,12 @@ end
 """
     matricize(a, perm_codomain, perm_domain)
 
-`matricizeop` at `identity`. Has the same maybe-alias semantics.
+`matricizeop` at `identity`.
 """
 function matricize(a, perm_codomain, perm_domain)
     return matricizeconj(false, a, perm_codomain, perm_domain)
 end
 
-# Split-only convenience: matricize after `ndims_codomain` dimensions without permuting. Sugar over
-# the bipermutation forms, not a dispatch tier. An array type implements the hooks above and never
-# these, which is what keeps the copy path from recursing back through the router.
 function matricize(a, ndims_codomain::Val)
     return matricize(a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
 end
@@ -146,8 +126,10 @@ end
 function matricizeopcopy(op, a, perm_codomain, perm_domain)
     return matricizeconjcopy(_isconj(op), a, perm_codomain, perm_domain)
 end
-# Total: always fresh storage the caller owns.
+# Always returns fresh storage the caller owns.
 function matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
+    a isa ConjArray &&
+        return matricizeconjcopy(!isconj, parent(a), perm_codomain, perm_domain)
     check_biperm(a, perm_codomain, perm_domain)
     dest = allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain)
     return matricizeconj!(dest, isconj, a, perm_codomain, perm_domain)
@@ -156,8 +138,7 @@ end
 function matricizeopview(op, a, perm_codomain, perm_domain)
     return matricizeconjview(_isconj(op), a, perm_codomain, perm_domain)
 end
-# Partial: defined only where `is_output_view` is `true`, and always returns a matricization
-# sharing `a`'s memory (the `StridedView` partial-constructor pattern).
+# Defined only where `is_output_view` is `true`, and returns a matricization sharing `a`'s memory.
 function matricizeconjview(isconj::Bool, a, perm_codomain, perm_domain)
     return throw(MethodError(matricizeconjview, (isconj, a, perm_codomain, perm_domain)))
 end
@@ -183,43 +164,26 @@ function allocate_output(
 end
 
 # ==================================  is_output_view  ======================================
-# `true` iff `matricizeconj(isconj, a, perm_codomain, perm_domain)` shares `a`'s memory, so that
-# writes to the result are writes to `a`. The `isstrided`/`StridedView` pattern, and the same
-# question TensorKit asks with `has_shared_permute` and TensorOperations with `isblasdestination`.
-# Keyed on the operation like the other function-keyed hooks (`check_input`, `allocate_output`,
-# `output_axes`), so the predicate's arguments are exactly the call's arguments. The untyped
-# default declares nothing, which is always safe.
+# Whether `matricizeconj(isconj, a, perm_codomain, perm_domain)` shares `a`'s memory.
 function is_output_view(
         ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain
     )
     return false
 end
 
-# Split form: `axes_codomain` and `axes_domain` are the destination axes for the codomain and
-# domain groups, given codomain-facing (un-dualized), the same convention as `similar_map`. A
-# matrix type that stores its domain axes dualized re-dualizes them with `conj` in its overload
-# (a no-op on a dense axis). This is the primary overload point for a new matrix type, dispatched
-# on `m`. Permutation is handled by the bipermutation form of `unmatricize!`, so out-of-place
-# `unmatricize` never has to disambiguate axis tuples from permutation tuples regardless of how
-# unconstrained `m` and the axes are.
+# `axes_domain` is given un-dualized, the same convention as `similar_map`. Permutation is left to
+# `unmatricize!`, so `unmatricize` never has to tell axis tuples from permutation tuples.
 function unmatricize end
 
-# Split `axes` into its codomain and domain groups like `bipartition`, but present the domain
-# group codomain-facing (un-dualized) with `conj`, the convention `unmatricize` and `similar_map`
-# take. The domain axes `bipartition` reads off `axes(a)` are in the stored (dualized) form, so
-# this bridges from `axes(a)` to the `unmatricize` axis convention (a no-op on dense axes).
+# Like `bipartition`, but returns the domain axes un-dualized, the convention `unmatricize` and
+# `similar_map` take.
 function bipartition_axes(t::Tuple, split...)
     axes_codomain, axes_domain = bipartition(t, split...)
     return axes_codomain, conj.(axes_domain)
 end
 
-# `a_dest = β * a_dest + α * unmatricize(m)`, scattered across the bipermutation in one pass.
-# The bipermutation maps the destination's dimension order to the matrix's: `axes(a_dest)` grouped
-# by it gives the legs in `m`'s order, and the result is permuted back by its inverse. It is not
-# intrinsically an inverse permutation — the matricized-contraction destination path happens to
-# derive it as `invperm(biperm_dest)`, while a `matricize`/`unmatricize!` round trip passes
-# the same forward bipermutation to both. Dispatched on `a_dest`: a wrapper type scatters into its
-# parent by overloading this form, and `unmatricize!` is the `(1, 0)` case.
+# `a_dest = β * a_dest + α * unmatricize(m)`, where the bipermutation maps `a_dest`'s dimensions
+# to `m`'s rows and columns, the same one passed to `matricize`.
 function unmatricizeadd!(
         a_dest, m,
         perm_codomain, perm_domain,
@@ -246,24 +210,14 @@ function unmatricize!(a_dest, m, perm_codomain, perm_domain)
     return unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, true, false)
 end
 
-# In-place counterpart of `unmatricize`:
-# scatter the fused matrix `m` back into `a_dest`'s existing storage across the codomain/domain
-# split at `ndims_codomain`. The split applies no permutation, so this is the bipermutation form at the
-# trivial bipermutation, reusing its in-place block scatter (no intermediate `unmatricize` copy).
 function unmatricize!(a_dest, m, ndims_codomain::Val)
     return unmatricize!(a_dest, m, identitybiperm(ndims_codomain, Val(ndims(a_dest)))...)
 end
 
 # ================================  dense (reshape) hooks  ===================================
-# The view must be a matrix that BLAS and LAPACK handle efficiently, not merely one that shares
-# memory. A `DenseArray` (`Array`, GPU arrays) reshapes to one of its own kind, so it declares the
-# view; any other `AbstractArray` reshapes to a `ReshapedArray` wrapper that `mul!` sends to
-# generic matmul, so it takes the owned copy instead and lands on BLAS. The reshape shares memory
-# when the data is already in codomain-then-domain order with no operation to fold in, and at the
-# swapped split as the reshape's `transpose`, or its `adjoint` when conjugating, which
-# `mul!` passes to BLAS directly. A reshape cannot otherwise reorder or carry a `conj`. The
-# copy hooks below stay generic, since `similar` plus a permuted add is a correct owned
-# matricization for any permutable array.
+# Only a `DenseArray` declares a view, since reshaping any other array gives a wrapper that `mul!`
+# does not send to BLAS. The view is the reshape when the dimensions are already in order, and its
+# `transpose`, or `adjoint` when conjugating, at the swapped split.
 function is_output_view(
         ::typeof(matricizeconj), isconj::Bool, a::DenseArray, perm_codomain, perm_domain
     )
@@ -285,8 +239,6 @@ function allocate_output(
     size_domain = map(i -> size(a, i), perm_domain)
     return similar(a, eltype(a), (prod(size_codomain), prod(size_domain)))
 end
-# The destination is a dense matrix, so reshaping it to the permuted tensor shape is a view and
-# the permuted-add writes straight through it.
 function matricizeconj!(
         dest, isconj::Bool, a::AbstractArray, perm_codomain, perm_domain
     )
@@ -295,9 +247,7 @@ function matricizeconj!(
     bipermutedimsconjadd!(dest_tensor, isconj, a, perm_codomain, perm_domain, true, false)
     return dest
 end
-# The matricized input's rows must be the fused codomain and its columns the fused domain.
-# `reshape` alone only checks the total element count, so a wrong split with the right total
-# would reshape silently.
+# `reshape` alone only checks the total length, so it would accept a wrong split.
 function check_input(::typeof(unmatricize), m, axes_codomain, axes_domain)
     (
         ndims(m) == 2 &&
@@ -306,8 +256,6 @@ function check_input(::typeof(unmatricize), m, axes_codomain, axes_domain)
     ) || throw(DimensionMismatch("`unmatricize` axes do not match the matrix size"))
     return nothing
 end
-# A dense reshape ignores the codomain/domain split: it just reshapes to the concatenated axes.
-# `conj` re-dualizes the codomain-facing `axes_domain` into stored form, a no-op on a dense axis.
 function unmatricize(m::AbstractMatrix, axes_codomain, axes_domain)
     check_input(unmatricize, m, axes_codomain, axes_domain)
     return reshape(m, (axes_codomain..., conj.(axes_domain)...))
