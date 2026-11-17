@@ -40,6 +40,17 @@ end
 
 function bipermutedimsconjadd! end
 
+"""
+    check_input(f, args...)
+
+Check that `args` are valid arguments to `f`, throwing an error if they are not. Methods are
+defined for [`bipermutedimsconjadd!`](@ref), [`contractpermconjadd!`](@ref),
+[`unmatricize`](@ref), [`dotperm`](@ref) and [`dot`](@ref). An array type's own method of
+one of these functions can call `check_input` to validate its arguments the same way the
+generic method does.
+"""
+function check_input end
+
 function check_input(
         ::typeof(bipermutedimsconjadd!), dest, isconj::Bool, src,
         perm_codomain, perm_domain
@@ -54,10 +65,14 @@ function check_input(
 end
 
 """
-    bipermutedimsconjadd!(dest, isconj::Bool, src, perm_codomain, perm_domain, α, β)
+    bipermutedimsconjadd!(dest, isconj::Bool, src, perm_codomain, perm_domain, α, β) -> dest
 
 `dest = β * dest + α * permutedims(src, (perm_codomain..., perm_domain...))`, with `src`
-conjugated when `isconj` is `true`.
+conjugated when `isconj` is `true`. `(perm_codomain, perm_domain)` splits the dimensions of
+`dest` into a codomain and a domain.
+
+This is the function array types overload to customize the operation. Overloading
+[`bipermutedimsopadd!`](@ref) has no effect.
 
 See also [`bipermutedimsopadd!`](@ref).
 """
@@ -143,12 +158,13 @@ function permutedimsconjaccumulate_generic!(dest, f, src_perm, β)
 end
 
 """
-    bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+    bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β) -> dest
 
-`dest = β * dest + α * permutedims(op.(src), (perm_codomain..., perm_domain...))`, where `op` is
-`identity` or `conj`.
+`dest = β * dest + α * permutedims(op.(src), (perm_codomain..., perm_domain...))`, where `op`
+is `identity` or `conj`. `(perm_codomain, perm_domain)` splits the dimensions of `dest` into a
+codomain and a domain.
 
-See also [`bipermutedimsconjadd!`](@ref).
+See also [`bipermutedimsconjadd!`](@ref), the form array types overload.
 """
 function bipermutedimsopadd!(
         dest, op, src, perm_codomain, perm_domain, α::Number, β::Number
@@ -171,19 +187,23 @@ end
 # ---------------------------------------------------------------------------- #
 
 """
-    permutedimsopadd!(dest, op, src, perm, α, β)
+    permutedimsopadd!(dest, op, src, perm, α, β) -> dest
 
 `dest = β * dest + α * permutedims(op.(src), perm)`, where `op` is `identity` or `conj`.
 
-See also [`permutedimsconjadd!`](@ref).
+See also [`permutedimsconjadd!`](@ref), the form array types overload.
 """
 function permutedimsopadd!(dest, op, src, perm, α::Number, β::Number)
     return permutedimsconjadd!(dest, _isconj(op), src, perm, α, β)
 end
 """
-    permutedimsconjadd!(dest, isconj::Bool, src, perm, α, β)
+    permutedimsconjadd!(dest, isconj::Bool, src, perm, α, β) -> dest
 
 `dest = β * dest + α * permutedims(src, perm)`, with `src` conjugated when `isconj` is `true`.
+
+This is the function array types overload to customize the operation, or they overload
+[`bipermutedimsconjadd!`](@ref), which it calls. Overloading [`permutedimsopadd!`](@ref) has
+no effect.
 
 See also [`permutedimsopadd!`](@ref).
 """

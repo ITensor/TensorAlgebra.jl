@@ -20,20 +20,30 @@ trivialrange(r::AbstractUnitRange, n::Integer) = trivialrange(typeof(r), n)
 trivialrange(::Type{<:AbstractUnitRange}, n::Integer) = Base.OneTo(n)
 
 """
-    permutedimsop(op, src, perm_codomain, perm_domain)
+    permutedimsop(op, src, perm_codomain, perm_domain) -> dest
 
-Non-mutating version of `bipermutedimsopadd!`: returns
-`op.(permutedims(src, (perm_codomain..., perm_domain...)))`.
+Return `op.(permutedims(src, (perm_codomain..., perm_domain...)))` in new storage, with its
+dimensions split into the codomain `perm_codomain` and the domain `perm_domain`. `op` is
+`identity` or `conj`.
 
-See also [`permutedimsconj`](@ref).
+See also [`permutedimsconj`](@ref), the form array types overload.
 """
 function permutedimsop(op, src, perm_codomain, perm_domain)
     return permutedimsconj(_isconj(op), src, perm_codomain, perm_domain)
 end
 """
-    permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
+    permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain) -> dest
 
-Like [`permutedimsop`](@ref), with the operation given as a conjugation flag.
+Return `permutedims(src, (perm_codomain..., perm_domain...))` in new storage, with `src`
+conjugated when `isconj` is `true` and the result's dimensions split into the codomain
+`perm_codomain` and the domain `perm_domain`.
+
+This is the function array types overload to customize the operation. Alternatively they
+overload [`allocate_output`](@ref) for `permutedimsconj` and
+[`bipermutedimsconjadd!`](@ref), which it calls. Overloading [`permutedimsop`](@ref) has no
+effect.
+
+See also [`permutedimsop`](@ref).
 """
 function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
     src isa ConjArray &&
@@ -44,6 +54,23 @@ function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
     dest = allocate_output(permutedimsconj, isconj, src, perm_codomain, perm_domain)
     return bipermutedimsconjadd!(dest, isconj, src, perm_codomain, perm_domain, true, false)
 end
+
+"""
+    allocate_output(f, args...)
+
+Allocate the destination that the operation `f` writes its result into, given the arguments
+`args` of `f`. Array types overload it to control the type of the result. The methods are
+
+  - `allocate_output(permutedimsconj, isconj, src, perm_codomain, perm_domain)`: an
+    uninitialized array for the result of [`permutedimsconj`](@ref).
+  - `allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain)`: an
+    uninitialized matrix that [`matricizeconj!`](@ref) fills. An array type implements this
+    to support [`matricizeconj`](@ref), unless it overloads [`matricizeconjcopy`](@ref).
+  - `allocate_output(contractpermconj, perm_dest_codomain, perm_dest_domain, isconj1, a1, perm1_codomain, perm1_domain, isconj2, a2, perm2_codomain, perm2_domain)`: a
+    zero-initialized array for the result of [`contractpermconj`](@ref). See
+    [`output_axes`](@ref) for its axes.
+"""
+function allocate_output end
 
 function allocate_output(::typeof(permutedimsconj), isconj::Bool, src, perm_co, perm_do)
     axes_co = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_co)
@@ -68,36 +95,45 @@ function bipermutedims!(
 end
 
 # =====================================  matricize  ========================================
-# An array type implements four hooks, all taking the conjugation flag, the array and the
-# bipermutation:
-#
-#   `allocate_output(matricizeconj, isconj, a, pc, pd)`  the matrix destination
-#   `matricizeconj!(dest, isconj, a, pc, pd)`            write the matricization into it
-#   `matricizeconjview(isconj, a, pc, pd)`               partial: the aliasing form
-#   `is_output_view(matricizeconj, isconj, a, pc, pd)`   whether the aliasing form applies
-#
-# `matricizeconjcopy` and `matricizeconj` are derived from these. A type that already has an
-# allocating matricization can overload `matricizeconjcopy` instead of the first two.
 
 """
-    matricizeop(op, a, perm_codomain, perm_domain)
+    matricizeop(op, a, perm_codomain, perm_domain) -> m
+    matricizeop(op, a, ndims_codomain::Val) -> m
 
-Matricize `a` across the bipermutation with the element-wise operation `op` folded in, i.e. a
-matrix representing `op.(permutedims(a, (perm_codomain..., perm_domain...)))` with the codomain
-fused to rows and the domain to columns.
+Matricize `op.(a)`, where `op` is `identity` or `conj`: the matrix representing
+`op.(permutedims(a, (perm_codomain..., perm_domain...)))` with the codomain dimensions fused
+into rows and the domain dimensions into columns. The `Val` form keeps the dimensions in
+order and puts the first `ndims_codomain` in the codomain.
 
-The result may share `a`'s memory or be fresh storage, depending on the array type, so treat it
-as read-only.
+The result may share `a`'s memory or be new storage, depending on the array type, so treat
+it as read-only.
 
-See also [`matricizeconj`](@ref).
+See also [`matricizeconj`](@ref), the form array types overload, and
+[`unmatricize`](@ref).
 """
 function matricizeop(op, a, perm_codomain, perm_domain)
     return matricizeconj(_isconj(op), a, perm_codomain, perm_domain)
 end
 """
-    matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
+    matricizeconj(isconj::Bool, a, perm_codomain, perm_domain) -> m
 
-Like [`matricizeop`](@ref), with the operation given as a conjugation flag.
+Matricize `a`, conjugated when `isconj` is `true`: the matrix representing
+`permutedims(a, (perm_codomain..., perm_domain...))` with the codomain dimensions fused into
+rows and the domain dimensions into columns. The result may share `a`'s memory or be new
+storage, depending on the array type, so treat it as read-only.
+
+This is the function array types overload to customize matricization, either directly or
+through the hooks it calls:
+
+  - [`allocate_output`](@ref)`(matricizeconj, isconj, a, perm_codomain, perm_domain)` and
+    [`matricizeconj!`](@ref), to matricize into new storage. A type with its own allocating
+    matricization can overload [`matricizeconjcopy`](@ref) instead.
+  - [`is_output_view`](@ref) and [`matricizeconjview`](@ref), optionally, to return a matrix
+    sharing `a`'s memory when possible.
+
+Overloading [`matricizeop`](@ref) has no effect.
+
+See also [`matricizeop`](@ref).
 """
 function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
     a isa ConjArray && return matricizeconj(!isconj, parent(a), perm_codomain, perm_domain)
@@ -108,9 +144,10 @@ function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
 end
 
 """
-    matricize(a, perm_codomain, perm_domain)
+    matricize(a, perm_codomain, perm_domain) -> m
+    matricize(a, ndims_codomain::Val) -> m
 
-`matricizeop` at `identity`.
+[`matricizeop`](@ref) with `op = identity`.
 """
 function matricize(a, perm_codomain, perm_domain)
     return matricizeconj(false, a, perm_codomain, perm_domain)
@@ -123,10 +160,29 @@ function matricizeop(op, a, ndims_codomain::Val)
     return matricizeop(op, a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
 end
 
+"""
+    matricizeopcopy(op, a, perm_codomain, perm_domain) -> m
+
+Like [`matricizeop`](@ref), but always returning new storage that the caller owns and may
+modify. `op` is `identity` or `conj`.
+
+See also [`matricizeconjcopy`](@ref), the form array types overload.
+"""
 function matricizeopcopy(op, a, perm_codomain, perm_domain)
     return matricizeconjcopy(_isconj(op), a, perm_codomain, perm_domain)
 end
-# Always returns fresh storage the caller owns.
+"""
+    matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain) -> m
+
+Matricize `a`, conjugated when `isconj` is `true`, into new storage that the caller owns and
+may modify. See [`matricizeconj`](@ref) for the layout of the result.
+
+By default it allocates with [`allocate_output`](@ref) and fills with
+[`matricizeconj!`](@ref). An array type with its own allocating matricization can overload
+this instead of those two. Overloading [`matricizeopcopy`](@ref) has no effect.
+
+See also [`matricizeopcopy`](@ref).
+"""
 function matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
     a isa ConjArray &&
         return matricizeconjcopy(!isconj, parent(a), perm_codomain, perm_domain)
@@ -135,23 +191,61 @@ function matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
     return matricizeconj!(dest, isconj, a, perm_codomain, perm_domain)
 end
 
+"""
+    matricizeopview(op, a, perm_codomain, perm_domain) -> m
+
+Like [`matricizeop`](@ref), but returning a matrix that shares `a`'s memory. `op` is
+`identity` or `conj`. Only valid when [`is_output_view`](@ref) is `true` for the same
+arguments.
+
+See also [`matricizeconjview`](@ref), the form array types overload.
+"""
 function matricizeopview(op, a, perm_codomain, perm_domain)
     return matricizeconjview(_isconj(op), a, perm_codomain, perm_domain)
 end
-# Defined only where `is_output_view` is `true`, and returns a matricization sharing `a`'s memory.
+"""
+    matricizeconjview(isconj::Bool, a, perm_codomain, perm_domain) -> m
+
+Matricize `a`, conjugated when `isconj` is `true`, as a matrix sharing `a`'s memory. See
+[`matricizeconj`](@ref) for the layout of the result.
+
+An array type overloads this for the arguments where
+`is_output_view(matricizeconj, isconj, a, perm_codomain, perm_domain)` returns `true`, and
+need not support any others. Overloading [`matricizeopview`](@ref) has no effect.
+
+See also [`is_output_view`](@ref) and [`matricizeopview`](@ref).
+"""
 function matricizeconjview(isconj::Bool, a, perm_codomain, perm_domain)
     return throw(MethodError(matricizeconjview, (isconj, a, perm_codomain, perm_domain)))
 end
 
+"""
+    matricizeop!(dest, op, a, perm_codomain, perm_domain) -> dest
+
+Write the matricization of `op.(a)` into the matrix `dest`, where `op` is `identity` or
+`conj`. See [`matricizeop`](@ref) for the layout.
+
+See also [`matricizeconj!`](@ref), the form array types overload.
+"""
 function matricizeop!(dest, op, a, perm_codomain, perm_domain)
     return matricizeconj!(dest, _isconj(op), a, perm_codomain, perm_domain)
 end
-# Required of every array type: write the matricization of `a` into `dest`.
+"""
+    matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain) -> dest
+
+Write the matricization of `a`, conjugated when `isconj` is `true`, into the matrix `dest`,
+and return `dest`. See [`matricizeconj`](@ref) for the layout.
+
+An array type implements this, together with
+[`allocate_output`](@ref)`(matricizeconj, isconj, a, perm_codomain, perm_domain)`, which
+allocates `dest`. Overloading [`matricizeop!`](@ref) has no effect.
+
+See also [`matricizeop!`](@ref).
+"""
 function matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain)
     return throw(MethodError(matricizeconj!, (dest, isconj, a, perm_codomain, perm_domain)))
 end
 
-# Required of every array type: the matrix destination `matricizeconj!` writes into.
 function allocate_output(
         ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain
     )
@@ -164,26 +258,54 @@ function allocate_output(
 end
 
 # ==================================  is_output_view  ======================================
-# Whether `matricizeconj(isconj, a, perm_codomain, perm_domain)` shares `a`'s memory.
+"""
+    is_output_view(matricizeconj, isconj::Bool, a, perm_codomain, perm_domain) -> Bool
+
+Whether `matricizeconj(isconj, a, perm_codomain, perm_domain)` returns a matrix sharing
+`a`'s memory, through [`matricizeconjview`](@ref). Defaults to `false`. An array type that can
+matricize without copying overloads this together with `matricizeconjview`.
+"""
 function is_output_view(
         ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain
     )
     return false
 end
 
-# `axes_domain` is given un-dualized, the same convention as `similar_map`. Permutation is left to
-# `unmatricize!`, so `unmatricize` never has to tell axis tuples from permutation tuples.
+"""
+    unmatricize(m, axes_codomain, axes_domain) -> a
+
+Unfold the matrix `m` into an array with axes `(axes_codomain..., conj.(axes_domain)...)`,
+undoing [`matricize`](@ref) with the dimensions in order. The domain axes are given
+un-dualized, as in [`similar_map`](@ref). The result may share `m`'s memory.
+
+Array types overload this to support unfolding their matrices. To unfold with a permutation,
+use [`unmatricize!`](@ref).
+"""
 function unmatricize end
 
-# Like `bipartition`, but returns the domain axes un-dualized, the convention `unmatricize` and
-# `similar_map` take.
+"""
+    bipartition_axes(t::Tuple, length1::Val) -> (axes_codomain, axes_domain)
+    bipartition_axes(t::Tuple, group1::Tuple, group2::Tuple) -> (axes_codomain, axes_domain)
+
+Split the axes `t` into codomain and domain axes like [`bipartition`](@ref), returning the
+domain axes un-dualized (conjugated). This is the form [`unmatricize`](@ref) and
+[`similar_map`](@ref) take.
+"""
 function bipartition_axes(t::Tuple, split...)
     axes_codomain, axes_domain = bipartition(t, split...)
     return axes_codomain, conj.(axes_domain)
 end
 
-# `a_dest = β * a_dest + α * unmatricize(m)`, where the bipermutation maps `a_dest`'s dimensions
-# to `m`'s rows and columns, the same one passed to `matricize`.
+"""
+    unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, α, β) -> a_dest
+
+`a_dest = β * a_dest + α * a`, where `a` is the array whose matricization
+`matricize(a, perm_codomain, perm_domain)` is the matrix `m`.
+
+Array types can overload this to control how a matrix is unfolded into them.
+
+See also [`unmatricize!`](@ref) and [`unmatricize`](@ref).
+"""
 function unmatricizeadd!(
         a_dest, m,
         perm_codomain, perm_domain,
@@ -206,6 +328,32 @@ function unmatricizeadd!(
     )
 end
 
+"""
+    unmatricize!(a_dest, m, perm_codomain, perm_domain) -> a_dest
+    unmatricize!(a_dest, m, ndims_codomain::Val) -> a_dest
+
+Overwrite `a_dest` with the array whose matricization with the same arguments is the matrix
+`m`, undoing [`matricize`](@ref). The `Val` form keeps the dimensions in order and puts the
+first `ndims_codomain` in the codomain.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: matricize, unmatricize!
+
+julia> a = reshape(collect(1.0:24.0), 2, 3, 4);
+
+julia> m = matricize(a, (3, 1), (2,));
+
+julia> size(m)
+(8, 3)
+
+julia> unmatricize!(zeros(2, 3, 4), m, (3, 1), (2,)) == a
+true
+```
+
+See also [`unmatricizeadd!`](@ref) and [`unmatricize`](@ref).
+"""
 function unmatricize!(a_dest, m, perm_codomain, perm_domain)
     return unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, true, false)
 end

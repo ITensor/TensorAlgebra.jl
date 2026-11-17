@@ -48,6 +48,19 @@ end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
+"""
+    output_axes(contractpermconj, perm_dest_codomain, perm_dest_domain,
+                isconj1::Bool, axes1::Tuple, perm1_codomain, perm1_domain,
+                isconj2::Bool, axes2::Tuple, perm2_codomain, perm2_domain)
+        -> (axes_codomain, axes_domain)
+
+The codomain and domain axes of the result of [`contractpermconj`](@ref) for operands with
+axes `axes1` and `axes2`, with the domain axes un-dualized as [`similar_map`](@ref) takes
+them. An array type's [`allocate_output`](@ref) method for `contractpermconj` can use it to
+build its destination.
+"""
+function output_axes end
+
 # Given only the axes and kept out of line, so it compiles per axis type rather than per pair of
 # operands.
 @noinline function output_axes(

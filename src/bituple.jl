@@ -1,14 +1,36 @@
-# A bipartitioned tuple. It acts like the flat tuple `(t1..., t2...)` for iteration, indexing, and
-# `length`, with the codomain/domain split exposed only through the `t1` and `t2` fields.
-
 unval(::Val{N}) where {N} = N
 
+"""
+    BiTuple(t1::Tuple, t2::Tuple)
+    BiTuple(t::Tuple, ::Val{N1})
+
+A tuple split into a codomain part `t1` and a domain part `t2`. It acts like the flat tuple
+`(t1..., t2...)` for iteration, indexing, `length`, equality and hashing, and the two parts
+are its fields `t1` and `t2`. The second form splits `t` after its first `N1` entries.
+`map` over a single `BiTuple` keeps the split.
+
+# Examples
+
+```jldoctest
+julia> using TensorAlgebra: BiTuple
+
+julia> bt = BiTuple((1, 2), (3,));
+
+julia> length(bt), bt[3]
+(3, 3)
+
+julia> bt.t1, bt.t2
+((1, 2), (3,))
+
+julia> BiTuple((1, 2, 3), Val(1)).t2
+(2, 3)
+```
+"""
 struct BiTuple{N1, N2, T1 <: NTuple{N1, Any}, T2 <: NTuple{N2, Any}}
     t1::T1
     t2::T2
 end
 
-# Split a flat tuple into a first group of length `N1` and the remaining second group.
 function BiTuple(t::NTuple{N, Any}, ::Val{N1}) where {N, N1}
     return BiTuple(ntuple(i -> t[i], Val(N1)), ntuple(i -> t[N1 + i], Val(N - N1)))
 end
@@ -66,7 +88,12 @@ bipartition(t::Tuple, bt::BiTuple) = bipartition(t, bt.t1, bt.t2)
 # Whether `perm_codomain` and `perm_domain` together form a valid bipartitioned permutation.
 isbiperm(perm_codomain, perm_domain) = isperm((perm_codomain..., perm_domain...))
 
-# Whether `perm_codomain` and `perm_domain` are the identity bipermutation.
+"""
+    isidentitybiperm(perm_codomain, perm_domain) -> Bool
+
+Whether the bipartitioned permutation `(perm_codomain, perm_domain)` is the identity, that
+is, whether `(perm_codomain..., perm_domain...)` is `(1, 2, ..., n)`.
+"""
 function isidentitybiperm(perm_codomain, perm_domain)
     perm = (perm_codomain..., perm_domain...)
     return perm == ntuple(identity, length(perm))

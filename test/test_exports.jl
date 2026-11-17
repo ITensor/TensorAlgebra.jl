@@ -21,7 +21,7 @@ using Test: @test, @testset
                 :addends, :allocate_output, :allocate_project, :arguments, :axes,
                 :bipartition, :bipartition_axes, :biperm, :bipermutedims,
                 :bipermutedims!, :bipermutedimsconjadd!,
-                :bipermutedimsopadd!, :cat_axis, :cat_similar,
+                :bipermutedimsopadd!, :BiTuple, :cat_axis, :cat_similar,
                 :check_input, :concatenate, :concatenate!, :ConjArray, :ConjBroadcasted,
                 :conjed,
                 :contractadd!, :contractconj, :contractconjadd!, :ContractAlgorithm,
