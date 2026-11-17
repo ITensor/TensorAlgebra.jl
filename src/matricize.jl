@@ -194,7 +194,7 @@ function unmatricizeadd!(
         throw(ArgumentError("destination does not match permutation"))
     axes_codomain, axes_domain = bipartition_axes(axes(a_dest), biperm_src)
     a_perm = unmatricize(m, axes_codomain, axes_domain)
-    biperm_dest = BiTuple(Tuple(invperm(biperm_src)), Val(length_codomain(biperm_src)))
+    biperm_dest = invperm(biperm_src)
     return bipermutedimsconjadd!(
         a_dest,
         false,

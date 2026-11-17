@@ -90,7 +90,10 @@ function contractconj(
     # Computed from the dimensions, so it is a compile-time constant when `labels_dest` is a tuple.
     K = (ndims(a1) + ndims(a2) - length(labels_dest)) ÷ 2
     count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
-    return _contractconj(
+    # Otherwise `K` is only known at run time, and inferring `_contractconj` for an unknown `Val`
+    # would analyze the whole contraction with abstract argument types for nothing.
+    f = labels_dest isa Tuple ? _contractconj : Base.inferencebarrier(_contractconj)
+    return f(
         Val(K), labels_dest, isconj1, a1, t1, isconj2, a2, t2, contracted1; kwargs...
     )
 end
