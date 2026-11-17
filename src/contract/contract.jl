@@ -176,7 +176,7 @@ end
 
 Contract `a1` with `a2` over the dimensions `perm1_domain` of `a1` and `perm2_codomain` of
 `a2`, conjugating each operand whose flag is `true`, with the result's dimensions in the order
-given by the destination permutations. Array types overload this function to customize it.
+given by the destination permutations.
 
 See also [`contractpermop`](@ref).
 """
@@ -369,8 +369,8 @@ end
                          isconj2::Bool, a2, perm2_codomain, perm2_domain, α, β) -> a_dest
 
 `a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` as in
-[`contractpermconj`](@ref). Array types overload the first form, and contraction backends
-overload the second form for their [`ContractAlgorithm`](@ref).
+[`contractpermconj`](@ref). Array types and contraction backends overload the second form,
+which takes the [`ContractAlgorithm`](@ref) first.
 
 See also [`contractpermopadd!`](@ref).
 """

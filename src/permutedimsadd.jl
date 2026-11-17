@@ -192,7 +192,6 @@ end
     permutedimsconjadd!(dest, isconj::Bool, src, perm, α, β) -> dest
 
 `dest = β * dest + α * permutedims(src, perm)`, with `src` conjugated when `isconj` is `true`.
-Array types overload this function to customize it.
 
 See also [`permutedimsopadd!`](@ref).
 """
