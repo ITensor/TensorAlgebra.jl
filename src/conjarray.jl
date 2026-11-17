@@ -22,7 +22,7 @@ Lazy conjugate of `a`, returning a [`ConjArray`](@ref). The lazy companion to th
 conjed(a::AbstractArray) = ConjArray(a)
 conjed(a::ConjArray) = parent(a)
 
-# Most methods below either go through an op-aware kernel (`permutedimsopadd!`, `matricizeop`,
+# Most methods below either go through a conjugation-aware kernel (`permutedimsconjadd!`, `matricizeconj`,
 # contraction), which owns what `conj` means for its array type, or use identities that hold for any
 # antiunitary involution (`norm`, `iszero`, `dot` of two lazy conjugates). `fill!`, `==`, `mapreduce`
 # and `dot` with one lazy operand instead assume `conj` acts elementwise on a flat memory layout, so
@@ -66,9 +66,9 @@ Base.collect(a::ConjArray) = Array(a)
 Base.conj(a::ConjArray) = parent(a)
 
 function Base.copyto!(dest::AbstractArray, src::ConjArray)
-    return permutedimsopadd!(
+    return permutedimsconjadd!(
         dest,
-        conj,
+        true,
         parent(src),
         ntuple(identity, ndims(src)),
         true,
@@ -78,7 +78,7 @@ end
 # Write into the parent the conjugate of what the lazy conjugate should hold. `conj` is an
 # involution, fermion signs included, so this is exact.
 function Base.copyto!(dest::ConjArray, src::AbstractArray)
-    permutedimsopadd!(parent(dest), conj, src, ntuple(identity, ndims(src)), true, false)
+    permutedimsconjadd!(parent(dest), true, src, ntuple(identity, ndims(src)), true, false)
     return dest
 end
 # Also resolves the ambiguity between the two methods above.
@@ -131,26 +131,26 @@ linearbroadcasted(::typeof(conj), a::ConjArray) = parent(a)
 
 # Each operation unwraps a `ConjArray` to its parent and folds `conj` into `op`
 # (`identity -> conj`, `conj -> identity`), before any backend dispatch.
-function bipermutedimsopadd!(
-        dest, op, src::ConjArray,
+function bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ConjArray,
         perm_codomain, perm_domain,
         α::Number, β::Number
     )
-    return bipermutedimsopadd!(
-        dest, _compose_op(op, conj), parent(src),
+    return bipermutedimsconjadd!(
+        dest, !isconj, parent(src),
         perm_codomain, perm_domain,
         α, β
     )
 end
-function permutedimsop(op, src::ConjArray, perm_codomain, perm_domain)
-    return permutedimsop(_compose_op(op, conj), parent(src), perm_codomain, perm_domain)
+function permutedimsconj(isconj::Bool, src::ConjArray, perm_codomain, perm_domain)
+    return permutedimsconj(!isconj, parent(src), perm_codomain, perm_domain)
 end
-function matricizeop(op, a::ConjArray, perm_codomain, perm_domain)
-    return matricizeop(_compose_op(op, conj), parent(a), perm_codomain, perm_domain)
+function matricizeconj(isconj::Bool, a::ConjArray, perm_codomain, perm_domain)
+    return matricizeconj(!isconj, parent(a), perm_codomain, perm_domain)
 end
-function matricizeopcopy(op, a::ConjArray, perm_codomain, perm_domain)
-    return matricizeopcopy(_compose_op(op, conj), parent(a), perm_codomain, perm_domain)
+function matricizeconjcopy(isconj::Bool, a::ConjArray, perm_codomain, perm_domain)
+    return matricizeconjcopy(!isconj, parent(a), perm_codomain, perm_domain)
 end
 
-_unwrap_conj(op, a) = (op, a)
-_unwrap_conj(op, a::ConjArray) = (_compose_op(op, conj), parent(a))
+_unwrap_conj(isconj::Bool, a) = (isconj, a)
+_unwrap_conj(isconj::Bool, a::ConjArray) = (!isconj, parent(a))

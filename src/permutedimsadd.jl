@@ -28,8 +28,8 @@ Base.parent(a::PermutedDims) = a.parent
 # `PermutedDims` is not an `AbstractArray`, so `Base.Broadcast.broadcastable` would otherwise try
 # to `collect` it. These make it a valid `Broadcasted` leaf (shape = the parent's axes reordered
 # by `perm`); it is never indexed, since the linear-broadcast fold absorbs it into a single
-# `bipermutedimsopadd!` on `parent`. `axes`/`BroadcastStyle` are only reached when the parent is
-# array-like (the only case that broadcasts); the direct `bipermutedimsopadd!` path never uses them.
+# `bipermutedimsconjadd!` on `parent`. `axes`/`BroadcastStyle` are only reached when the parent is
+# array-like (the only case that broadcasts); the direct `bipermutedimsconjadd!` path never uses them.
 Base.ndims(a::PermutedDims) = length(a.perm)
 Base.axes(a::PermutedDims) = map(d -> axes(parent(a), d), a.perm)
 Base.axes(a::PermutedDims, d::Int) = axes(a)[d]
@@ -41,100 +41,157 @@ function Base.Broadcast.BroadcastStyle(::Type{<:PermutedDims{P}}) where {P}
 end
 
 # ---------------------------------------------------------------------------- #
-# bipermutedimsopadd! — the primary materialization primitive
+# bipermutedimsconjadd! — the primary materialization primitive
 # ---------------------------------------------------------------------------- #
 
-function bipermutedimsopadd! end
+function bipermutedimsconjadd! end
 
-# The destination holds `op.(src)` permuted, so its axes are the permuted source axes with
-# `op` applied. `op` is restricted to `identity` and `conj` (see `bipermutedimsopadd!`), both
-# of which act on axes: `conj` dualizes a graded axis (and is a no-op on a dense axis),
-# `identity` leaves it unchanged.
+# The destination holds the permuted source, conjugated when `isconj` is set, so its axes are the
+# permuted source axes, dualized under `isconj` (a no-op on a dense axis).
 function check_input(
-        ::typeof(bipermutedimsopadd!), dest, op::Op, src,
+        ::typeof(bipermutedimsconjadd!), dest, isconj::Bool, src,
         perm_codomain, perm_domain
-    ) where {Op}
-    op === identity || op === conj ||
-        throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
+    )
     perm = (perm_codomain..., perm_domain...)
     ndims(dest) == length(perm) ||
         throw(DimensionMismatch("destination ndims does not match permutation length"))
-    axes(dest) == map(p -> op(axes(src, p)), perm) ||
+    axes_src = map(p -> axes(src, p), perm)
+    axes(dest) == (isconj ? map(conj, axes_src) : axes_src) ||
         throw(DimensionMismatch("destination axes do not match permuted source axes"))
     return nothing
 end
 
 """
-    bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+    bipermutedimsconjadd!(dest, isconj::Bool, src, perm_codomain, perm_domain, α, β)
 
-`dest = β * dest + α * permutedims(op.(src), (perm_codomain..., perm_domain...))`.
+`dest = β * dest + α * permutedims(src, (perm_codomain..., perm_domain...))`, with `src`
+conjugated when `isconj` is `true`.
 
-This is the primary overload point for downstream array types that want to
-implement op-aware bipartitioned permutation + accumulation (e.g., fuse `conj`
-into the copy, or use lazy wrappers like `StridedView` with op metadata).
+This is the overload point for downstream array types that implement bipartitioned permutation
+and accumulation. `isconj` is TensorOperations' `conjA` flag: on graded axes it dualizes, on
+dense axes it is a no-op. Callers usually go through [`bipermutedimsopadd!`](@ref), which
+forwards here.
 
-The `op` is the conjugation flag expressed as a function — `identity` or `conj`, analogous
-to TensorOperations' boolean `conjA`/`conjB`. On graded axes `conj` dualizes; on dense axes
-it is a no-op. Transposition/permutation is carried by the `perm` arguments, not by `op`.
-
-The default implementation flattens the bipartitioned permutation, applies `op`
-element-wise, permutes, then accumulates via broadcasting with Strided.jl
-optimization when possible.
+The default implementation permutes lazily and accumulates by broadcasting, through Strided.jl
+when both operands are strided.
 """
-function bipermutedimsopadd!(
-        dest, op::Op, src,
+function bipermutedimsconjadd!(
+        dest, isconj::Bool, src,
         perm_codomain, perm_domain,
         α::Number, β::Number
-    ) where {Op}
+    )
     perm = (perm_codomain..., perm_domain...)
-    check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
-
+    check_input(bipermutedimsconjadd!, dest, isconj, src, perm_codomain, perm_domain)
     if SV.isstrided(dest) && SV.isstrided(src)
-        # `StridedView` stores the permutation in a field, unlike `PermutedDimsArray`, so a run-time
-        # permutation does not construct a new type on every call.
-        _opadd!(SV.StridedView(dest), op, Base.permutedims(SV.StridedView(src), perm), α, β)
+        permutedimsconjadd_strided!(
+            SV.StridedView(dest), isconj, SV.StridedView(src), perm, α, β
+        )
     else
         # Non-strided operands (e.g. structured matrices like `Diagonal`) accumulate
         # through generic broadcasting.
-        _opadd!(dest, op, permuteddims(src, perm), α, β)
+        _conjadd!(dest, isconj, permuteddims(src, perm), α, β)
     end
     return dest
 end
 
-function _opadd!(dest::AbstractArray, op, src::AbstractArray, α, β)
-    if op === identity
-        if iszero(β)
-            dest .= α .* src
-        else
-            dest .= β .* dest .+ α .* src
-        end
+# The single entry into Strided's kernel for a permuted add. Its argument types are fixed by the
+# element types and rank (the permutation, the conjugation flag and the scalars are run-time
+# values), so it compiles once per element type and rank and is precompiled for the common ones.
+function permutedimsconjadd_strided!(
+        dest::SV.StridedView{T, N}, isconj::Bool, src::SV.StridedView{<:Any, N},
+        perm::NTuple{N, Int}, α::Number, β::Number
+    ) where {T, N}
+    any(iszero, size(dest)) && return dest
+    src_perm = Base.permutedims(src, perm)
+    f = ConjScale(isconj, convert(T, α))
+    if iszero(β)
+        Strided._mapreducedim!(f, nothing, nothing, size(dest), (dest, src_perm))
     else
-        if iszero(β)
-            dest .= α .* op.(src)
-        else
-            dest .= β .* dest .+ α .* op.(src)
-        end
+        # A run-time dispatch, so the accumulating kernel only compiles when it is used.
+        Base.inferencebarrier(_permutedimsconjaccumulate_strided!)(
+            dest, f, src_perm, convert(T, β)
+        )
     end
     return dest
 end
+function _permutedimsconjaccumulate_strided!(dest, f, src_perm, β)
+    Strided._mapreducedim!(f, +, Scale(β), size(dest), (dest, src_perm))
+    return nothing
+end
+
+# `x -> α * x`, or `α * conj(x)` under the flag, as concrete callables for Strided's kernel.
+struct ConjScale{T}
+    isconj::Bool
+    α::T
+end
+(f::ConjScale)(x) = f.α * (f.isconj ? conj(x) : x)
+struct Scale{T}
+    α::T
+end
+(f::Scale)(x) = f.α * x
+
+for T in (Float64, ComplexF64), N in 1:6
+    SVT = SV.StridedView{T, N, Memory{T}, typeof(identity)}
+    precompile(permutedimsconjadd_strided!, (SVT, Bool, SVT, NTuple{N, Int}, Bool, Bool))
+    precompile(_permutedimsconjaccumulate_strided!, (SVT, ConjScale{T}, SVT, T))
+end
+
+# Conjugates under a run-time flag, so a single broadcast kernel serves both cases.
+struct ConjIf
+    isconj::Bool
+end
+(f::ConjIf)(x) = f.isconj ? conj(x) : x
+
+function _conjadd!(dest::AbstractArray, isconj::Bool, src::AbstractArray, α, β)
+    f = ConjIf(isconj)
+    if iszero(β)
+        dest .= α .* f.(src)
+    else
+        # Permutes, contractions and factorizations almost always overwrite (`β = 0`). A run-time
+        # dispatch here means the accumulating kernel only compiles when it is used.
+        Base.inferencebarrier(_conjaccumulate!)(dest, f, src, α, β)
+    end
+    return dest
+end
+_conjaccumulate!(dest, f, src, α, β) = (dest .= β .* dest .+ α .* f.(src); nothing)
 
 _permuteddims_perm(::PermutedDimsArray{<:Any, <:Any, perm}) where {perm} = perm
 _permuteddims_perm(a::PermutedDims) = a.perm
 
 # Both the dense `PermutedDimsArray` view and the generic `PermutedDims` node absorb the same
 # way: compose the wrapper's permutation `w` into the outer bipermutation and forward to a
-# single leaf `bipermutedimsopadd!` on the parent.
-function bipermutedimsopadd!(
-        dest, op, src::Union{PermutedDimsArray, PermutedDims},
+# single leaf `bipermutedimsconjadd!` on the parent.
+function bipermutedimsconjadd!(
+        dest, isconj::Bool, src::Union{PermutedDimsArray, PermutedDims},
         perm_codomain, perm_domain,
         α::Number, β::Number
     )
     w = _permuteddims_perm(src)
-    return bipermutedimsopadd!(
-        dest, op, parent(src),
+    return bipermutedimsconjadd!(
+        dest, isconj, parent(src),
         map(j -> w[j], perm_codomain), map(j -> w[j], perm_domain),
         α, β
     )
+end
+
+"""
+    bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+
+`dest = β * dest + α * permutedims(op.(src), (perm_codomain..., perm_domain...))`, where `op` is
+`identity` or `conj`. Forwards to [`bipermutedimsconjadd!`](@ref) with `op === conj`, which is
+the method to overload.
+"""
+function bipermutedimsopadd!(
+        dest, op, src, perm_codomain, perm_domain, α::Number, β::Number
+    )
+    return bipermutedimsconjadd!(dest, _isconj(op), src, perm_codomain, perm_domain, α, β)
+end
+
+# The conjugation flag of an operation that the `op` forms accept.
+function _isconj(op)
+    op === identity || op === conj ||
+        throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
+    return op === conj
 end
 
 # ---------------------------------------------------------------------------- #
@@ -147,18 +204,24 @@ end
 `dest = β * dest + α * permutedims(op.(src), perm)`.
 
 This is the single materialization primitive for `LinearBroadcasted` types.
-Downstream array types should implement `bipermutedimsopadd!` for the
-bipartitioned permutation version; this flat-permutation overload forwards to it
-with `perm_domain = ()`.
+Downstream array types should implement `bipermutedimsconjadd!` for the
+bipartitioned permutation version. Forwards to [`permutedimsconjadd!`](@ref).
 """
-function permutedimsopadd!(
-        dest, op::Op, src, perm, α::Number, β::Number
-    ) where {Op}
-    return bipermutedimsopadd!(dest, op, src, perm, (), α, β)
+function permutedimsopadd!(dest, op, src, perm, α::Number, β::Number)
+    return permutedimsconjadd!(dest, _isconj(op), src, perm, α, β)
+end
+"""
+    permutedimsconjadd!(dest, isconj::Bool, src, perm, α, β)
+
+Like [`permutedimsopadd!`](@ref), with the operation given as a conjugation flag. Forwards to
+`bipermutedimsconjadd!` with `perm_domain = ()`.
+"""
+function permutedimsconjadd!(dest, isconj::Bool, src, perm, α::Number, β::Number)
+    return bipermutedimsconjadd!(dest, isconj, src, perm, (), α, β)
 end
 
 # ---------------------------------------------------------------------------- #
-# Convenience functions that lower to permutedimsopadd!
+# Convenience functions that lower to permutedimsconjadd!
 # ---------------------------------------------------------------------------- #
 
 """
@@ -169,7 +232,7 @@ end
 function permutedimsadd!(
         dest, src, perm, α::Number, β::Number
     )
-    return permutedimsopadd!(dest, identity, src, perm, α, β)
+    return permutedimsconjadd!(dest, false, src, perm, α, β)
 end
 
 """
@@ -178,7 +241,7 @@ end
 `dest = β * dest + α * src`.
 """
 function scaleadd!(dest, src, α::Number, β::Number)
-    return permutedimsopadd!(dest, identity, src, ntuple(identity, ndims(src)), α, β)
+    return permutedimsconjadd!(dest, false, src, ntuple(identity, ndims(src)), α, β)
 end
 
 """
@@ -197,14 +260,14 @@ add!(dest, src) = scaleadd!(dest, src, true, true)
     permutedims!(dest, a, perm_codomain, perm_domain)
 
 In-place counterpart of [`permutedims`](@ref): write the permuted `a` into `dest`.
-Both forms forward to `bipermutedimsopadd!` with `α, β = true, false`; the flat form
+Both forms forward to `bipermutedimsconjadd!` with `α, β = true, false`; the flat form
 passes an empty domain permutation.
 """
 function permutedims!(dest, a, perm)
-    return bipermutedimsopadd!(dest, identity, a, perm, (), true, false)
+    return bipermutedimsconjadd!(dest, false, a, perm, (), true, false)
 end
 function permutedims!(dest, a, perm_codomain, perm_domain)
-    return bipermutedimsopadd!(dest, identity, a, perm_codomain, perm_domain, true, false)
+    return bipermutedimsconjadd!(dest, false, a, perm_codomain, perm_domain, true, false)
 end
 
 """
@@ -218,8 +281,8 @@ bipartition, with `perm_codomain` selecting the codomain dimensions and `perm_do
 the domain ones.
 
 Allocates the destination with [`similar_map`](@ref) and materializes it through
-[`permutedims!`](@ref), so any operand implementing the `permutedimsopadd!` /
-`bipermutedimsopadd!` interface (a dense array, a graded array, a `TensorMap`) is
+[`permutedims!`](@ref), so any operand implementing the `permutedimsconjadd!` /
+`bipermutedimsconjadd!` interface (a dense array, a graded array, a `TensorMap`) is
 permuted with no dedicated method. A dense operand ignores the bipartition and stores
 the result flat.
 """

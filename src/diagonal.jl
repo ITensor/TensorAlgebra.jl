@@ -4,7 +4,7 @@ using LinearAlgebra: Diagonal
 # the same row/column reshape order), but its structure is preserved wherever the result of
 # an operation is still diagonal. These methods hook the lowest-level primitives, so the
 # convenience wrappers built on them (`bipermutedims`, `permutedimsadd!`, `add!`, and the
-# matrix functions, which all route through `bipermutedimsopadd!` and `allocate_output`)
+# matrix functions, which all route through `bipermutedimsconjadd!` and `allocate_output`)
 # preserve `Diagonal`. Structure is given up only where the result genuinely is not diagonal:
 # vectorizing matricizations, a non-`{1,1}` bond-split `unmatricize`, `Diagonal`/dense mixing,
 # and `contract` patterns other than the single-contracted-leg matmul (`Diagonal * Diagonal`).
@@ -15,43 +15,38 @@ permuteddims(a::Diagonal, perm) = a
 
 # Same reasoning for the in-place accumulate: skip the permutation and accumulate
 # straight onto the destination.
-function bipermutedimsopadd!(
-        dest::Diagonal, op, src::Diagonal,
+function bipermutedimsconjadd!(
+        dest::Diagonal, isconj::Bool, src::Diagonal,
         perm_codomain, perm_domain,
         α::Number, β::Number
     )
-    check_input(bipermutedimsopadd!, dest, op, src, perm_codomain, perm_domain)
-    _opadd!(dest.diag, op, src.diag, α, β)
+    check_input(bipermutedimsconjadd!, dest, isconj, src, perm_codomain, perm_domain)
+    _conjadd!(dest.diag, isconj, src.diag, α, β)
     return dest
 end
 
 # The bipermutation of a square `Diagonal` is again a square `Diagonal` of the same size (it
-# only swaps or keeps the two axes), so allocate the `permutedimsop`/`bipermutedims` output as
+# only swaps or keeps the two axes), so allocate the `permutedimsconj`/`bipermutedims` output as
 # a `Diagonal`. The squareness comes from `src`, not from the axes: an axis-based
 # `similar(::BiTuple)` could not preserve it, since row/column axes alone do not encode that
 # the result is square.
 function allocate_output(
-        ::typeof(permutedimsop),
-        op,
-        src::Diagonal,
-        perm_codomain,
-        perm_domain
+        ::typeof(permutedimsconj), isconj::Bool, src::Diagonal, perm_codomain, perm_domain
     )
-    T = Base.promote_op(op, eltype(src))
-    return Diagonal(similar(src.diag, T))
+    return Diagonal(similar(src.diag))
 end
 
 # A `Diagonal` is already a matrix; the `(1 codomain, 1 domain)` matricization is the identity
 # reshape, so the memory-sharing matricization is `a` itself (keeping it a `Diagonal` for the
 # `Diagonal`-specialized consumers downstream). Any other split densifies through the copy path.
 function is_output_view(
-        ::typeof(matricizeop), op, a::Diagonal, perm_codomain::Tuple{Int},
+        ::typeof(matricizeconj), isconj::Bool, a::Diagonal, perm_codomain::Tuple{Int},
         perm_domain::Tuple{Int}
     )
-    return op === identity && isidentitybiperm(perm_codomain, perm_domain)
+    return !isconj && isidentitybiperm(perm_codomain, perm_domain)
 end
-function matricizeopview(
-        op, a::Diagonal, perm_codomain::Tuple{Int}, perm_domain::Tuple{Int}
+function matricizeconjview(
+        isconj::Bool, a::Diagonal, perm_codomain::Tuple{Int}, perm_domain::Tuple{Int}
     )
     return a
 end
@@ -78,25 +73,18 @@ end
 # allocate a `Diagonal`. Every other destination shape (rank-4 outer product, scalar full
 # contraction, or both free legs grouped on one side) is not representable as a `Diagonal` and does
 # not match this signature, falling back to the generic dense allocation the way `Diagonal`/dense
-# mixing does. Specialized on the operations for the same reason as
-# `check_input(contractpermop, ...)`.
+# mixing does.
 function allocate_output(
-        ::typeof(contractpermop),
+        ::typeof(contractpermconj),
         perm_dest_codomain::Tuple{Int}, perm_dest_domain::Tuple{Int},
-        op1::Op1, a1::Diagonal, perm1_codomain, perm1_domain,
-        op2::Op2, a2::Diagonal, perm2_codomain, perm2_domain
-    ) where {Op1, Op2}
-    check_input(
-        contractpermop,
-        perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain
+        isconj1::Bool, a1::Diagonal, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2::Diagonal, perm2_codomain, perm2_domain
     )
     axes_codomain_dest, _ = output_axes(
-        contractpermop,
+        contractpermconj,
         perm_dest_codomain, perm_dest_domain,
-        op1, axes(a1), perm1_codomain, perm1_domain,
-        op2, axes(a2), perm2_codomain, perm2_domain
+        isconj1, axes(a1), perm1_codomain, perm1_domain,
+        isconj2, axes(a2), perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return Diagonal(zero!(similar(a1.diag, T, (only(axes_codomain_dest),))))

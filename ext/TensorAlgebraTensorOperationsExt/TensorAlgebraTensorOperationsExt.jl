@@ -23,24 +23,24 @@ end
 # Using TensorOperations backends as TensorAlgebra implementations
 # ----------------------------------------------------------------
 
-function TA.contractpermopadd!(
+function TA.contractpermconjadd!(
         algorithm::TensorOperationsContract,
         a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain,
+        isconj1::Bool, a1, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
     TA.check_input(
-        TA.contractpermopadd!,
+        TA.contractpermconjadd!,
         a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain
+        isconj1, a1, perm1_codomain, perm1_domain,
+        isconj2, a2, perm2_codomain, perm2_domain
     )
     permblocks1 = Tuple.((perm1_codomain, perm1_domain))
     permblocks2 = Tuple.((perm2_codomain, perm2_domain))
     permblocks_dest = Tuple.((perm_dest_codomain, perm_dest_domain))
     return TO.tensorcontract!(
-        a_dest, a1, permblocks1, op1 === conj, a2, permblocks2, op2 === conj,
+        a_dest, a1, permblocks1, isconj1, a2, permblocks2, isconj2,
         permblocks_dest, α, β, backend(algorithm), allocator(algorithm)
     )
 end
@@ -56,13 +56,11 @@ function TO.tensorcontract!(
         backend::TA.ContractAlgorithm,
         allocator
     )
-    op1 = conj1 ? conj : identity
-    op2 = conj2 ? conj : identity
-    return TA.contractpermopadd!(
+    return TA.contractpermconjadd!(
         backend,
         a_dest, permblocks_dest...,
-        op1, a1, permblocks1...,
-        op2, a2, permblocks2...,
+        conj1, a1, permblocks1...,
+        conj2, a2, permblocks2...,
         α, β
     )
 end

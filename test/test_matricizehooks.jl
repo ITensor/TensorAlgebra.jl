@@ -11,17 +11,19 @@ module MatricizeHooksTestUtils
     # `MyArray`, so a path that dropped the wrapper and re-derived the hooks from the plain fused
     # matrix would miss them and error.
     function TA.is_output_view(
-            ::typeof(TA.matricizeop), op, a::MyArray, perm_codomain, perm_domain
+            ::typeof(TA.matricizeconj), isconj::Bool, a::MyArray, perm_codomain, perm_domain
         )
         return false
     end
     function TA.allocate_output(
-            ::typeof(TA.matricizeop), op, a::MyArray, perm_codomain, perm_domain
+            ::typeof(TA.matricizeconj), isconj::Bool, a::MyArray, perm_codomain, perm_domain
         )
-        return TA.allocate_output(TA.matricizeop, op, a.parent, perm_codomain, perm_domain)
+        return TA.allocate_output(
+            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain
+        )
     end
-    function TA.matricizeop!(dest, op, a::MyArray, perm_codomain, perm_domain)
-        return TA.matricizeop!(dest, op, a.parent, perm_codomain, perm_domain)
+    function TA.matricizeconj!(dest, isconj::Bool, a::MyArray, perm_codomain, perm_domain)
+        return TA.matricizeconj!(dest, isconj, a.parent, perm_codomain, perm_domain)
     end
     function TA.unmatricizeadd!(
             a_dest::MyArray, m, perm_codomain, perm_domain, α::Number, β::Number

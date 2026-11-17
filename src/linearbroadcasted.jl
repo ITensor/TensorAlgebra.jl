@@ -71,7 +71,7 @@ Lazy conjugate node in the linear-combination broadcast fold, the [`LinearBroadc
 counterpart of `ScaledBroadcasted`/`AddBroadcasted`. Holds `parent` (any array-like operand or
 backend tensor, not necessarily an `AbstractArray`) and presents its axes conjugated (dualized);
 the op primitives absorb it by unwrapping to the parent and folding `conj` into their `op` (see
-the `bipermutedimsopadd!` method below). Produced internally by the `conj` lowering of a
+the `bipermutedimsconjadd!` method below). Produced internally by the `conj` lowering of a
 broadcast (`linearbroadcasted(conj, a)`), not a user-facing lazy-conjugate wrapper. Because it
 is not an `AbstractArray`, it works for non-array backends (e.g. a `TensorMap`) as well as dense
 arrays.
@@ -95,18 +95,17 @@ function BC.BroadcastStyle(::Type{<:ConjBroadcasted{P}}) where {P}
     return BC.BroadcastStyle(P)
 end
 
-# Absorb a `ConjBroadcasted` source by unwrapping to the parent and folding `conj` into `op`
-# (`identity -> conj`, `conj -> identity`). Mirrors the `PermutedDims` absorption, which
+# Absorb a `ConjBroadcasted` source by unwrapping to the parent and flipping the conjugation flag. Mirrors the `PermutedDims` absorption, which
 # instead folds its permutation into `perm`. `dest` is unrestricted so a non-`AbstractArray`
-# backend (e.g. a `TensorMap`) receives it and applies `conj` through its own op-aware
-# `bipermutedimsopadd!`.
-function bipermutedimsopadd!(
-        dest, op, src::ConjBroadcasted,
+# backend (e.g. a `TensorMap`) receives it and applies `conj` through its own
+# `bipermutedimsconjadd!`.
+function bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ConjBroadcasted,
         perm_codomain, perm_domain,
         α::Number, β::Number
     )
-    return bipermutedimsopadd!(
-        dest, _compose_op(op, conj), parent(src),
+    return bipermutedimsconjadd!(
+        dest, !isconj, parent(src),
         perm_codomain, perm_domain,
         α, β
     )
@@ -205,37 +204,30 @@ function Base.copyto!(dest::AbstractArray, src::Mul)
     return LA.mul!(dest, BC.materialize.(factors(src))...)
 end
 
-# Op composition with simplification rules.
-_compose_op(::typeof(identity), g) = g
-_compose_op(f, ::typeof(identity)) = f
-_compose_op(::typeof(identity), ::typeof(identity)) = identity
-_compose_op(::typeof(conj), ::typeof(conj)) = identity
-_compose_op(f, g) = f ∘ g
-
-# permutedimsopadd! for LinearBroadcasted subtypes.
-function permutedimsopadd!(
-        dest, op, src::ScaledBroadcasted, perm, α::Number, β::Number
+# permutedimsconjadd! for LinearBroadcasted subtypes.
+function permutedimsconjadd!(
+        dest, isconj::Bool, src::ScaledBroadcasted, perm, α::Number, β::Number
     )
-    return permutedimsopadd!(dest, op, unscaled(src), perm, op(coeff(src)) * α, β)
+    c = isconj ? conj(coeff(src)) : coeff(src)
+    return permutedimsconjadd!(dest, isconj, unscaled(src), perm, c * α, β)
 end
 
-function permutedimsopadd!(
-        dest, op, src::AddBroadcasted, perm, α::Number, β::Number
+function permutedimsconjadd!(
+        dest, isconj::Bool, src::AddBroadcasted, perm, α::Number, β::Number
     )
     args = addends(src)
-    permutedimsopadd!(dest, op, first(args), perm, α, β)
+    permutedimsconjadd!(dest, isconj, first(args), perm, α, β)
     for a in Base.tail(args)
-        permutedimsopadd!(dest, op, a, perm, α, true)
+        permutedimsconjadd!(dest, isconj, a, perm, α, true)
     end
     return dest
 end
 
-# TODO: Replace with contractopadd! once that interface exists,
-# to avoid materializing the Mul intermediate.
-function permutedimsopadd!(
-        dest, op, src::Mul, perm, α::Number, β::Number
+# TODO: Replace with contractconjadd! to avoid materializing the Mul intermediate.
+function permutedimsconjadd!(
+        dest, isconj::Bool, src::Mul, perm, α::Number, β::Number
     )
-    return permutedimsopadd!(dest, op, copy(src), perm, α, β)
+    return permutedimsconjadd!(dest, isconj, copy(src), perm, α, β)
 end
 
 # ---------------------------------------------------------------------------- #
@@ -344,7 +336,7 @@ Extensible by downstream packages for additional linear operations.
 # while a scalar shift (`a .+ 1`) is affine, and an elementwise array product is nonlinear while
 # scaling is not. Because the array-like slot is `::Any`, any leaf type participates with no
 # change here — it need not be an `AbstractArray` (e.g. a `PermutedDims` wrapper, or a backend
-# tensor); the fold absorbs it via `bipermutedimsopadd!`. An operand that is neither a genuine
+# tensor); the fold absorbs it via `bipermutedimsconjadd!`. An operand that is neither a genuine
 # array-like leaf nor a `Number` (say a scalar buried in an n-ary `+`) is assumed linear here and
 # errors later at the fold rather than silently producing a wrong result.
 islinearbroadcast(f, args...) = false

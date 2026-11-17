@@ -476,20 +476,30 @@ module FactorizationMatricizeTestUtils
     # Delegate every hook to the dense hooks on the unwrapped parent, so the matricization
     # aliases exactly where a plain `Array`'s would.
     function TA.is_output_view(
-            ::typeof(TA.matricizeop), op, a::AliasingArray, perm_codomain, perm_domain
+            ::typeof(TA.matricizeconj), isconj::Bool, a::AliasingArray, perm_codomain,
+            perm_domain
         )
-        return TA.is_output_view(TA.matricizeop, op, a.parent, perm_codomain, perm_domain)
+        return TA.is_output_view(
+            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain
+        )
     end
-    function TA.matricizeopview(op, a::AliasingArray, perm_codomain, perm_domain)
-        return TA.matricizeopview(op, a.parent, perm_codomain, perm_domain)
+    function TA.matricizeconjview(
+            isconj::Bool, a::AliasingArray, perm_codomain, perm_domain
+        )
+        return TA.matricizeconjview(isconj, a.parent, perm_codomain, perm_domain)
     end
     function TA.allocate_output(
-            ::typeof(TA.matricizeop), op, a::AliasingArray, perm_codomain, perm_domain
+            ::typeof(TA.matricizeconj), isconj::Bool, a::AliasingArray, perm_codomain,
+            perm_domain
         )
-        return TA.allocate_output(TA.matricizeop, op, a.parent, perm_codomain, perm_domain)
+        return TA.allocate_output(
+            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain
+        )
     end
-    function TA.matricizeop!(dest, op, a::AliasingArray, perm_codomain, perm_domain)
-        return TA.matricizeop!(dest, op, a.parent, perm_codomain, perm_domain)
+    function TA.matricizeconj!(
+            dest, isconj::Bool, a::AliasingArray, perm_codomain, perm_domain
+        )
+        return TA.matricizeconj!(dest, isconj, a.parent, perm_codomain, perm_domain)
     end
 end
 using .FactorizationMatricizeTestUtils: AliasingArray

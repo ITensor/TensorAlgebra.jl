@@ -383,11 +383,17 @@ using Test: @test, @test_throws, @testset
             # Regrouping a `TensorMap` is a permuted-add, so the matricization is the tensor
             # `permutedimsop` builds, spaces included. Under `conj` that dualizes every space.
             ref = TensorAlgebra.permutedimsop(op, t, pc, pd)
-            if TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, op, t, pc, pd)
+            if TensorAlgebra.is_output_view(
+                    TensorAlgebra.matricizeconj,
+                    op === conj,
+                    t,
+                    pc,
+                    pd
+                )
                 @test op === identity # only the identity op can hand back `t` itself
-                @test TensorAlgebra.matricizeopview(op, t, pc, pd) === t
+                @test TensorAlgebra.matricizeconjview(op === conj, t, pc, pd) === t
             end
-            m_copy = TensorAlgebra.matricizeopcopy(op, t, pc, pd)
+            m_copy = TensorAlgebra.matricizeconjcopy(op === conj, t, pc, pd)
             @test m_copy !== t
             @test TensorAlgebra.data(m_copy) !== TensorAlgebra.data(t)
             @test space(m_copy) == space(ref)
@@ -395,10 +401,10 @@ using Test: @test, @test_throws, @testset
         end
         # Only the split TensorKit already stores is a view. A regrouped one has to be built.
         @test TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop, identity, t, (1, 2), (3,)
+            TensorAlgebra.matricizeconj, false, t, (1, 2), (3,)
         )
         @test !TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop, identity, t, (1, 3), (2,)
+            TensorAlgebra.matricizeconj, false, t, (1, 3), (2,)
         )
 
         dest = similar(t)

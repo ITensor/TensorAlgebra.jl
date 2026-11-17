@@ -2,7 +2,7 @@ using Adapt: adapt
 using JLArrays: JLArray
 using TensorAlgebra: TensorAlgebra, ConjBroadcasted, PermutedDims, add!,
     bipermutedimsopadd!, permuteddims, permutedimsadd!, permutedimsopadd!, scaleadd!
-using Test: @test, @testset
+using Test: @test, @test_throws, @testset
 
 # A non-`AbstractArray` operand, to check that `permuteddims` falls back to `PermutedDims`.
 struct NotAnArray{P}
@@ -55,6 +55,22 @@ end
             permutedimsadd!(b′, a, perm, α, β)
             @test b′ ≈ β * b + α * permutedims(a, perm)
         end
+    end
+    @testset "permutedimsopadd! with mixed element types (op=$op)" for op in
+        (identity, conj)
+        a = randn(Float32, 2, 3, 4)
+        perm = (3, 1, 2)
+        α = 2.0 + 1.0im
+        for β in (0, 3)
+            b = randn(ComplexF64, 4, 2, 3)
+            b′ = copy(b)
+            permutedimsopadd!(b′, op, a, perm, α, β)
+            @test b′ ≈ β * b + α * permutedims(op.(a), perm)
+        end
+        # A complex scale that a real destination cannot hold.
+        @test_throws InexactError permutedimsopadd!(
+            zeros(4, 2, 3), op, randn(2, 3, 4), perm, 1.0im, 0
+        )
     end
     @testset "bipermutedimsopadd! unwraps PermutedDimsArray src (arraytype=$arrayt)" for arrayt in
         (

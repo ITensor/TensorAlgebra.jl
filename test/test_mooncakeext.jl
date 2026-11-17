@@ -1,8 +1,8 @@
 using Mooncake: Mooncake
 using Random: Random
 using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm,
-    MatricizeContract, allocate_output, biperm, biperms, check_input, contract, contract!,
-    contract_labels, contractadd!, contractpermadd!, contractpermop, default_algorithm,
+    MatricizeContract, allocate_output, biperm, biperms, contract, contract!,
+    contract_labels, contractadd!, contractpermadd!, contractpermconj, default_algorithm,
     select_algorithm
 using Test: @test, @testset
 
@@ -30,8 +30,8 @@ using Test: @test, @testset
         labels2 = (:j, :k)
 
         Mooncake.TestUtils.test_rule(
-            rng, allocate_output, contractpermop, biperm_dest.t1, biperm_dest.t2,
-            identity, a1, biperm1.t1, biperm1.t2, identity, a2, biperm2.t1, biperm2.t2;
+            rng, allocate_output, contractpermconj, biperm_dest.t1, biperm_dest.t2,
+            false, a1, biperm1.t1, biperm1.t2, false, a2, biperm2.t1, biperm2.t2;
             mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
@@ -39,15 +39,6 @@ using Test: @test, @testset
         )
         Mooncake.TestUtils.test_rule(
             rng, biperms, contract, labels_dest, labels1, labels2; mode, is_primitive
-        )
-        Mooncake.TestUtils.test_rule(
-            rng, check_input, contract, a1, biperm1.t1, biperm1.t2, a2, biperm2.t1,
-            biperm2.t2;
-            mode, is_primitive
-        )
-        Mooncake.TestUtils.test_rule(
-            rng, check_input, contract!, dest, biperm_dest.t1, biperm_dest.t2,
-            a1, biperm1.t1, biperm1.t2, a2, biperm2.t1, biperm2.t2; mode, is_primitive
         )
         Mooncake.TestUtils.test_rule(
             rng, contract_labels, labels1, labels2; mode, is_primitive

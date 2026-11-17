@@ -222,18 +222,14 @@ function infer_aux_space_tensormap(
     return S(seccounts...)
 end
 
-# ================================  bipermutedimsopadd!  =====================================
-# `dest = β * dest + α * permutedims(op.(src), (perm_codomain, perm_domain))`. Delegate to
-# TensorKit's TensorOperations interface: `tensoradd!` realizes the permutation, the `op === conj`
+# ===============================  bipermutedimsconjadd!  ====================================
+# Delegate to TensorKit's TensorOperations interface: `tensoradd!` realizes the permutation, the
 # data conjugation (via `adjoint` internally), and the `α`/`β` scaling in one call.
-function TensorAlgebra.bipermutedimsopadd!(
-        dest::AbstractTensorMap, op, src::AbstractTensorMap,
+function TensorAlgebra.bipermutedimsconjadd!(
+        dest::AbstractTensorMap, isconj::Bool, src::AbstractTensorMap,
         perm_codomain, perm_domain, α::Number, β::Number
     )
-    conjA = op === conj
-    (op === identity || conjA) ||
-        throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
-    TO.tensoradd!(dest, src, (perm_codomain, perm_domain), conjA, α, β)
+    TO.tensoradd!(dest, src, (perm_codomain, perm_domain), isconj, α, β)
     return dest
 end
 
@@ -246,36 +242,36 @@ end
 # split is the one memory-sharing matricization (TensorKit's own `has_shared_permute` notion). Any
 # other split, or a folded `conj`, regroups into a fresh `TensorMap`.
 function TensorAlgebra.is_output_view(
-        ::typeof(TensorAlgebra.matricizeop), op,
+        ::typeof(TensorAlgebra.matricizeconj), isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
-    return op === identity &&
+    return !isconj &&
         TensorAlgebra.isidentitybiperm(perm_codomain, perm_domain) &&
         length(perm_codomain) == numout(t)
 end
-function TensorAlgebra.matricizeopview(
-        op, t::AbstractTensorMap, perm_codomain, perm_domain
+function TensorAlgebra.matricizeconjview(
+        isconj::Bool, t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return t
 end
 # A `TensorMap`'s matricization is a regrouping of its indices, so the destination is the same
 # `TensorMap` the plain permuted-add would allocate. That one already dualizes each space under
-# `op === conj`, which is what `bipermutedimsopadd!` needs: `tensoradd!` realizes a conjugation
+# `isconj`, which is what `bipermutedimsconjadd!` needs: `tensoradd!` realizes a conjugation
 # by adjointing its source, so a destination over the undualized space does not match it.
 function TensorAlgebra.allocate_output(
-        ::typeof(TensorAlgebra.matricizeop), op,
+        ::typeof(TensorAlgebra.matricizeconj), isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return TensorAlgebra.allocate_output(
-        TensorAlgebra.permutedimsop, op, t, perm_codomain, perm_domain
+        TensorAlgebra.permutedimsconj, isconj, t, perm_codomain, perm_domain
     )
 end
-function TensorAlgebra.matricizeop!(
-        dest::AbstractTensorMap, op,
+function TensorAlgebra.matricizeconj!(
+        dest::AbstractTensorMap, isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
-    return TensorAlgebra.bipermutedimsopadd!(
-        dest, op, t, perm_codomain, perm_domain, true, false
+    return TensorAlgebra.bipermutedimsconjadd!(
+        dest, isconj, t, perm_codomain, perm_domain, true, false
     )
 end
 
@@ -296,12 +292,12 @@ end
 # already implements through its TensorOperations interface. Route the generic `contract`
 # there: `zero!` clears the `similar_map`-allocated destination, and the default algorithm
 # hands the in-place contraction to the TensorOperations backend (see the TensorOperations
-# extension's `contractpermopadd!`).
+# extension's `contractpermconjadd!`).
 TensorAlgebra.zero!(t::AbstractTensorMap) = VectorInterface.zerovector!(t)
 
 # A `TensorMap` is not an `AbstractArray`, so the generic in-place `TensorAlgebra` operations
 # don't apply. Forward to TensorKit's `VectorInterface` methods, its primary interface for these.
-# `scaleadd!` here is the non-permuting `y = α*x + β*y`. The permuting `bipermutedimsopadd!` handles a
+# `scaleadd!` here is the non-permuting `y = α*x + β*y`. The permuting `bipermutedimsconjadd!` handles a
 # non-trivial codomain/domain permutation.
 TensorAlgebra.scale!(t::AbstractTensorMap, β::Number) = VectorInterface.scale!(t, β)
 function TensorAlgebra.scaleadd!(
@@ -320,7 +316,7 @@ end
 # ==================================  linear-combination broadcast  =========================
 # A `TensorMap` is not an `AbstractArray`, so it needs a `BroadcastStyle` to broadcast lazily
 # (otherwise Base tries to `collect` it). A linear combination flattens (via `tryflattenlinear`)
-# to a `LinearBroadcasted` that materializes through `scaleadd!`/`bipermutedimsopadd!` above; the
+# to a `LinearBroadcasted` that materializes through `scaleadd!`/`bipermutedimsconjadd!` above; the
 # `copyto!` here is not piracy because `LinearBroadcasted` is TensorAlgebra-owned. Element-wise
 # (nonlinear) broadcast is not a meaningful operation on a symmetric tensor, so it errors rather
 # than dense-converting.

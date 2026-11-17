@@ -151,31 +151,22 @@ end
     @test r ≈ conj(d1) * d2
 end
 
-@testset "op-aware contraction check_input" begin
+@testset "conjugation-aware contraction check_input" begin
     a = randn(ComplexF64, 2, 3)
     b = randn(ComplexF64, 3, 4)
+    dest = zeros(ComplexF64, 2, 4)
     @test isnothing(
         TA.check_input(
-            TA.contractpermopadd!,
-            zeros(ComplexF64, 2, 4),
-            (1,),
-            (2,),
-            conj,
-            a,
-            (1,),
-            (2,),
-            identity,
-            b,
-            (1,),
+            TA.contractpermconjadd!, dest, (1,), (2,), true, a, (1,), (2,), false, b, (1,),
             (2,)
         )
     )
     @test_throws ArgumentError TA.check_input(
-        TA.contractpermopadd!, zeros(ComplexF64, 2, 4), (1,), (2,),
-        abs, a, (1,), (2,), identity, b, (1,), (2,)
+        TA.contractpermconjadd!, dest, (1,), (2,),
+        true, a, (1,), (2,), false, randn(4, 4), (1,), (2,)
     )
-    @test_throws ArgumentError TA.check_input(
-        TA.contractpermopadd!, zeros(ComplexF64, 2, 4), (1,), (2,),
-        conj, a, (1,), (2,), identity, randn(4, 4), (1,), (2,)
+    # The `op` forms accept only `identity` and `conj`.
+    @test_throws ArgumentError TA.contractpermopadd!(
+        dest, (1,), (2,), abs, a, (1,), (2,), identity, b, (1,), (2,), true, false
     )
 end

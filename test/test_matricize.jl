@@ -1,7 +1,7 @@
 using LinearAlgebra: Adjoint, Transpose
 using StableRNGs: StableRNG
-using TensorAlgebra: TensorAlgebra, is_output_view, matricize, matricizeop, matricizeop!,
-    matricizeopcopy, matricizeopview
+using TensorAlgebra: TensorAlgebra, is_output_view, matricize, matricizeconj,
+    matricizeconj!, matricizeconjcopy, matricizeconjview, matricizeop
 using Test: @test, @test_throws, @testset
 
 # Not an `AbstractArray`, so none of the dense hooks apply: checks the always-safe fallbacks.
@@ -51,34 +51,34 @@ end
     a = randn(StableRNG(321), 2, 3, 4)
 
     # A dense reshape shares memory at the identity bipermutation.
-    @test is_output_view(matricizeop, identity, a, (1,), (2, 3))
-    @test is_output_view(matricizeop, identity, a, (), (1, 2, 3))
-    @test is_output_view(matricizeop, identity, a, (1, 2, 3), ())
+    @test is_output_view(matricizeconj, false, a, (1,), (2, 3))
+    @test is_output_view(matricizeconj, false, a, (), (1, 2, 3))
+    @test is_output_view(matricizeconj, false, a, (1, 2, 3), ())
 
     # At the swapped split the view is the reshape's lazy `transpose`, or its `adjoint` with
     # `conj` folded in. Not at an interleaving, which routes through the gather branch instead.
-    @test is_output_view(matricizeop, identity, a, (2, 3), (1,))
-    @test matricizeopview(identity, a, (2, 3), (1,)) isa Transpose
+    @test is_output_view(matricizeconj, false, a, (2, 3), (1,))
+    @test matricizeconjview(false, a, (2, 3), (1,)) isa Transpose
     @test matricizeop(identity, a, (2, 3), (1,)) == matricize_ref(a, (2, 3), (1,))
-    @test is_output_view(matricizeop, conj, a, (2, 3), (1,))
-    @test matricizeopview(conj, a, (2, 3), (1,)) isa Adjoint
+    @test is_output_view(matricizeconj, true, a, (2, 3), (1,))
+    @test matricizeconjview(true, a, (2, 3), (1,)) isa Adjoint
     @test matricizeop(conj, a, (2, 3), (1,)) == conj.(matricize_ref(a, (2, 3), (1,)))
-    @test !is_output_view(matricizeop, identity, a, (3, 1), (2,))
+    @test !is_output_view(matricizeconj, false, a, (3, 1), (2,))
 
     # A reshape cannot carry a `conj` at the stored split.
-    @test !is_output_view(matricizeop, conj, a, (1,), (2, 3))
+    @test !is_output_view(matricizeconj, true, a, (1,), (2, 3))
 
     # A type without hooks declares nothing (fail-safe default) and has no aliasing form.
-    @test !is_output_view(matricizeop, identity, DummyArray(), (1,), (2,))
-    @test_throws MethodError matricizeopview(identity, DummyArray(), (1,), (2,))
+    @test !is_output_view(matricizeconj, false, DummyArray(), (1,), (2,))
+    @test_throws MethodError matricizeconjview(false, DummyArray(), (1,), (2,))
     # Only a `DenseArray` declares the reshape a view; a strided view of one does not, even in
     # codomain-then-domain order, and still matricizes correctly through the copy path.
     a_view = view(a, :, :, :)
-    @test !is_output_view(matricizeop, identity, a_view, (1,), (2, 3))
+    @test !is_output_view(matricizeconj, false, a_view, (1,), (2, 3))
     @test matricize(a_view, (1,), (2, 3)) == matricize(a, (1,), (2, 3))
 
     # Writes to the shared matricization are writes to `a`.
-    m = matricizeopview(identity, a, (1,), (2, 3))
+    m = matricizeconjview(false, a, (1,), (2, 3))
     @test m == matricize_ref(a, (1,), (2, 3))
     m[1, 1] = 42
     @test a[1, 1, 1] == 42
@@ -88,35 +88,35 @@ end
     rng = StableRNG(11)
     a = randn(rng, 2, 3, 4)
 
-    # A declared share means `matricizeopview` (and so `matricize`) aliases `a`, while
-    # `matricizeopcopy` never does.
+    # A declared share means `matricizeconjview` (and so `matricize`) aliases `a`, while
+    # `matricizeconjcopy` never does.
     for K in 0:3
         pc = ntuple(identity, K)
         pd = ntuple(i -> K + i, 3 - K)
-        if is_output_view(matricizeop, identity, a, pc, pd)
-            m = matricizeopview(identity, a, pc, pd)
+        if is_output_view(matricizeconj, false, a, pc, pd)
+            m = matricizeconjview(false, a, pc, pd)
             @test Base.mightalias(m, a)
             @test matricize(a, pc, pd) == m
         end
-        m_copy = matricizeopcopy(identity, a, pc, pd)
+        m_copy = matricizeconjcopy(false, a, pc, pd)
         @test !Base.mightalias(m_copy, a)
         @test m_copy == matricize_ref(a, pc, pd)
     end
     for (pc, pd) in (((2, 3), (1,)), ((3, 1), (2,)))
-        m = matricizeopcopy(identity, a, pc, pd)
+        m = matricizeconjcopy(false, a, pc, pd)
         @test m ≈ matricize_ref(a, pc, pd)
         @test !Base.mightalias(m, a)
     end
-    @test_throws ArgumentError matricizeopcopy(identity, a, (1,), (2,))
+    @test_throws ArgumentError matricizeconjcopy(false, a, (1,), (2,))
 
     # The allocation and write hooks compose into the copy form.
     for (pc, pd) in (((1,), (2, 3)), ((3, 1), (2,)))
         for op in (identity, conj)
-            dest = TensorAlgebra.allocate_output(matricizeop, op, a, pc, pd)
+            dest = TensorAlgebra.allocate_output(matricizeconj, op === conj, a, pc, pd)
             @test size(dest) == size(matricize_ref(a, pc, pd))
-            matricizeop!(dest, op, a, pc, pd)
+            matricizeconj!(dest, op === conj, a, pc, pd)
             @test dest ≈ op.(matricize_ref(a, pc, pd))
-            @test dest ≈ matricizeopcopy(op, a, pc, pd)
+            @test dest ≈ matricizeconjcopy(op === conj, a, pc, pd)
         end
     end
 

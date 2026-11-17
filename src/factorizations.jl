@@ -15,7 +15,7 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
 # owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
 # a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
-# the `matricizeopcopy` gather is owned by contract and is donated directly (with
+# the `matricizeconjcopy` gather is owned by contract and is donated directly (with
 # `copy_input` still applied when the eltype must change) — and the wrapper calls the mutating
 # entry unconditionally.
 for f in (
@@ -30,11 +30,11 @@ for f in (
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
             A_mat =
-            if is_output_view(matricizeop, identity, A, perm_codomain, perm_domain)
-                A_shared = matricizeopview(identity, A, perm_codomain, perm_domain)
+            if is_output_view(matricizeconj, false, A, perm_codomain, perm_domain)
+                A_shared = matricizeconjview(false, A, perm_codomain, perm_domain)
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
-                A_gather = matricizeopcopy(identity, A, perm_codomain, perm_domain)
+                A_gather = matricizeconjcopy(false, A, perm_codomain, perm_domain)
                 if eltype(A_gather) === float(eltype(A_gather))
                     A_gather
                 else
@@ -679,18 +679,18 @@ function one end
 # gathered matrix and scatters it back with `unmatricize!`.
 function one!(A, ndims_codomain::Val)
     perm_codomain, perm_domain = identitybiperm(ndims_codomain, Val(ndims(A)))
-    if is_output_view(matricizeop, identity, A, perm_codomain, perm_domain)
-        MatrixAlgebra.one!(matricizeopview(identity, A, perm_codomain, perm_domain))
+    if is_output_view(matricizeconj, false, A, perm_codomain, perm_domain)
+        MatrixAlgebra.one!(matricizeconjview(false, A, perm_codomain, perm_domain))
         return A
     end
-    A_mat = matricizeopcopy(identity, A, perm_codomain, perm_domain)
+    A_mat = matricizeconjcopy(false, A, perm_codomain, perm_domain)
     MatrixAlgebra.one!(A_mat)
     return unmatricize!(A, A_mat, ndims_codomain)
 end
 
 # Fills a permuted copy in place rather than building the matrix itself, so the result keeps the
 # structure `bipermutedims` gives it (the identity of a `Diagonal` is a `Diagonal`, which the
-# dense `allocate_output` behind `matricizeopcopy` would flatten). The copy is the same one the
+# dense `allocate_output` behind `matricizeconjcopy` would flatten). The copy is the same one the
 # caller would otherwise pay for `A` being a shape prototype.
 function one(A, perm_codomain, perm_domain)
     A_perm = bipermutedims(A, perm_codomain, perm_domain)
