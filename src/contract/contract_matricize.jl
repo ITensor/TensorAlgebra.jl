@@ -12,8 +12,10 @@ function contractpermconjadd!(
         α::Number, β::Number
     )
     biperm_dest = (biperm_dest_codomain..., biperm_dest_domain...)
+    TupleTools.isperm(biperm_dest) ||
+        throw(ArgumentError("destination permutation is not a permutation"))
     invperm_codomain, invperm_domain =
-        bipartition(invperm(biperm_dest), Val(length(biperm1_codomain)))
+        bipartition(TupleTools.invperm(biperm_dest), Val(length(biperm1_codomain)))
     check_input(
         contractpermconjadd!,
         a_dest, invperm_codomain, invperm_domain,

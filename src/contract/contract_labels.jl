@@ -2,9 +2,14 @@ function contract_labels(a1::AbstractArray, labels1, a2::AbstractArray, labels2)
     return contract_labels(labels1, labels2)
 end
 function contract_labels(labels1, labels2)
-    diff1 = smallsetdiff(labels1, labels2)
-    diff2 = smallsetdiff(labels2, labels1)
-    return vcat(diff1, diff2)
+    r = Vector{promote_type(eltype(labels1), eltype(labels2))}()
+    for x in labels1
+        x ∉ labels2 && push!(r, x)
+    end
+    for x in labels2
+        x ∉ labels1 && push!(r, x)
+    end
+    return r
 end
 
 """

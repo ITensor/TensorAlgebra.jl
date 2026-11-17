@@ -31,7 +31,11 @@ Base.:(==)(bt::BiTuple, t::Tuple) = Tuple(bt) == t
 Base.:(==)(t::Tuple, bt::BiTuple) = t == Tuple(bt)
 Base.hash(bt::BiTuple, h::UInt) = hash(Tuple(bt), h)
 
-Base.invperm(bt::BiTuple{N1}) where {N1} = BiTuple(invperm(Tuple(bt)), Val(N1))
+function Base.invperm(bt::BiTuple{N1}) where {N1}
+    t = Tuple(bt)
+    TupleTools.isperm(t) || throw(ArgumentError("argument is not a permutation"))
+    return BiTuple(TupleTools.invperm(t), Val(N1))
+end
 
 # Only single-argument `map` preserves the split, since with several operands the split to keep
 # would be ambiguous.
