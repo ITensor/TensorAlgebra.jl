@@ -2,7 +2,13 @@ import TupleTools
 
 # `a ∖ b` as a `Vector`, preserving the order of `a`. A linear scan is faster than `Base.setdiff`
 # for the small collections here.
-smallsetdiff(a, b) = [x for x in a if x ∉ b]
+function smallsetdiff(a, b)
+    r = Vector{eltype(a)}(undef, 0)
+    for x in a
+        x ∉ b && push!(r, x)
+    end
+    return r
+end
 
 # Position of each element of `x` in `y`, as a tuple. Linear scan, no hashing
 # (`Base.indexin` builds a `Dict`), for the small collections here.
@@ -64,6 +70,7 @@ function biperms(
         map(p -> checked_findfirst(==(labels1[p]), labels_dest), perm1_codomain)...,
         map(p -> checked_findfirst(==(labels2[p]), labels_dest), perm2_domain)...,
     )
-    biperm_dest = bipartition(invperm(pos_dest), Val(n1 - K))
+    TupleTools.isperm(pos_dest) || throw(ArgumentError("Invalid contraction labels"))
+    biperm_dest = bipartition(TupleTools.invperm(pos_dest), Val(n1 - K))
     return biperm_dest, (perm1_codomain, perm1_domain), (perm2_codomain, perm2_domain)
 end

@@ -87,8 +87,27 @@ function bipermutedimsconjadd!(
             map(j -> w[j], perm_codomain), map(j -> w[j], perm_domain), α, β
         )
     end
-    check_input(bipermutedimsconjadd!, dest, isconj, src, perm_codomain, perm_domain)
-    perm = (perm_codomain..., perm_domain...)
+    return permutedimsconjadd_flat!(
+        dest,
+        isconj,
+        src,
+        (perm_codomain..., perm_domain...),
+        α,
+        β
+    )
+end
+
+# The work only depends on the flat permutation, so this is kept out of line to compile once per
+# permutation rather than once per codomain/domain split of it.
+@noinline function permutedimsconjadd_flat!(
+        dest,
+        isconj::Bool,
+        src,
+        perm,
+        α::Number,
+        β::Number
+    )
+    check_input(bipermutedimsconjadd!, dest, isconj, src, perm, ())
     if SV.isstrided(dest) && SV.isstrided(src)
         permutedimsconjadd_strided!(
             SV.StridedView(dest), isconj, SV.StridedView(src), perm, α, β
