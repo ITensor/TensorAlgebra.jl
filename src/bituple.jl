@@ -4,26 +4,19 @@ unval(::Val{N}) where {N} = N
     BiTuple(t1::Tuple, t2::Tuple)
     BiTuple(t::Tuple, ::Val{N1})
 
-A tuple split into a codomain part `t1` and a domain part `t2`. It acts like the flat tuple
-`(t1..., t2...)` for iteration, indexing, `length`, equality and hashing, and the two parts
-are its fields `t1` and `t2`. The second form splits `t` after its first `N1` entries.
-`map` over a single `BiTuple` keeps the split.
+A tuple split into a codomain part `t1` and a domain part `t2`, which are its two fields. It
+acts like the flat tuple `(t1..., t2...)` for iteration, indexing, `length` and equality. The
+second form splits `t` after its first `N1` entries.
 
 # Examples
 
 ```jldoctest
 julia> using TensorAlgebra: BiTuple
 
-julia> bt = BiTuple((1, 2), (3,));
+julia> bt = BiTuple((1, 2, 3), Val(2));
 
-julia> length(bt), bt[3]
-(3, 3)
-
-julia> bt.t1, bt.t2
-((1, 2), (3,))
-
-julia> BiTuple((1, 2, 3), Val(1)).t2
-(2, 3)
+julia> bt.t1, bt.t2, length(bt)
+((1, 2), (3,), 3)
 ```
 """
 struct BiTuple{N1, N2, T1 <: NTuple{N1, Any}, T2 <: NTuple{N2, Any}}

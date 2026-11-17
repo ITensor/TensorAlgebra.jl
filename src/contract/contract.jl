@@ -67,8 +67,7 @@ end
 Contract `op1(a1)` with `op2(a2)` over their shared labels, with the dimensions of the result
 ordered by `labels_dest`. Each `op` is `identity` or `conj`.
 
-See also [`contractconj`](@ref), the form array types overload, and
-[`contractalign`](@ref).
+See also [`contractconj`](@ref).
 """
 function contractop(labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...)
     return contractconj(
@@ -80,13 +79,10 @@ end
                  alg = nothing) -> a_dest
 
 Contract `a1` with `a2` over their shared labels, with the dimensions of the result ordered
-by `labels_dest`. `a1` is conjugated when `isconj1` is `true` and `a2` when `isconj2` is
-`true`.
+by `labels_dest`, conjugating each operand whose flag is `true`. This is the form array types
+overload.
 
-This is the function array types overload to customize the operation. Overloading
-[`contractop`](@ref) has no effect.
-
-See also [`contractop`](@ref) and [`contractpermconjadd!`](@ref).
+See also [`contractop`](@ref).
 """
 function contractconj(
         labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2; kwargs...
@@ -155,17 +151,11 @@ end
                    op1, a1, perm1_codomain, perm1_domain,
                    op2, a2, perm2_codomain, perm2_domain; alg = nothing) -> a_dest
 
-Contract `op1(a1)` with `op2(a2)`, with the contraction given by bipartitioned permutations.
-Each `op` is `identity` or `conj`.
+Contract `op1(a1)` with `op2(a2)` over the dimensions `perm1_domain` of `a1` and
+`perm2_codomain` of `a2`, with the result's dimensions in the order given by the destination
+permutations. Each `op` is `identity` or `conj`.
 
-`a1` is matricized with its open dimensions `perm1_codomain` as rows and its contracted
-dimensions `perm1_domain` as columns, and `a2` with its contracted dimensions
-`perm2_codomain` as rows and its open dimensions `perm2_domain` as columns. The open
-dimensions of the matrix product are then permuted by
-`(perm_dest_codomain..., perm_dest_domain...)`, which also splits the result into a codomain
-and a domain.
-
-See also [`contractpermconj`](@ref), the form array types overload.
+See also [`contractpermconj`](@ref).
 """
 function contractpermop(
         perm_dest_codomain, perm_dest_domain,
@@ -185,20 +175,9 @@ end
                      isconj1::Bool, a1, perm1_codomain, perm1_domain,
                      isconj2::Bool, a2, perm2_codomain, perm2_domain; alg = nothing) -> a_dest
 
-Contract `a1` with `a2`, with the contraction given by bipartitioned permutations. `a1` is
-conjugated when `isconj1` is `true` and `a2` when `isconj2` is `true`.
-
-`a1` is matricized with its open dimensions `perm1_codomain` as rows and its contracted
-dimensions `perm1_domain` as columns, and `a2` with its contracted dimensions
-`perm2_codomain` as rows and its open dimensions `perm2_domain` as columns. The open
-dimensions of the matrix product are then permuted by
-`(perm_dest_codomain..., perm_dest_domain...)`, which also splits the result into a codomain
-and a domain.
-
-This is the function array types overload to customize the operation. Alternatively they
-overload [`allocate_output`](@ref) for `contractpermconj` and
-[`contractpermconjadd!`](@ref), which it calls. Overloading [`contractpermop`](@ref) has no
-effect.
+Contract `a1` with `a2` over the dimensions `perm1_domain` of `a1` and `perm2_codomain` of
+`a2`, conjugating each operand whose flag is `true`, with the result's dimensions in the order
+given by the destination permutations. This is the form array types overload.
 
 See also [`contractpermop`](@ref).
 """
@@ -228,8 +207,8 @@ end
 """
     contract!(a_dest, labels_dest, a1, labels1, a2, labels2; alg = nothing) -> a_dest
 
-Overwrite `a_dest` with the contraction of `a1` and `a2` over their shared labels, where
-`labels_dest` labels the dimensions of `a_dest`.
+Overwrite `a_dest`, with dimensions labeled by `labels_dest`, with the contraction of `a1` and
+`a2` over their shared labels.
 
 See also [`contract`](@ref) and [`contractadd!`](@ref).
 """
@@ -264,7 +243,7 @@ end
 `a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` over their shared
 labels and `labels_dest` labels the dimensions of `a_dest`.
 
-See also [`contract!`](@ref) and [`contractopadd!`](@ref).
+See also [`contract!`](@ref).
 """
 function contractadd!(
         a_dest, labels_dest,
@@ -299,10 +278,9 @@ end
                    alg = nothing) -> a_dest
 
 `a_dest = β * a_dest + α * c`, where `c` is the contraction of `op1(a1)` and `op2(a2)` over
-their shared labels and `labels_dest` labels the dimensions of `a_dest`. Each `op` is
-`identity` or `conj`.
+their shared labels. Each `op` is `identity` or `conj`.
 
-See also [`contractconjadd!`](@ref), the form array types overload.
+See also [`contractconjadd!`](@ref).
 """
 function contractopadd!(
         a_dest, labels_dest,
@@ -321,13 +299,9 @@ end
                      isconj2::Bool, a2, labels2, α, β; alg = nothing) -> a_dest
 
 `a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` over their shared
-labels and `labels_dest` labels the dimensions of `a_dest`. `a1` is conjugated when `isconj1`
-is `true` and `a2` when `isconj2` is `true`.
+labels, conjugating each operand whose flag is `true`. This is the form array types overload.
 
-This is the function array types overload to customize the operation. Overloading
-[`contractopadd!`](@ref) has no effect.
-
-See also [`contractopadd!`](@ref) and [`contractpermconjadd!`](@ref).
+See also [`contractopadd!`](@ref).
 """
 function contractconjadd!(
         a_dest, labels_dest,
@@ -367,16 +341,10 @@ end
                        op1, a1, perm1_codomain, perm1_domain,
                        op2, a2, perm2_codomain, perm2_domain, α, β; alg = nothing) -> a_dest
 
-`a_dest = β * a_dest + α * c`, where `c` is the contraction of `op1(a1)` and `op2(a2)` given
-by bipartitioned permutations. Each `op` is `identity` or `conj`.
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `op1(a1)` and `op2(a2)` as in
+[`contractpermop`](@ref).
 
-`a1` is matricized with its open dimensions `perm1_codomain` as rows and its contracted
-dimensions `perm1_domain` as columns, and `a2` with its contracted dimensions
-`perm2_codomain` as rows and its open dimensions `perm2_domain` as columns. The open
-dimensions of the matrix product are permuted by
-`(perm_dest_codomain..., perm_dest_domain...)` into the dimensions of `a_dest`.
-
-See also [`contractpermconjadd!`](@ref), the form array types overload.
+See also [`contractpermconjadd!`](@ref).
 """
 function contractpermopadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,
@@ -401,21 +369,9 @@ end
                          isconj1::Bool, a1, perm1_codomain, perm1_domain,
                          isconj2::Bool, a2, perm2_codomain, perm2_domain, α, β) -> a_dest
 
-`a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` given by
-bipartitioned permutations. `a1` is conjugated when `isconj1` is `true` and `a2` when
-`isconj2` is `true`.
-
-`a1` is matricized with its open dimensions `perm1_codomain` as rows and its contracted
-dimensions `perm1_domain` as columns, and `a2` with its contracted dimensions
-`perm2_codomain` as rows and its open dimensions `perm2_domain` as columns. The open
-dimensions of the matrix product are permuted by
-`(perm_dest_codomain..., perm_dest_domain...)` into the dimensions of `a_dest`.
-
-The first form resolves `alg` with [`select_algorithm`](@ref) and calls the second form.
-A contraction backend implements the second form for its [`ContractAlgorithm`](@ref)
-subtype, and an array type selects its default backend through
-[`default_algorithm`](@ref)`(contract!, ...)`. Overloading [`contractpermopadd!`](@ref) has
-no effect.
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` as in
+[`contractpermconj`](@ref). This is the form array types overload, and a contraction backend
+implements the second form for its [`ContractAlgorithm`](@ref).
 
 See also [`contractpermopadd!`](@ref).
 """
