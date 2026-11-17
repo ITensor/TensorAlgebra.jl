@@ -65,7 +65,7 @@ end
     bipermutedimsconjadd!(dest, isconj::Bool, src, perm_codomain, perm_domain, α, β) -> dest
 
 `dest = β * dest + α * permutedims(src, (perm_codomain..., perm_domain...))`, with `src`
-conjugated when `isconj` is `true`. This is the form array types overload.
+conjugated when `isconj` is `true`. Array types overload this function to customize it.
 
 See also [`bipermutedimsopadd!`](@ref).
 """
@@ -192,7 +192,7 @@ end
     permutedimsconjadd!(dest, isconj::Bool, src, perm, α, β) -> dest
 
 `dest = β * dest + α * permutedims(src, perm)`, with `src` conjugated when `isconj` is `true`.
-This is the form array types overload.
+Array types overload this function to customize it.
 
 See also [`permutedimsopadd!`](@ref).
 """

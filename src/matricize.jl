@@ -35,7 +35,7 @@ end
 
 Return `permutedims(src, (perm_codomain..., perm_domain...))` in new storage, split into the
 codomain `perm_codomain` and the domain `perm_domain`, with `src` conjugated when `isconj` is
-`true`. This is the form array types overload.
+`true`. Array types overload this function to customize it.
 
 See also [`permutedimsop`](@ref).
 """
@@ -98,7 +98,7 @@ end
     matricizeconj(isconj::Bool, a, perm_codomain, perm_domain) -> m
 
 Matricize `a`, conjugated when `isconj` is `true`, with the dimensions `perm_codomain` as rows
-and `perm_domain` as columns. This is the form array types overload.
+and `perm_domain` as columns. Array types overload this function to customize it.
 
 See also [`matricizeop`](@ref), [`matricizeconjview`](@ref), [`matricizeconj!`](@ref).
 """
