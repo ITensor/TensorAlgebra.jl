@@ -15,8 +15,8 @@ scale!(a::AbstractArray, β::Number) = (a .*= β; a)
 """
     twist!(a::AbstractArray, dims) -> a
 
-In-place ribbon twist over the axes in `dims`. A plain array carries no sector data and has no
-braiding, so this is a no-op; graded-array backends override it to scale `a` by the product of
-the sector twists of those axes (`-1` for odd-parity fermionic charges, `+1` otherwise).
+In-place twist of `a` over the axes in `dims`, which scales `a` by the product of the sector
+twists of those axes (`-1` for odd-parity fermionic charges, `+1` otherwise). For an array
+without sector data, such as a plain `Array`, this is a no-op.
 """
 twist!(a::AbstractArray, dims) = a

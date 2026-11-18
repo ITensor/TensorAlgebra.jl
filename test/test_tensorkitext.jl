@@ -2,7 +2,7 @@ using Base.Broadcast: broadcasted
 using LinearAlgebra: LinearAlgebra, norm
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, contract, contractalign, eig_full, eig_vals, eigh_full,
-    eigh_vals, has_bipartition, left_null, left_orth, left_polar, lq_compact, lq_full,
+    eigh_vals, hasbipartition, left_null, left_orth, left_polar, lq_compact, lq_full,
     matricize, project, project_aux, projectto!, qr_compact, qr_full, rand_map, randn_map,
     right_null, right_orth, right_polar, similar_map, svd_compact, svd_full, svd_vals,
     tryflattenlinear, tryproject, unchecked_project, unmatricize, zeros_map
@@ -24,6 +24,23 @@ using Test: @test, @test_throws, @testset
         c, labels = contract(a, (:i, :j), b, (:j, :k))
         @test labels == [:i, :k]
         @test c ≈ a * b
+    end
+
+    @testset "contract with a conjugated operand" begin
+        W = Rep[U₁](0 => 2, 1 => 1)
+        X = Rep[U₁](0 => 1, 1 => 2)
+        Y = Rep[U₁](-1 => 1, 0 => 2)
+        a = randn(rng, elt, W, X)
+        b = randn(rng, elt, W, Y)
+        # `conj(a)` dualizes the spaces, so its first leg contracts with `b`'s codomain leg `W`.
+        ref, labels = contract(
+            copy(TensorAlgebra.ConjBroadcasted(a)), (:i, :j), b, (:i, :k)
+        )
+        c = zero(ref)
+        TensorAlgebra.contractopadd!(
+            c, labels, conj, a, (:i, :j), identity, b, (:i, :k), true, false
+        )
+        @test c ≈ ref
     end
 
     @testset "contract abelian, rank-3 with permuted output" begin
@@ -366,22 +383,28 @@ using Test: @test, @test_throws, @testset
             # Regrouping a `TensorMap` is a permuted-add, so the matricization is the tensor
             # `permutedimsop` builds, spaces included. Under `conj` that dualizes every space.
             ref = TensorAlgebra.permutedimsop(op, t, pc, pd)
-            if TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, op, t, pc, pd)
+            if TensorAlgebra.isoutputview(
+                    TensorAlgebra.matricizeconj,
+                    op === conj,
+                    t,
+                    pc,
+                    pd
+                )
                 @test op === identity # only the identity op can hand back `t` itself
-                @test TensorAlgebra.matricizeopview(op, t, pc, pd) === t
+                @test TensorAlgebra.matricizeconjview(op === conj, t, pc, pd) === t
             end
-            m_copy = TensorAlgebra.matricizeopcopy(op, t, pc, pd)
+            m_copy = TensorAlgebra.matricizeconjcopy(op === conj, t, pc, pd)
             @test m_copy !== t
             @test TensorAlgebra.data(m_copy) !== TensorAlgebra.data(t)
             @test space(m_copy) == space(ref)
             @test m_copy ≈ ref
         end
         # Only the split TensorKit already stores is a view. A regrouped one has to be built.
-        @test TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop, identity, t, (1, 2), (3,)
+        @test TensorAlgebra.isoutputview(
+            TensorAlgebra.matricizeconj, false, t, (1, 2), (3,)
         )
-        @test !TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop, identity, t, (1, 3), (2,)
+        @test !TensorAlgebra.isoutputview(
+            TensorAlgebra.matricizeconj, false, t, (1, 3), (2,)
         )
 
         dest = similar(t)
@@ -488,7 +511,7 @@ end
 @testset "the codomain/domain accessors on a TensorMap" begin
     W = Rep[U₁](0 => 1, 1 => 1)
     t = zeros_map(Float64, (W, W), (W,))
-    @test has_bipartition(t)
+    @test hasbipartition(t)
     @test TensorAlgebra.ndims_codomain(t) == 2
     @test TensorAlgebra.ndims_domain(t) == 1
 end

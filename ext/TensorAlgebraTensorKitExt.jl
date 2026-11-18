@@ -10,35 +10,26 @@ using TensorOperations: TensorOperations as TO
 using VectorInterface: VectorInterface
 
 # ============================  AbstractArray-vocabulary bridge  ============================
-# TensorAlgebra's generic orchestration describes operands in the `AbstractArray` vocabulary
-# (`TensorAlgebra.ndims`, `TensorAlgebra.axes`), while a `TensorMap` speaks `numind`/`space`.
-# Overload the TensorAlgebra-owned accessors so a `TensorMap` flows through the generic code
-# unchanged. The `i`-th "axis" of a `TensorMap` is its `i`-th index space `space(t, i)`, which
-# for domain indices is already dualized.
+# The `i`-th axis of a `TensorMap` is its `i`-th index space `space(t, i)`, which is already
+# dualized for domain indices.
 TensorAlgebra.ndims(t::AbstractTensorMap) = numind(t)
 TensorAlgebra.axes(t::AbstractTensorMap, i::Int) = space(t, i)
 TensorAlgebra.axes(t::AbstractTensorMap) = ntuple(i -> space(t, i), numind(t))
 # A `TensorMap` has no `Base.size`; its dense size is the per-index space dimension.
 TensorAlgebra.size(t::AbstractTensorMap, i::Int) = dim(space(t, i))
 TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(t))
-# A `TensorMap` stores its codomain/domain split, so its codomain rank is `numout`.
 TensorAlgebra.ndims_codomain(t::AbstractTensorMap) = numout(t)
-TensorAlgebra.has_bipartition(::AbstractTensorMap) = true
+TensorAlgebra.hasbipartition(::AbstractTensorMap) = true
 
 # `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
 # general spelling.
 TensorAlgebra.scalar(t::AbstractTensorMap) = TensorKit.scalar(t)
 
-# `data`/`datatype` reach the underlying storage array. A `TensorMap`/`DiagonalTensorMap` owns its
-# storage as the flat block vector `t.data` (a `DenseVector`, type `storagetype(t)`), but is not an
-# `AbstractArray`, so the generic `data` recursion (which follows `Base.parent`) has no way in.
-# Route it into the storage vector and keep recursing, so any wrapper on that vector is unwrapped
-# to the true leaf. A lazy `AdjointTensorMap` defines `Base.parent`, so the generic recursion
-# already unwraps it; a general `AbstractTensorMap` has no single storage vector, so gets no method.
+# The generic `data` follows `Base.parent`, which does not reach a `TensorMap`'s flat storage
+# vector. A general `AbstractTensorMap` has no single storage vector, so it gets no method.
 TensorAlgebra.data(t::TensorMap) = TensorAlgebra.data(t.data)
 TensorAlgebra.data(t::DiagonalTensorMap) = TensorAlgebra.data(t.data)
 
-# Duality queries on a single index space route to TensorKit's own space duality.
 TensorAlgebra.isdual(V::ElementarySpace) = TensorKit.isdual(V)
 TensorAlgebra.dual(V::ElementarySpace) = TensorKit.dual(V)
 
@@ -63,9 +54,8 @@ TensorAlgebra.ungrade(V::ElementarySpace) = Base.OneTo(dim(V))
 TensorAlgebra.sum(t::AbstractTensorMap; kwargs...) = Base.sum(convert(Array, t); kwargs...)
 
 # =====================================  similar_map  =======================================
-# `similar_map` takes the codomain/domain axes in codomain-facing (un-dualized) form, which is
-# exactly what TensorKit's `similar(t, T, codomain, domain)` wants, so build the two
-# `ProductSpace`s directly.
+# `similar_map` takes the domain axes un-dualized, which matches TensorKit's
+# `similar(t, T, codomain, domain)`.
 function TensorAlgebra.similar_map(
         a::AbstractTensorMap, ::Type{T}, axes_codomain, axes_domain
     ) where {T}
@@ -73,14 +63,8 @@ function TensorAlgebra.similar_map(
     return similar(a, T, ProductSpace{S}(axes_codomain...), ProductSpace{S}(axes_domain...))
 end
 
-# A plain-array prototype with native (space) axes is the operator/state construction case: `raw`
-# is a dense matrix and the codomain/domain axes are `TensorMap` spaces. Build an uninitialized
-# `TensorMap` whose block storage type `A` follows `raw`'s array type, so the storage stays on the
-# same device (a GPU array's blocks stay on the GPU) while the map structure comes from the spaces.
-# `A` is the return type of `similar(raw, T, ::Int)`, a 1-d vector of `raw`'s family, which is the
-# block storage type. The elementary space type `S` is passed explicitly so the two dispatch
-# entries below can read it from whichever of codomain/domain is non-empty and share one builder,
-# mirroring `_map_homspace` and the map constructors.
+# A plain-array prototype with space axes builds a `TensorMap` whose block storage type follows
+# `raw`'s array type, so the storage stays on the same device, for example a GPU.
 function similar_tensormap(
         raw::AbstractArray, ::Type{T}, ::Type{S}, axes_codomain, axes_domain
     ) where {T, S <: ElementarySpace}
@@ -101,13 +85,8 @@ function TensorAlgebra.similar_map(
 end
 
 # ===============================  zeros_map / randn_map / rand_map  ========================
-# A `TensorMap` keeps its codomain and domain as separate `ProductSpace`s rather than a single
-# flattened axis, so build the `codomain ← domain` space directly instead of the dense
-# flatten-and-dualize fallback. As with `similar_map`, the axes arrive codomain-facing
-# (un-dualized), which is TensorKit's own codomain/domain convention. The elementary space type
-# `S` is passed to `_map_homspace` explicitly so the two dispatch entries per constructor can
-# read it from whichever of the codomain/domain is non-empty and share one builder; an empty
-# axis tuple gives the unit space `ProductSpace{S}()`.
+# Build the `codomain ← domain` space directly. `S` is passed explicitly since an empty axis
+# tuple, which gives the unit space `ProductSpace{S}()`, does not carry it.
 function _map_homspace(::Type{S}, axes_codomain, axes_domain) where {S <: ElementarySpace}
     return ProductSpace{S}(axes_codomain...) ← ProductSpace{S}(axes_domain...)
 end
@@ -139,14 +118,8 @@ for (f, g) in ((:randn_map, :randn), (:rand_map, :rand))
 end
 
 # =====================================  projectto!  ========================================
-# `projectto!` places dense `src` data into the restricted (symmetric) space of `dest`. A
-# `TensorMap` is not an `AbstractArray`, so the generic `copyto!` default does not apply; delegate
-# to TensorKit's `project_symmetric!`, which fills the symmetry-allowed blocks from the dense data
-# and discards any component outside the block structure. Composed with the map constructors above,
-# this makes `project(dense, axes_codomain, axes_domain)` build a `TensorMap` from a dense matrix.
-# `project_symmetric!` requires a matching dense size, so reshape `src` to `size(dest)` first (a
-# no-op when the ranks already match); this lets a lower-rank `src` omit trailing length-1 axes,
-# matching the generic `projectto!`, and rejects a genuine shape mismatch.
+# `project_symmetric!` requires a matching dense size, so `src` is reshaped first, which lets it
+# omit trailing length-1 axes like the generic `projectto!`.
 function TensorAlgebra.projectto!(dest::AbstractTensorMap, src::AbstractArray)
     TensorAlgebra.check_project_size(size(src), TensorAlgebra.size(dest))
     return project_symmetric!(dest, reshape(src, TensorAlgebra.size(dest)))
@@ -164,10 +137,7 @@ function TensorAlgebra.unproject(t::AbstractTensorMap, ::Val{K}) where {K}
 end
 
 # =============================  infer_aux_space (project_aux derivation)  ===================
-# `infer_aux_space` for `TensorMap` spaces routes both the codomain-led and the (empty-codomain)
-# domain-led cases to `infer_aux_space_tensormap`, reading the elementary space type `S` from
-# whichever side is non-empty, the same two-entry split `similar_map` uses. `project`'s allocation
-# stays generic (strict `similar_map`); only the `project_aux` derivation is `TensorMap`-specific.
+# Two entries so `S` can be read from whichever of the codomain and domain is non-empty.
 function TensorAlgebra.infer_aux_space(
         raw::AbstractArray, axes_codomain::Tuple{S, Vararg{S}}, axes_domain::Tuple{Vararg{S}}
     ) where {S <: ElementarySpace}
@@ -179,22 +149,16 @@ function TensorAlgebra.infer_aux_space(
     return infer_aux_space_tensormap(raw, S, axes_codomain, axes_domain)
 end
 
-# The space of `raw`'s trailing auxiliary axis, derived so the projected result is
-# symmetry-allowed. Candidates are the operator content `codomain ⊗ conj(domain)`, scanned in
-# canonical (sorted) sector order — a `GradedSpace` sorts its sectors and the dense layout
-# follows, so the aux slices must appear in that order. The result may span several sectors (a
-# direct-sum, MPO-style virtual leg).
+# Candidate sectors come from `codomain ⊗ conj(domain)` in sorted order, since a `GradedSpace`
+# sorts its sectors and the dense layout follows. The result may span several sectors.
 function infer_aux_space_tensormap(
         raw, ::Type{S}, axes_codomain, axes_domain
     ) where {S <: ElementarySpace}
     aux_dim = length(axes_codomain) + length(axes_domain) + 1
     aux_length = size(raw, aux_dim)
     content = fuse(axes_codomain..., dual.(axes_domain)...)
-    # Probe the surplus axis slice by slice: a slice keeps the aux axis (width `dim(s)`), so its
-    # rank matches the candidate axes exactly and `tryproject` allocates, fills, and round-trip-
-    # verifies without re-entering the derivation branch. This builds one `TensorMap` per candidate
-    # column, which is fine for operator-sized inputs but not cheap. Reading each column's sector
-    # directly from the block structure of the fused content could avoid the per-slice projection.
+    # This builds one `TensorMap` per candidate column. Reading each column's sector directly from
+    # the block structure of the fused content could avoid that.
     function slice_is_covariant(r, s)
         slice = selectdim(raw, aux_dim, r)
         return !isnothing(
@@ -222,60 +186,52 @@ function infer_aux_space_tensormap(
     return S(seccounts...)
 end
 
-# ================================  bipermutedimsopadd!  =====================================
-# `dest = β * dest + α * permutedims(op.(src), (perm_codomain, perm_domain))`. Delegate to
-# TensorKit's TensorOperations interface: `tensoradd!` realizes the permutation, the `op === conj`
+# ===============================  bipermutedimsconjadd!  ====================================
+# Delegate to TensorKit's TensorOperations interface: `tensoradd!` realizes the permutation, the
 # data conjugation (via `adjoint` internally), and the `α`/`β` scaling in one call.
-function TensorAlgebra.bipermutedimsopadd!(
-        dest::AbstractTensorMap, op, src::AbstractTensorMap,
+function TensorAlgebra.bipermutedimsconjadd!(
+        dest::AbstractTensorMap, isconj::Bool, src::AbstractTensorMap,
         perm_codomain, perm_domain, α::Number, β::Number
     )
-    conjA = op === conj
-    (op === identity || conjA) ||
-        throw(ArgumentError("`op` must be `identity` or `conj`, got `$op`"))
-    TO.tensoradd!(dest, src, (perm_codomain, perm_domain), conjA, α, β)
+    TO.tensoradd!(dest, src, (perm_codomain, perm_domain), isconj, α, β)
     return dest
 end
 
 # ==================================  matricize / unmatricize  ==============================
-# A `TensorMap` is already a linear map codomain ← domain, so "matricizing" is just regrouping
-# its indices into the requested codomain/domain bipartition (`permute`). No fusion or copy of
-# the array vocabulary is needed: MatrixAlgebraKit factorizes the regrouped `TensorMap` directly.
+# A `TensorMap` is already a linear map, so matricizing it regroups its indices with `permute`.
 
 # `permute` at the tensor's own codomain/domain split is trivial and returns `t` itself, so that
 # split is the one memory-sharing matricization (TensorKit's own `has_shared_permute` notion). Any
 # other split, or a folded `conj`, regroups into a fresh `TensorMap`.
-function TensorAlgebra.is_output_view(
-        ::typeof(TensorAlgebra.matricizeop), op,
+function TensorAlgebra.isoutputview(
+        ::typeof(TensorAlgebra.matricizeconj), isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
-    return op === identity &&
+    return !isconj &&
         TensorAlgebra.isidentitybiperm(perm_codomain, perm_domain) &&
         length(perm_codomain) == numout(t)
 end
-function TensorAlgebra.matricizeopview(
-        op, t::AbstractTensorMap, perm_codomain, perm_domain
+function TensorAlgebra.matricizeconjview(
+        isconj::Bool, t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return t
 end
-# A `TensorMap`'s matricization is a regrouping of its indices, so the destination is the same
-# `TensorMap` the plain permuted-add would allocate. That one already dualizes each space under
-# `op === conj`, which is what `bipermutedimsopadd!` needs: `tensoradd!` realizes a conjugation
-# by adjointing its source, so a destination over the undualized space does not match it.
+# A `TensorMap`'s matricization is a regrouping of its indices, so its destination is the permuted
+# one, whose spaces are dualized under `isconj` as `tensoradd!` requires.
 function TensorAlgebra.allocate_output(
-        ::typeof(TensorAlgebra.matricizeop), op,
+        ::typeof(TensorAlgebra.matricizeconj), isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return TensorAlgebra.allocate_output(
-        TensorAlgebra.permutedimsop, op, t, perm_codomain, perm_domain
+        TensorAlgebra.bipermutedimsconj, isconj, t, perm_codomain, perm_domain
     )
 end
-function TensorAlgebra.matricizeop!(
-        dest::AbstractTensorMap, op,
+function TensorAlgebra.matricizeconj!(
+        dest::AbstractTensorMap, isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
-    return TensorAlgebra.bipermutedimsopadd!(
-        dest, op, t, perm_codomain, perm_domain, true, false
+    return TensorAlgebra.bipermutedimsconjadd!(
+        dest, isconj, t, perm_codomain, perm_domain, true, false
     )
 end
 
@@ -292,17 +248,11 @@ function TensorAlgebra.unmatricize(m::AbstractTensorMap, axes_codomain, axes_dom
 end
 
 # ======================================  contract  =========================================
-# Contraction of `TensorMap`s is index regrouping plus a matrix product, which TensorKit
-# already implements through its TensorOperations interface. Route the generic `contract`
-# there: `zero!` clears the `similar_map`-allocated destination, and the default algorithm
-# hands the in-place contraction to the TensorOperations backend (see the TensorOperations
-# extension's `contractpermopadd!`).
+# `TensorMap`s contract through TensorKit's TensorOperations interface, selected by
+# `default_algorithm` below.
 TensorAlgebra.zero!(t::AbstractTensorMap) = VectorInterface.zerovector!(t)
 
-# A `TensorMap` is not an `AbstractArray`, so the generic in-place `TensorAlgebra` operations
-# don't apply. Forward to TensorKit's `VectorInterface` methods, its primary interface for these.
-# `scaleadd!` here is the non-permuting `y = α*x + β*y`. The permuting `bipermutedimsopadd!` handles a
-# non-trivial codomain/domain permutation.
+# A `TensorMap` is not an `AbstractArray`, so the generic in-place operations do not apply.
 TensorAlgebra.scale!(t::AbstractTensorMap, β::Number) = VectorInterface.scale!(t, β)
 function TensorAlgebra.scaleadd!(
         y::AbstractTensorMap, x::AbstractTensorMap, α::Number, β::Number
@@ -318,12 +268,9 @@ function TensorAlgebra.default_algorithm(
 end
 
 # ==================================  linear-combination broadcast  =========================
-# A `TensorMap` is not an `AbstractArray`, so it needs a `BroadcastStyle` to broadcast lazily
-# (otherwise Base tries to `collect` it). A linear combination flattens (via `tryflattenlinear`)
-# to a `LinearBroadcasted` that materializes through `scaleadd!`/`bipermutedimsopadd!` above; the
-# `copyto!` here is not piracy because `LinearBroadcasted` is TensorAlgebra-owned. Element-wise
-# (nonlinear) broadcast is not a meaningful operation on a symmetric tensor, so it errors rather
-# than dense-converting.
+# A `TensorMap` needs a `BroadcastStyle` to broadcast lazily, otherwise Base tries to `collect`
+# it. Only linear combinations are supported, since an elementwise nonlinear broadcast is not
+# meaningful on a symmetric tensor.
 struct TensorMapStyle <: Base.Broadcast.BroadcastStyle end
 Base.Broadcast.BroadcastStyle(::Type{<:AbstractTensorMap}) = TensorMapStyle()
 Base.Broadcast.BroadcastStyle(s::TensorMapStyle, ::TensorMapStyle) = s

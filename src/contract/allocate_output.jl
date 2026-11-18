@@ -1,4 +1,5 @@
-function check_biperm(a, perm_codomain, perm_domain)
+# Kept out of line so it compiles per array type, not per pair of operands.
+@noinline function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
         throw(ArgumentError("Invalid bipartitioned permutation"))
     isbiperm(perm_codomain, perm_domain) ||
@@ -6,27 +7,22 @@ function check_biperm(a, perm_codomain, perm_domain)
     return nothing
 end
 
-function check_input(
-        ::typeof(contract),
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+# Kept out of line and given only the axes, so it compiles per axis type rather than per pair of
+# operands.
+@noinline function check_contracted_axes(
+        isconj1::Bool, axes1::Tuple, isconj2::Bool, axes2::Tuple
     )
-    check_biperm(a1, perm1_codomain, perm1_domain)
-    check_biperm(a2, perm2_codomain, perm2_domain)
-    # The contracted axes of `a1` (its domain) pair with the contracted axes of `a2` (its codomain),
-    # and each pair must be a dual pair: `dual(ax1) == ax2`. `dual` falls back to the identity for
-    # plain ranges, so this reduces to `ax1 == ax2` for non-graded arrays.
-    length(perm1_domain) == length(perm2_codomain) || throw(
+    axes1 = isconj1 ? map(conj, axes1) : axes1
+    axes2 = isconj2 ? map(conj, axes2) : axes2
+    length(axes1) == length(axes2) || throw(
         ArgumentError(
-            "Number of contracted axes do not match: `a1` has $(length(perm1_domain)), `a2` has $(length(perm2_codomain))"
+            "Number of contracted axes do not match: `a1` has $(length(axes1)), `a2` has $(length(axes2))"
         )
     )
-    for (i, j) in zip(perm1_domain, perm2_codomain)
-        ax1 = axes(a1, i)
-        ax2 = axes(a2, j)
+    for (k, (ax1, ax2)) in enumerate(zip(axes1, axes2))
         dual(ax1) == ax2 || throw(
             ArgumentError(
-                "Contracted axes do not match: `axes(a1, $i) = $ax1` and `axes(a2, $j) = $ax2`"
+                "Contracted axes do not match: contracted pair $k is $ax1 in the first operand and $ax2 in the second"
             )
         )
     end
@@ -34,20 +30,17 @@ function check_input(
 end
 
 function check_input(
-        ::typeof(contract!),
+        ::typeof(contractpermconjadd!),
         a_dest, perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+        isconj1::Bool, a1, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2, perm2_codomain, perm2_domain
     )
     # TODO: FIXME: Check that uncontracted axes match.
-    check_input(
-        contract,
-        a1,
-        perm1_codomain,
-        perm1_domain,
-        a2,
-        perm2_codomain,
-        perm2_domain
+    check_biperm(a1, perm1_codomain, perm1_domain)
+    check_biperm(a2, perm2_codomain, perm2_domain)
+    check_contracted_axes(
+        isconj1, map(i -> axes(a1, i), perm1_domain),
+        isconj2, map(i -> axes(a2, i), perm2_codomain)
     )
     check_biperm(a_dest, perm_dest_codomain, perm_dest_domain)
     return nothing
@@ -55,49 +48,47 @@ end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
-function output_axes(
-        ::typeof(contract),
+"""
+    output_axes(contractpermconjalign, args...) -> (axes_codomain, axes_domain)
+
+The codomain and domain axes of the result of [`contractpermconjalign`](@ref) called with `args`.
+"""
+function output_axes end
+
+# Given only the axes and kept out of line, so it compiles per axis type rather than per pair of
+# operands.
+@noinline function output_axes(
+        ::typeof(contractpermconjalign),
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+        isconj1::Bool, axes1::Tuple, perm1_codomain, perm1_domain,
+        isconj2::Bool, axes2::Tuple, perm2_codomain, perm2_domain
     )
-    axes_codomain, _ = bipartition(axes(a1), perm1_codomain, perm1_domain)
-    _, axes_domain = bipartition(axes(a2), perm2_codomain, perm2_domain)
+    axes1 = isconj1 ? map(conj, axes1) : axes1
+    axes2 = isconj2 ? map(conj, axes2) : axes2
+    axes_codomain = map(i -> axes1[i], perm1_codomain)
+    axes_domain = map(i -> axes2[i], perm2_domain)
     axes_uncontracted = (axes_codomain..., axes_domain...)
     axes_codomain_dest, axes_domain_dest = bipartition(
         axes_uncontracted, perm_dest_codomain, perm_dest_domain
     )
-    # The operand axes are stored/dualized, so un-dualize the domain axes into the codomain-facing
-    # construction convention shared by `similar_map` and `unmatricize` (a no-op on dense axes).
+    # `similar_map` takes the domain axes un-dualized.
     return axes_codomain_dest, conj.(axes_domain_dest)
 end
 
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
-# The destination `contract` writes into. A structured operand type overloads this directly, deriving
-# the axes and element type from `output_axes` and `Base.promote_op` as below; the permutations are
-# part of the signature because the contraction pattern is not recoverable from the destination leg
-# counts alone.
+# Inputs are validated by the contraction itself.
 function allocate_output(
-        ::typeof(contract),
+        ::typeof(contractpermconjalign),
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+        isconj1::Bool, a1, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2, perm2_codomain, perm2_domain
     )
-    check_input(
-        contract,
-        a1,
-        perm1_codomain,
-        perm1_domain,
-        a2,
-        perm2_codomain,
-        perm2_domain
-    )
-    axes_codomain_dest, axes_domain_dest = output_axes(
-        contract,
+    axes_codomain_dest, axes_domain_dest = @inline output_axes(
+        contractpermconjalign,
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
+        isconj1, axes(a1), perm1_codomain, perm1_domain,
+        isconj2, axes(a2), perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
     return zero!(similar_map(a1, T, axes_codomain_dest, axes_domain_dest))

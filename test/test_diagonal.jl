@@ -16,6 +16,15 @@ using Test: @test, @test_throws, @testset
         @test b2 == d
     end
 
+    @testset "permutedims with a split permutation preserves Diagonal" begin
+        p1 = TensorAlgebra.permutedims(d, (1,), (2,))
+        @test p1 isa Diagonal
+        @test p1 == d
+        p2 = TensorAlgebra.permutedims(d, (2,), (1,))
+        @test p2 isa Diagonal
+        @test p2 == d
+    end
+
     @testset "permutedimsop applies the op to the data" begin
         dz = Diagonal(elt <: Complex ? elt[1 + 2im, 3 - im, 2im] : elt[1, 3, 2])
         p = TensorAlgebra.permutedimsop(conj, dz, (1,), (2,))
@@ -25,7 +34,7 @@ using Test: @test, @test_throws, @testset
 
     @testset "allocate_output returns a Diagonal of the same size" begin
         out = TensorAlgebra.allocate_output(
-            TensorAlgebra.permutedimsop, identity, d, (1,), (2,)
+            TensorAlgebra.bipermutedimsconj, false, d, (1,), (2,)
         )
         @test out isa Diagonal
         @test size(out) == size(d)
@@ -79,25 +88,37 @@ using Test: @test, @test_throws, @testset
         dz = Diagonal(elt <: Complex ? elt[1 + 2im, 3 - im, 2im] : elt[1, 3, 2])
         for op in (identity, conj), (pc, pd) in (((1,), (2,)), ((2,), (1,)))
             ref = TensorAlgebra.matricizeop(op, dz, pc, pd)
-            if TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, op, dz, pc, pd)
-                m = TensorAlgebra.matricizeopview(op, dz, pc, pd)
+            if TensorAlgebra.isoutputview(
+                    TensorAlgebra.matricizeconj,
+                    op === conj,
+                    dz,
+                    pc,
+                    pd
+                )
+                m = TensorAlgebra.matricizeconjview(op === conj, dz, pc, pd)
                 @test Base.mightalias(m, dz)
                 @test m == ref
             end
-            m_copy = TensorAlgebra.matricizeopcopy(op, dz, pc, pd)
+            m_copy = TensorAlgebra.matricizeconjcopy(op === conj, dz, pc, pd)
             @test !Base.mightalias(m_copy, dz)
             @test m_copy == ref
         end
-        # Only the identity op on the untransposed split aliases. `matricizeopview` hands back
+        # Only the identity op on the untransposed split aliases. `matricizeconjview` hands back
         # `dz` itself, so a declared share under `conj` would silently skip the conjugation.
-        @test TensorAlgebra.is_output_view(
-            TensorAlgebra.matricizeop,
-            identity,
+        @test TensorAlgebra.isoutputview(
+            TensorAlgebra.matricizeconj,
+            false,
             dz,
             (1,),
             (2,)
         )
-        @test !TensorAlgebra.is_output_view(TensorAlgebra.matricizeop, conj, dz, (1,), (2,))
+        @test !TensorAlgebra.isoutputview(
+            TensorAlgebra.matricizeconj,
+            true,
+            dz,
+            (1,),
+            (2,)
+        )
 
         dest = Diagonal(zeros(elt, 3))
         src = Diagonal(elt[7, 8, 9])

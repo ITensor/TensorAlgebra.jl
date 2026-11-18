@@ -1,4 +1,3 @@
-# TensorAlgebra version of matrix functions.
 const MATRIX_FUNCTIONS = [
     :exp,
     :cis,
@@ -31,9 +30,7 @@ const MATRIX_FUNCTIONS = [
     :acoth,
 ]
 
-# The matrix functions never mutate their input (they allocate their own outputs), so the
-# permuted forms consume the maybe-alias `matricize` matricization read-only, skipping
-# the eager `bipermutedims` copy at the identity bipermutation.
+# `matricize` may alias `a`, which is safe since the matrix functions do not mutate their input.
 for f in MATRIX_FUNCTIONS
     @eval begin
         function $f(a, ndims_codomain::Val; kwargs...)

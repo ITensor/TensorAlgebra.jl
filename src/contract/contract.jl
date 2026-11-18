@@ -28,8 +28,6 @@ true
 See also [`contractalign`](@ref) to name the output dimensions and get back just the array.
 """
 function contract(a1, labels1, a2, labels2; kwargs...)
-    # Optionally convert the labels to a representation cheaper to run the bookkeeping on (see
-    # `label_type`). `encode_contraction_labels`/`decode_contraction_labels` are no-ops unless the label type opts in.
     l1, l2 = encode_contraction_labels(labels1, labels2)
     l_dest = contract_labels(l1, l2)
     a_dest = contractalign(l_dest, a1, l1, a2, l2; kwargs...)
@@ -55,36 +53,71 @@ true
 function contractalign(
         labels_dest, a1, labels1, a2, labels2; kwargs...
     )
+    return contractconjalign(labels_dest, false, a1, labels1, false, a2, labels2; kwargs...)
+end
+
+# The `op` forms take each operand's operation as `identity` or `conj` and forward to the `conj`
+# forms, which take a conjugation flag and are the ones to overload.
+
+# contractopalign (labels, with operations on the operands)
+"""
+    contractopalign(labels_dest, op1, a1, labels1, op2, a2, labels2; alg = nothing) -> a_dest
+
+Contract `op1(a1)` with `op2(a2)` over their shared labels, with the dimensions of the result
+ordered by `labels_dest`. Each `op` is `identity` or `conj`.
+
+See also [`contractconjalign`](@ref).
+"""
+function contractopalign(labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...)
+    return contractconjalign(
+        labels_dest, _isconj(op1), a1, labels1, _isconj(op2), a2, labels2; kwargs...
+    )
+end
+"""
+    contractconjalign(labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2;
+                 alg = nothing) -> a_dest
+
+Contract `a1` with `a2` over their shared labels, with the dimensions of the result ordered
+by `labels_dest`, conjugating each operand whose flag is `true`.
+
+See also [`contractopalign`](@ref).
+"""
+function contractconjalign(
+        labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2; kwargs...
+    )
+    isconj1, a1 = _unwrap_conj(isconj1, a1)
+    isconj2, a2 = _unwrap_conj(isconj2, a2)
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
-    # Cross into a `Val(K)` method (a function-barrier on the contracted count) so the
-    # bipartitioned permutations and the contraction below them are type-stable.
-    return _contractalign(
-        Val(count(contracted1)),
-        labels_dest,
-        a1,
-        t1,
-        a2,
-        t2,
-        contracted1;
-        kwargs...
+    # Computed from the dimensions, so it is a compile-time constant when `labels_dest` is a tuple.
+    K = (ndims(a1) + ndims(a2) - length(labels_dest)) ÷ 2
+    count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
+    # Otherwise `K` is only known at run time, and inferring `_contractconj` for an unknown `Val`
+    # would analyze the whole contraction with abstract argument types for nothing.
+    f = labels_dest isa Tuple ? _contractconj : Base.inferencebarrier(_contractconj)
+    return f(
+        Val(K), labels_dest, isconj1, a1, t1, isconj2, a2, t2, contracted1; kwargs...
     )
 end
-function _contractalign(
-        ::Val{K}, labels_dest, a1, labels1, a2, labels2,
+function _contractconj(
+        ::Val{K}, labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2,
         contracted1; kwargs...
     ) where {K}
     biperm_dest, biperm1, biperm2 =
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
-    return contractpermalign(
-        biperm_dest..., a1, biperm1..., a2, biperm2...; kwargs...
+    a_dest = allocate_output(
+        contractpermconjalign, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2,
+        biperm2...
+    )
+    return contractpermconjadd!(
+        a_dest, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2, biperm2..., true,
+        false;
+        kwargs...
     )
 end
 
 # contractperm (bipartitioned permutations)
-# `perm` marks the whole biperm ladder: every rung has a labels-form sibling under the plain name,
-# so the suffix says which form a call site is in without the reader counting arguments.
 function contractperm(
         a1, perm1_codomain, perm1_domain,
         a2, perm2_codomain, perm2_domain;
@@ -107,21 +140,79 @@ function contractpermalign(
         a2, perm2_codomain, perm2_domain;
         kwargs...
     )
-    a_dest = allocate_output(
-        contract,
+    return contractpermconjalign(
         perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain
-    )
-    return contractperm!(
-        a_dest, perm_dest_codomain, perm_dest_domain,
-        a1, perm1_codomain, perm1_domain,
-        a2, perm2_codomain, perm2_domain;
+        false, a1, perm1_codomain, perm1_domain,
+        false, a2, perm2_codomain, perm2_domain;
         kwargs...
+    )
+end
+"""
+    contractpermopalign(perm_dest_codomain, perm_dest_domain,
+                   op1, a1, perm1_codomain, perm1_domain,
+                   op2, a2, perm2_codomain, perm2_domain; alg = nothing) -> a_dest
+
+Contract `op1(a1)` with `op2(a2)` over the dimensions `perm1_domain` of `a1` and
+`perm2_codomain` of `a2`, with the result's dimensions in the order given by the destination
+permutations. Each `op` is `identity` or `conj`.
+
+See also [`contractpermconjalign`](@ref).
+"""
+function contractpermopalign(
+        perm_dest_codomain, perm_dest_domain,
+        op1, a1, perm1_codomain, perm1_domain,
+        op2, a2, perm2_codomain, perm2_domain;
+        kwargs...
+    )
+    return contractpermconjalign(
+        perm_dest_codomain, perm_dest_domain,
+        _isconj(op1), a1, perm1_codomain, perm1_domain,
+        _isconj(op2), a2, perm2_codomain, perm2_domain;
+        kwargs...
+    )
+end
+"""
+    contractpermconjalign(perm_dest_codomain, perm_dest_domain,
+                     isconj1::Bool, a1, perm1_codomain, perm1_domain,
+                     isconj2::Bool, a2, perm2_codomain, perm2_domain; alg = nothing) -> a_dest
+
+Contract `a1` with `a2` over the dimensions `perm1_domain` of `a1` and `perm2_codomain` of
+`a2`, conjugating each operand whose flag is `true`, with the result's dimensions in the order
+given by the destination permutations.
+
+See also [`contractpermopalign`](@ref).
+"""
+function contractpermconjalign(
+        perm_dest_codomain, perm_dest_domain,
+        isconj1::Bool, a1, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2, perm2_codomain, perm2_domain;
+        kwargs...
+    )
+    isconj1, a1 = _unwrap_conj(isconj1, a1)
+    isconj2, a2 = _unwrap_conj(isconj2, a2)
+    a_dest = allocate_output(
+        contractpermconjalign,
+        perm_dest_codomain, perm_dest_domain,
+        isconj1, a1, perm1_codomain, perm1_domain,
+        isconj2, a2, perm2_codomain, perm2_domain
+    )
+    return contractpermconjadd!(
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        isconj1, a1, perm1_codomain, perm1_domain,
+        isconj2, a2, perm2_codomain, perm2_domain,
+        true, false; kwargs...
     )
 end
 
 # contract! (labels)
+"""
+    contract!(a_dest, labels_dest, a1, labels1, a2, labels2; alg = nothing) -> a_dest
+
+Overwrite `a_dest`, with dimensions labeled by `labels_dest`, with the contraction of `a1` and
+`a2` over their shared labels.
+
+See also [`contract`](@ref) and [`contractadd!`](@ref).
+"""
 function contract!(
         a_dest, labels_dest,
         a1, labels1,
@@ -147,6 +238,14 @@ function contractperm!(
 end
 
 # contractadd! (labels)
+"""
+    contractadd!(a_dest, labels_dest, a1, labels1, a2, labels2, α, β; alg = nothing) -> a_dest
+
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` over their shared
+labels and `labels_dest` labels the dimensions of `a_dest`.
+
+See also [`contract!`](@ref).
+"""
 function contractadd!(
         a_dest, labels_dest,
         a1, labels1,
@@ -154,8 +253,8 @@ function contractadd!(
         α::Number, β::Number;
         kwargs...
     )
-    return contractopadd!(
-        a_dest, labels_dest, identity, a1, labels1, identity, a2, labels2, α, β; kwargs...
+    return contractconjadd!(
+        a_dest, labels_dest, false, a1, labels1, false, a2, labels2, α, β; kwargs...
     )
 end
 # contractpermadd! (bipartitioned permutations)
@@ -166,15 +265,24 @@ function contractpermadd!(
         α::Number, β::Number;
         kwargs...
     )
-    return contractpermopadd!(
+    return contractpermconjadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,
-        identity, a1, perm1_codomain, perm1_domain,
-        identity, a2, perm2_codomain, perm2_domain,
+        false, a1, perm1_codomain, perm1_domain,
+        false, a2, perm2_codomain, perm2_domain,
         α, β; kwargs...
     )
 end
 
 # contractopadd! (labels)
+"""
+    contractopadd!(a_dest, labels_dest, op1, a1, labels1, op2, a2, labels2, α, β;
+                   alg = nothing) -> a_dest
+
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `op1(a1)` and `op2(a2)` over
+their shared labels. Each `op` is `identity` or `conj`.
+
+See also [`contractconjadd!`](@ref).
+"""
 function contractopadd!(
         a_dest, labels_dest,
         op1, a1, labels1,
@@ -182,75 +290,135 @@ function contractopadd!(
         α::Number, β::Number;
         kwargs...
     )
+    return contractconjadd!(
+        a_dest, labels_dest, _isconj(op1), a1, labels1, _isconj(op2), a2, labels2,
+        α, β; kwargs...
+    )
+end
+"""
+    contractconjadd!(a_dest, labels_dest, isconj1::Bool, a1, labels1,
+                     isconj2::Bool, a2, labels2, α, β; alg = nothing) -> a_dest
+
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` over their shared
+labels, conjugating each operand whose flag is `true`.
+
+See also [`contractopadd!`](@ref).
+"""
+function contractconjadd!(
+        a_dest, labels_dest,
+        isconj1::Bool, a1, labels1,
+        isconj2::Bool, a2, labels2,
+        α::Number, β::Number;
+        kwargs...
+    )
+    isconj1, a1 = _unwrap_conj(isconj1, a1)
+    isconj2, a2 = _unwrap_conj(isconj2, a2)
     t1 = ntuple(i -> labels1[i], Val(ndims(a1)))
     t2 = ntuple(i -> labels2[i], Val(ndims(a2)))
     contracted1 = map(in(t2), t1)
-    # Cross into a `Val(K)` method (a function-barrier on the contracted count) so the
-    # bipartitioned permutations and the contraction below them are type-stable.
-    return _contractopadd!(
-        Val(count(contracted1)), a_dest, labels_dest,
-        op1, a1, t1, op2, a2, t2, α, β, contracted1; kwargs...
+    # Computed from the dimensions, so it is a compile-time constant.
+    K = (ndims(a1) + ndims(a2) - ndims(a_dest)) ÷ 2
+    count(contracted1) == K || throw(ArgumentError("Invalid contraction labels"))
+    return _contractconjadd!(
+        Val(K), a_dest, labels_dest,
+        isconj1, a1, t1, isconj2, a2, t2, α, β, contracted1; kwargs...
     )
 end
-function _contractopadd!(
+function _contractconjadd!(
         ::Val{K}, a_dest, labels_dest,
-        op1, a1, labels1, op2, a2, labels2,
+        isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2,
         α::Number, β::Number, contracted1; kwargs...
     ) where {K}
     biperm_dest, biperm1, biperm2 =
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
-    return contractpermopadd!(
-        a_dest, biperm_dest..., op1, a1, biperm1..., op2, a2, biperm2..., α, β; kwargs...
+    return contractpermconjadd!(
+        a_dest, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2, biperm2..., α, β;
+        kwargs...
     )
 end
 # contractpermopadd! (bipartitioned permutations, algorithm selection)
+"""
+    contractpermopadd!(a_dest, perm_dest_codomain, perm_dest_domain,
+                       op1, a1, perm1_codomain, perm1_domain,
+                       op2, a2, perm2_codomain, perm2_domain, α, β; alg = nothing) -> a_dest
+
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `op1(a1)` and `op2(a2)` as in
+[`contractpermopalign`](@ref).
+
+See also [`contractpermconjadd!`](@ref).
+"""
 function contractpermopadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number;
+        kwargs...
+    )
+    return contractpermconjadd!(
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        _isconj(op1), a1, perm1_codomain, perm1_domain,
+        _isconj(op2), a2, perm2_codomain, perm2_domain,
+        α, β; kwargs...
+    )
+end
+"""
+    contractpermconjadd!(a_dest, perm_dest_codomain, perm_dest_domain,
+                         isconj1::Bool, a1, perm1_codomain, perm1_domain,
+                         isconj2::Bool, a2, perm2_codomain, perm2_domain, α, β;
+                         alg = nothing) -> a_dest
+    contractpermconjadd!(alg::ContractAlgorithm, a_dest, perm_dest_codomain, perm_dest_domain,
+                         isconj1::Bool, a1, perm1_codomain, perm1_domain,
+                         isconj2::Bool, a2, perm2_codomain, perm2_domain, α, β) -> a_dest
+
+`a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` as in
+[`contractpermconjalign`](@ref). Array types and contraction backends overload the second form,
+which takes the [`ContractAlgorithm`](@ref) first.
+
+See also [`contractpermopadd!`](@ref).
+"""
+function contractpermconjadd!(
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        isconj1::Bool, a1, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2, perm2_codomain, perm2_domain,
+        α::Number, β::Number;
         alg = nothing
     )
-    # Input validation belongs to the algorithm's kernel below, which is a public rung callable
-    # directly, so this entry only selects and dispatches.
+    isconj1, a1 = _unwrap_conj(isconj1, a1)
+    isconj2, a2 = _unwrap_conj(isconj2, a2)
     algorithm = select_algorithm(contract!, alg, (a_dest, a1, a2))
-    return contractpermopadd!(
+    return contractpermconjadd!(
         algorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain,
+        isconj1, a1, perm1_codomain, perm1_domain,
+        isconj2, a2, perm2_codomain, perm2_domain,
         α, β
     )
 end
-# contractpermopadd! (dispatched on the algorithm, bipartitioned permutations)
-# Required interface if not using matricized contraction
-function contractpermopadd!(
+# contractpermconjadd! (dispatched on the algorithm, bipartitioned permutations)
+# Required interface of a contraction backend other than `MatricizeContract`.
+function contractpermconjadd!(
         algorithm::ContractAlgorithm,
         a_dest, perm_dest_codomain, perm_dest_domain,
-        op1, a1, perm1_codomain, perm1_domain,
-        op2, a2, perm2_codomain, perm2_domain,
+        isconj1::Bool, a1, perm1_codomain, perm1_domain,
+        isconj2::Bool, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
     return throw(
         MethodError(
-            contractpermopadd!,
+            contractpermconjadd!,
             (
                 algorithm,
                 a_dest, perm_dest_codomain, perm_dest_domain,
-                op1, a1, perm1_codomain, perm1_domain,
-                op2, a2, perm2_codomain, perm2_domain,
+                isconj1, a1, perm1_codomain, perm1_domain,
+                isconj2, a2, perm2_codomain, perm2_domain,
                 α, β,
             )
         )
     )
 end
 
-# The contraction methods of the operation-generic algorithm layer in `algorithm.jl`. They live
-# here rather than beside the algorithm types because dispatching on `::typeof(contract!)` needs
-# it to exist, and `contractalgorithm.jl` is included first for the types these signatures use.
-# Keyed on `contract!` rather than `contract` because the destination is in the signature,
-# matching `check_input`. A backend can therefore choose on the destination as well as on the
-# operands.
+# Keyed on `contract!` rather than `contract` so a backend can choose on the destination as well
+# as on the operands.
 function default_algorithm(
         ::typeof(contract!), ::Type{<:Tuple{AbstractArray, AbstractArray, AbstractArray}}
     )

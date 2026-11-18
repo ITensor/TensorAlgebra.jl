@@ -5,11 +5,9 @@ using Random: Random, AbstractRNG
 
 Allocate an array shaped as a linear map from `axes_domain` to `axes_codomain`
 with element type `T` (defaulting to `eltype(prototype)`), using `prototype` to
-determine the array backend. The domain axes are given un-dualized (codomain
-facing) and stored dual, so the default is
-`similar(prototype, T, (axes_codomain..., conj.(axes_domain)...))`. `conj`
-dualizes a graded axis and is a no-op on a dense axis. Backends with map-shaped
-storage (e.g. a `TensorMap`) overload this to build the codomain/domain directly.
+determine the array backend. The domain axes are given un-dualized and are stored
+dualized, so for an `AbstractArray` the result has axes
+`(axes_codomain..., conj.(axes_domain)...)`.
 
 # Examples
 
@@ -38,12 +36,12 @@ end
     rand([rng,] [T,] axes) -> A
     fill(v, axes) -> A
 
-Axis-friendly counterparts of `Base.zeros`/`Base.ones`/`Base.randn`/`Base.rand`/`Base.fill`,
-taking the axes as a single tuple. `Base.zeros`/`Base.ones`/`Base.fill` already accept axes,
-but `Base.randn`/`Base.rand` accept only integer dims, so these fill that gap for dense
-`Base.OneTo` axes and otherwise forward to `Base` (so a graded-axis backend that extends
-`Base.randn`/`rand` on its axis type is picked up). These are the flat (non-map) companions
-of [`zeros_map`](@ref).
+Construct an array with the given `axes`, a tuple of axes, filled with zeros, ones,
+normally-distributed values, uniformly-distributed values, or the value `v`. Unlike
+`Base.randn` and `Base.rand`, `randn` and `rand` accept `Base.OneTo` axes as well as integer
+dimensions.
+
+See also [`zeros_map`](@ref).
 """
 function zeros end
 function ones end
@@ -79,13 +77,8 @@ end
 Construct an array shaped as a linear map from `axes_domain` to `axes_codomain`,
 filled with zeros (`zeros_map`), ones (`ones_map`), normally-distributed values
 (`randn_map`), uniformly-distributed values (`rand_map`), or the value `v` (`fill_map`),
-with element type `T` (defaulting to `Float64`; `fill_map` takes it from `v`). These are the
-value-filling companions of [`similar_map`](@ref): the domain axes are given un-dualized
-(codomain facing) and stored dual, so the default flattens to the axis-friendly
-[`zeros`](@ref)/[`ones`](@ref)/[`randn`](@ref)/[`rand`](@ref)/[`fill`](@ref) over
-`(axes_codomain..., conj.(axes_domain)...)` (`conj` dualizes a graded axis and is a
-no-op on a dense one). Backends with map-shaped storage (e.g. a `TensorMap`) overload
-these to build the codomain/domain directly.
+with element type `T` (defaulting to `Float64`, and taken from `v` for `fill_map`). As with
+[`similar_map`](@ref), the domain axes are given un-dualized and are stored dualized.
 """
 function zeros_map end
 function ones_map end

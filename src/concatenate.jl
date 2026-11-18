@@ -1,7 +1,5 @@
-# `concatenate`/`concatenate!` over arrays, with the destination chosen from all inputs rather than
-# just the first (unlike `Base.cat`). A backend customizes allocation by overloading `cat_similar` on
-# the combined `cat_style` of the arguments, and placement by overloading `concatenate!` on the
-# destination type.
+# Unlike `Base.cat`, the destination is chosen from all inputs. A backend customizes allocation by
+# overloading `cat_similar` on `cat_style`, and placement by overloading `concatenate!`.
 
 import Base.Broadcast as BC
 using Base: promote_eltypeof
@@ -99,7 +97,6 @@ function dims2cat(dims::Val)
     return ntuple(in(d), maximum(d))
 end
 
-# Generic placement; a backend overrides `concatenate!` on its destination type.
 function concatenate!(dest, dims, args...)
     catdims = dims2cat(dims)
     shape = map(length, cat_axes(dims, args...))

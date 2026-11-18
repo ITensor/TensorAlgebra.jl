@@ -1,9 +1,8 @@
 """
     data(a)
 
-The underlying storage of `a`: the value reached by following `parent` to its fixed point
-(an object that is its own `parent`). A wrapper returns the storage it ultimately wraps, and
-a plain array returns itself.
+The underlying storage of `a`, found by calling `parent` repeatedly until it returns its
+input. A wrapper returns the storage it ultimately wraps, and a plain array returns itself.
 
 # Examples
 
@@ -28,8 +27,7 @@ end
 """
     datatype(a) -> Type
 
-The type of the underlying storage of `a`, i.e. `typeof(data(a))`, in contrast to
-`scalartype`/`eltype`, which give its element type alone.
+The type of the underlying storage of `a`, `typeof(data(a))`.
 
 # Examples
 

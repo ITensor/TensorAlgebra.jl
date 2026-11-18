@@ -1,8 +1,21 @@
+"""
+    ContractAlgorithm
+
+Supertype of contraction algorithms, passed as the `alg` keyword of [`contract`](@ref) and
+related functions. A new algorithm implements [`contractpermconjadd!`](@ref) with the
+algorithm as its first argument.
+"""
 abstract type ContractAlgorithm <: AbstractAlgorithm end
 ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 
 struct DefaultContractAlgorithm <: ContractAlgorithm end
 
+"""
+    MatricizeContract()
+
+Contract by matricizing both operands and multiplying the matrices. The default algorithm for
+`AbstractArray` operands.
+"""
 struct MatricizeContract <: ContractAlgorithm end
 
 """

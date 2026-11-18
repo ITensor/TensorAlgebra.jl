@@ -1,23 +1,13 @@
 using LinearAlgebra: LinearAlgebra
 using MatrixAlgebraKit: MatrixAlgebraKit
 
-# Each factorization reconstructs its outer factors with `unmatricize`, while a spectrum factor
-# (`S`, `D`) is returned bare at the matrix level. The freshly created bond axis is read off the
-# factor itself: it is the factor's last axis on a codomain factor
-# (`[group…, bond]`) and its first axis on a domain factor (`[bond, group…]`), on every backend
-# (a fusing backend returns a rank-2 factor, a `TensorMap` keeps the group's original legs). The
-# bond is dualized to codomain-facing form (`conj`, a no-op on a dense axis) when it lands on the
-# domain side of the reconstruction, matching the `unmatricize`/`similar_map` axis convention.
+# The new bond axis is the last axis of a codomain factor and the first axis of a domain factor.
+# It is un-dualized with `conj` when it lands on the domain side, the `unmatricize` convention.
 
 # `unmatricize_factors(f, F, axes_codomain, axes_domain)` unfolds the matrix-level factors `F`
 # of `f` onto the split axes (in the `unmatricize` convention, domain axes un-dualized).
 #
-# Owned tier: the matrix-level entries mutate their input, so the perm form materializes an
-# owned matricization following MatrixAlgebraKit's `f(A) = f!(copy_input(f, A))` convention —
-# a memory-sharing matricization is materialized through `MatrixAlgebraKit.copy_input`, while
-# the `matricizeopcopy` gather is owned by contract and is donated directly (with
-# `copy_input` still applied when the eltype must change) — and the wrapper calls the mutating
-# entry unconditionally.
+# The matrix-level factorizations overwrite their input, so they are given an owned matricization.
 for f in (
         :qr_compact, :qr_full, :lq_compact, :lq_full,
         :left_polar, :right_polar, :left_orth, :right_orth,
@@ -30,11 +20,11 @@ for f in (
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
             A_mat =
-            if is_output_view(matricizeop, identity, A, perm_codomain, perm_domain)
-                A_shared = matricizeopview(identity, A, perm_codomain, perm_domain)
+            if isoutputview(matricizeconj, false, A, perm_codomain, perm_domain)
+                A_shared = matricizeconjview(false, A, perm_codomain, perm_domain)
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
-                A_gather = matricizeopcopy(identity, A, perm_codomain, perm_domain)
+                A_gather = matricizeconjcopy(false, A, perm_codomain, perm_domain)
                 if eltype(A_gather) === float(eltype(A_gather))
                     A_gather
                 else
@@ -51,8 +41,7 @@ for f in (
     end
 end
 
-# Read-only tier: the matrix-level entries never mutate their input (they copy internally), so
-# the perm form consumes the maybe-alias `matricize` matricization directly.
+# These never mutate their input, so they can use a matricization that shares memory with `A`.
 for f in (
         :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
     )
@@ -69,8 +58,6 @@ for f in (
     end
 end
 
-# The `Val` and labels forms of both tiers are thin forwarders into the perm form, at the
-# identity bipermutation for the `Val` form.
 for f in (
         :qr_compact, :qr_full, :lq_compact, :lq_full,
         :left_polar, :right_polar, :left_orth, :right_orth,
@@ -112,13 +99,11 @@ end
     TensorAlgebra.tr(A, ndims_codomain::Val)
 
 Trace of a generic N-dimensional array `A` interpreted as a linear map from its domain to its
-codomain dimensions. The map is matricized into its square matrix, then the matrix trace is
-taken, so the backend's own matrix `tr` (dense, graded, or `TensorMap`) does the work. The
-partition is specified via labels, a bi-permutation, or directly as the codomain rank, matching
-the factorization entry points.
+codomain dimensions. The partition is specified via labels, a bi-permutation, or directly as
+the codomain rank.
 
-This is `TensorAlgebra`'s own function, distinct from `LinearAlgebra.tr`; the two-argument and
-higher forms take a codomain/domain partition rather than a bare matrix.
+This is a separate function from `LinearAlgebra.tr`, taking a codomain/domain partition rather
+than a bare matrix.
 
 # Examples
 
@@ -297,9 +282,7 @@ for f in (:svd_compact, :svd_full)
     end
 end
 
-# `svd_trunc` matches the three-output SVD but additionally surfaces the truncation error
-# `ϵ` (the 2-norm of the discarded singular values, computed by MatrixAlgebraKit without
-# catastrophic cancellation), so it is spelled out here rather than sharing the loop above.
+# Like the three-output SVD, plus the truncation error `ϵ`.
 function unmatricize_factors(::typeof(svd_trunc), F, axes_codomain, axes_domain)
     U, S, Vᴴ, ϵ = F
     return unmatricize(U, axes_codomain, (conj(axes(U, ndims(U))),)),
@@ -308,9 +291,8 @@ function unmatricize_factors(::typeof(svd_trunc), F, axes_codomain, axes_domain)
         ϵ
 end
 
-# Eigendecomposition: `D` is the rank × rank spectrum and `V` carries the codomain axes plus a
-# trailing rank axis. `D` is returned bare (its axis is the internal bond, so there is nothing to
-# unfold); `V` is unmatricized back to the array type, as in `svd_*`.
+# Eigendecomposition: `D` is the rank × rank spectrum, returned bare, and `V` carries the codomain
+# axes plus a trailing rank axis.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
         function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain)
@@ -516,7 +498,7 @@ end
 """
     right_null(A, labels_A, labels_codomain, labels_domain; kwargs...) -> Nᴴ
     right_null(A, perm_codomain, perm_domain; kwargs...) -> Nᴴ
-    right_null(A, ndims_codomain::Val::Val; kwargs...) -> Nᴴ
+    right_null(A, ndims_codomain::Val; kwargs...) -> Nᴴ
 
 Compute the right nullspace of a generic N-dimensional array, by interpreting it as
 a linear map from the domain to the codomain dimensions. These can be specified either via
@@ -648,14 +630,13 @@ end
 
 Construct the identity operator tensor whose shape mirrors `A`, interpreted as a
 linear map from the domain to the codomain dimensions. The codomain and domain
-partition is specified either via labels or directly through a bi-permutation;
-fused codomain and domain sizes must match. `A` is treated as a shape prototype
-and is not mutated.
+partition is specified either via labels or directly through a bi-permutation,
+and the fused codomain and domain sizes must match. `A` is treated as a shape
+prototype and is not mutated.
 
-A tensor generalization in its own right, not an extension of `Base.one`, so it is neither
-exported nor imported. Qualify as `TensorAlgebra.one(A, ...)`.
+This is a separate function from `Base.one`, so qualify it as `TensorAlgebra.one(A, ...)`.
 
-See also [`MatrixAlgebra.one!`](@ref), the matrix-level fill this bottoms out on.
+See also [`MatrixAlgebra.one!`](@ref).
 
 # Examples
 
@@ -674,24 +655,20 @@ true
 """
 function one end
 
-# In-place identity fill: writes the identity into `A` and returns it. Fills the memory-sharing
-# matricization directly when the array type declares one at this split, and otherwise fills a
-# gathered matrix and scatters it back with `unmatricize!`.
+# Write the identity into `A`.
 function one!(A, ndims_codomain::Val)
     perm_codomain, perm_domain = identitybiperm(ndims_codomain, Val(ndims(A)))
-    if is_output_view(matricizeop, identity, A, perm_codomain, perm_domain)
-        MatrixAlgebra.one!(matricizeopview(identity, A, perm_codomain, perm_domain))
+    if isoutputview(matricizeconj, false, A, perm_codomain, perm_domain)
+        MatrixAlgebra.one!(matricizeconjview(false, A, perm_codomain, perm_domain))
         return A
     end
-    A_mat = matricizeopcopy(identity, A, perm_codomain, perm_domain)
+    A_mat = matricizeconjcopy(false, A, perm_codomain, perm_domain)
     MatrixAlgebra.one!(A_mat)
     return unmatricize!(A, A_mat, ndims_codomain)
 end
 
-# Fills a permuted copy in place rather than building the matrix itself, so the result keeps the
-# structure `bipermutedims` gives it (the identity of a `Diagonal` is a `Diagonal`, which the
-# dense `allocate_output` behind `matricizeopcopy` would flatten). The copy is the same one the
-# caller would otherwise pay for `A` being a shape prototype.
+# Fills a permuted copy so the result keeps the structure `bipermutedims` gives it, for example
+# the identity of a `Diagonal` stays a `Diagonal`.
 function one(A, perm_codomain, perm_domain)
     A_perm = bipermutedims(A, perm_codomain, perm_domain)
     return one!(A_perm, Val(length(perm_codomain)))

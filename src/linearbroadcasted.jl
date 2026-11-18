@@ -15,10 +15,6 @@ function arguments end
 
 Abstract supertype for lazy linear broadcast expressions. Analogous to
 `Base.Broadcast.Broadcasted` but restricted to linear operations.
-
-Materializes via the protocol:
-copy(lb) = copyto!(similar(lb), lb)
-copyto!(dest, lb) → scaleadd!(dest, lb, 1, 0)
 """
 abstract type LinearBroadcasted end
 
@@ -67,14 +63,9 @@ arguments(a::ScaledBroadcasted) = (coeff(a), unscaled(a))
 """
     ConjBroadcasted(parent)
 
-Lazy conjugate node in the linear-combination broadcast fold, the [`LinearBroadcasted`](@ref)
-counterpart of `ScaledBroadcasted`/`AddBroadcasted`. Holds `parent` (any array-like operand or
-backend tensor, not necessarily an `AbstractArray`) and presents its axes conjugated (dualized);
-the op primitives absorb it by unwrapping to the parent and folding `conj` into their `op` (see
-the `bipermutedimsopadd!` method below). Produced internally by the `conj` lowering of a
-broadcast (`linearbroadcasted(conj, a)`), not a user-facing lazy-conjugate wrapper. Because it
-is not an `AbstractArray`, it works for non-array backends (e.g. a `TensorMap`) as well as dense
-arrays.
+Lazy conjugate of `parent` in a [`LinearBroadcasted`](@ref) expression, produced when a broadcast
+applies `conj`. Its axes are the conjugated axes of `parent`. Unlike [`ConjArray`](@ref) it is not
+an `AbstractArray`, so it can also wrap a non-array operand such as a `TensorMap`.
 """
 struct ConjBroadcasted{P} <: LinearBroadcasted
     parent::P
@@ -82,8 +73,6 @@ end
 
 Base.parent(a::ConjBroadcasted) = a.parent
 
-# Conjugating an axis is identity for plain integer ranges and dualizes graded axes (where
-# `conj` is overloaded as `dual` downstream).
 Base.axes(a::ConjBroadcasted) = map(conj, axes(parent(a)))
 Base.eltype(a::ConjBroadcasted) = eltype(parent(a))
 Base.ndims(a::ConjBroadcasted) = ndims(parent(a))
@@ -95,23 +84,6 @@ function BC.BroadcastStyle(::Type{<:ConjBroadcasted{P}}) where {P}
     return BC.BroadcastStyle(P)
 end
 
-# Absorb a `ConjBroadcasted` source by unwrapping to the parent and folding `conj` into `op`
-# (`identity -> conj`, `conj -> identity`). Mirrors the `PermutedDims` absorption, which
-# instead folds its permutation into `perm`. `dest` is unrestricted so a non-`AbstractArray`
-# backend (e.g. a `TensorMap`) receives it and applies `conj` through its own op-aware
-# `bipermutedimsopadd!`.
-function bipermutedimsopadd!(
-        dest, op, src::ConjBroadcasted,
-        perm_codomain, perm_domain,
-        α::Number, β::Number
-    )
-    return bipermutedimsopadd!(
-        dest, _compose_op(op, conj), parent(src),
-        perm_codomain, perm_domain,
-        α, β
-    )
-end
-
 # --- AddBroadcasted -----------------------------------------------------------
 
 struct AddBroadcasted{Args <: Tuple} <: LinearBroadcasted
@@ -121,13 +93,8 @@ end
 
 addends(a::AddBroadcasted) = a.args
 
-# All addends of a linear combination share axes (a linear combination does not broadcast
-# differing shapes), so combine by verifying equality through `axes` (TensorAlgebra's, which
-# works for a non-`AbstractArray` backend like a `TensorMap`) rather than Base's `combine_axes`,
-# which would call `Base.axes`/`Base.size` on the operands. A mismatch (e.g. a half-conjugated
-# `conj.(a) .- b`, whose dualized and non-dualized axes differ) throws here. Axis equality ignores
-# the codomain/domain split, so operands that agree on the flat legs but differ in split still
-# combine, matching the split-collapsing result.
+# A linear combination does not broadcast differing shapes. Checked through TensorAlgebra's `axes`
+# rather than Base's `combine_axes`, which would call `Base.axes` on a non-`AbstractArray` operand.
 function Base.axes(a::AddBroadcasted)
     axs = map(axes, addends(a))
     ax = first(axs)
@@ -191,51 +158,51 @@ function Base.copy(a::Mul)
     return copyto!(similar(a), a)
 end
 
-# copyto! for LinearBroadcasted dispatches to scaleadd!.
-# Stays `AbstractArray`-bound: these overload `Base.copyto!`, so widening `dest` to `Any`
-# collides with Base's own methods. A non-array destination (e.g. a wrapped `TensorMap`)
-# gets an `AbstractTensorMap`-specific `copyto!` from the backend extension instead.
+# Kept `AbstractArray`-bound, since widening `dest` to `Any` collides with Base's `copyto!` methods.
 function Base.copyto!(dest::AbstractArray, src::LinearBroadcasted)
     return scaleadd!(dest, src, true, false)
 end
 
-# copyto! for Mul dispatches to mul!. Materialize factors first since
-# they may be LinearBroadcasted types.
+# The factors may be `LinearBroadcasted`, so materialize them first.
 function Base.copyto!(dest::AbstractArray, src::Mul)
     return LA.mul!(dest, BC.materialize.(factors(src))...)
 end
 
-# Op composition with simplification rules.
-_compose_op(::typeof(identity), g) = g
-_compose_op(f, ::typeof(identity)) = f
-_compose_op(::typeof(identity), ::typeof(identity)) = identity
-_compose_op(::typeof(conj), ::typeof(conj)) = identity
-_compose_op(f, g) = f ∘ g
-
-# permutedimsopadd! for LinearBroadcasted subtypes.
-function permutedimsopadd!(
-        dest, op, src::ScaledBroadcasted, perm, α::Number, β::Number
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ConjBroadcasted,
+        perm_codomain, perm_domain, α::Number, β::Number
     )
-    return permutedimsopadd!(dest, op, unscaled(src), perm, op(coeff(src)) * α, β)
+    return bipermutedimsconjadd!(
+        dest, !isconj, parent(src), perm_codomain, perm_domain, α, β
+    )
 end
-
-function permutedimsopadd!(
-        dest, op, src::AddBroadcasted, perm, α::Number, β::Number
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ScaledBroadcasted,
+        perm_codomain, perm_domain, α::Number, β::Number
+    )
+    c = isconj ? conj(coeff(src)) : coeff(src)
+    return bipermutedimsconjadd!(
+        dest, isconj, unscaled(src), perm_codomain, perm_domain, c * α, β
+    )
+end
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::AddBroadcasted,
+        perm_codomain, perm_domain, α::Number, β::Number
     )
     args = addends(src)
-    permutedimsopadd!(dest, op, first(args), perm, α, β)
+    bipermutedimsconjadd!(dest, isconj, first(args), perm_codomain, perm_domain, α, β)
     for a in Base.tail(args)
-        permutedimsopadd!(dest, op, a, perm, α, true)
+        bipermutedimsconjadd!(dest, isconj, a, perm_codomain, perm_domain, α, true)
     end
     return dest
 end
-
-# TODO: Replace with contractopadd! once that interface exists,
-# to avoid materializing the Mul intermediate.
-function permutedimsopadd!(
-        dest, op, src::Mul, perm, α::Number, β::Number
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::Mul, perm_codomain, perm_domain, α::Number, β::Number
     )
-    return permutedimsopadd!(dest, op, copy(src), perm, α, β)
+    # TODO: Replace with contractconjadd! to avoid materializing the Mul intermediate.
+    return bipermutedimsconjadd!(
+        dest, isconj, copy(src), perm_codomain, perm_domain, α, β
+    )
 end
 
 # ---------------------------------------------------------------------------- #
@@ -265,9 +232,7 @@ linearbroadcasted(::typeof(*), a, α::Number) = ScaledBroadcasted(α, a)
 function linearbroadcasted(::typeof(*), α::Number, a::ScaledBroadcasted)
     return ScaledBroadcasted(α * coeff(a), unscaled(a))
 end
-# Conjugation lowers to the `ConjBroadcasted` node; a nested conjugate cancels (`conj∘conj =
-# identity`). A scaled conjugate (e.g. `conj.(a) ./ β`) is handled by the generic scaling method
-# above, whose operand slot is untyped, so it wraps the `ConjBroadcasted` in a `ScaledBroadcasted`.
+# Conjugation. A nested conjugate cancels.
 linearbroadcasted(::typeof(conj), a) = ConjBroadcasted(a)
 linearbroadcasted(::typeof(conj), a::ConjBroadcasted) = parent(a)
 function linearbroadcasted(::typeof(conj), a::ScaledBroadcasted)
@@ -336,17 +301,12 @@ linearbroadcasted(::typeof(*), a::Number, b::Number) = a * b
 """
     islinearbroadcast(f, args...) -> Bool
 
-Per-node trait: can `(f, args...)` be expressed as a `LinearBroadcasted`?
-Extensible by downstream packages for additional linear operations.
+Whether the broadcast node `(f, args...)` can be expressed as a `LinearBroadcasted`.
+Packages can add methods for additional linear operations.
 """
-# A leaf operand is treated as an array/tensor by default (`::Any`), and `::Number` marks the
-# scalars. That distinction is what makes the predicate correct: scaling by a scalar is linear
-# while a scalar shift (`a .+ 1`) is affine, and an elementwise array product is nonlinear while
-# scaling is not. Because the array-like slot is `::Any`, any leaf type participates with no
-# change here — it need not be an `AbstractArray` (e.g. a `PermutedDims` wrapper, or a backend
-# tensor); the fold absorbs it via `bipermutedimsopadd!`. An operand that is neither a genuine
-# array-like leaf nor a `Number` (say a scalar buried in an n-ary `+`) is assumed linear here and
-# errors later at the fold rather than silently producing a wrong result.
+# A non-`Number` leaf is treated as array-like, which separates scaling (linear) from a scalar
+# shift like `a .+ 1` (affine) or an elementwise array product (nonlinear). A leaf that is neither
+# array-like nor a `Number` is assumed linear here and errors later when it is materialized.
 islinearbroadcast(f, args...) = false
 
 islinearbroadcast(::typeof(identity), ::Any) = true
@@ -386,10 +346,7 @@ islinearbroadcast(::Base.Fix2{typeof(/), <:Number}, ::Any) = true
 Recursively convert a `Broadcasted` tree to a `LinearBroadcasted` tree.
 Returns `nothing` if any node is not linear (as determined by `islinearbroadcast`).
 
-Analogous to `Broadcast.flatten` for `Broadcasted` trees, but converts to
-`LinearBroadcasted` subtypes via `linearbroadcasted`.
-
-Downstream styles call this from `Base.copy(::Broadcasted{MyStyle})` to
+Broadcast styles call this from `Base.copy(::Broadcasted{MyStyle})` to
 opt into linear broadcasting at materialization time.
 """
 tryflattenlinear(x) = x
@@ -404,8 +361,7 @@ end
     flattenlinear(bc::Broadcasted) -> LinearBroadcasted
 
 Like [`tryflattenlinear`](@ref), but throw an `ArgumentError` when the expression is not
-linear instead of returning `nothing`. The erroring counterpart to `tryflattenlinear`,
-following the `parse`/`tryparse` convention.
+linear instead of returning `nothing`.
 """
 function flattenlinear(bc)
     lb = tryflattenlinear(bc)

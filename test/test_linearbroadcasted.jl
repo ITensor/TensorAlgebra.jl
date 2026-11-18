@@ -144,14 +144,6 @@ using Test: @test, @test_throws, @testset
         @test size(s) == (3, 4)
         @test eltype(s) === ComplexF64
     end
-    @testset "_compose_op" begin
-        @test TA._compose_op(identity, identity) === identity
-        @test TA._compose_op(identity, conj) === conj
-        @test TA._compose_op(conj, identity) === conj
-        @test TA._compose_op(conj, conj) === identity
-        f = TA._compose_op(sqrt, conj)
-        @test f isa ComposedFunction
-    end
     @testset "Broadcasted(::LinearBroadcasted) round-trip" begin
         a = randn(ComplexF64, 3, 3)
         b = randn(ComplexF64, 3, 3)

@@ -3,8 +3,8 @@ using LinearAlgebra: LinearAlgebra
 """
     dotperm(a, b, perm)
 
-Compute the inner product of `a` and `b` after applying the full dimension permutation
-`perm` to `b`, using the codomain/domain split of `a`.
+Compute the inner product of `a` and `b` after applying the dimension permutation `perm`
+to `b`.
 The permuted axes must match: `axes(a, i) == axes(b, perm[i])`.
 
 # Examples
