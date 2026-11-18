@@ -2,18 +2,17 @@ unval(::Val{N}) where {N} = N
 
 """
     BiTuple(t1::Tuple, t2::Tuple)
-    BiTuple(t::Tuple, ::Val{N1})
 
 A tuple split into a codomain part `t1` and a domain part `t2`, which are its two fields. It
-acts like the flat tuple `(t1..., t2...)` for iteration, indexing, `length` and equality. The
-second form splits `t` after its first `N1` entries.
+acts like the flat tuple `(t1..., t2...)` for iteration, indexing, `length` and equality. Use
+[`bituple`](@ref) to split a flat tuple.
 
 # Examples
 
 ```jldoctest
 julia> using TensorAlgebra: BiTuple
 
-julia> bt = BiTuple((1, 2, 3), Val(2));
+julia> bt = BiTuple((1, 2), (3,));
 
 julia> bt.t1, bt.t2, length(bt)
 ((1, 2), (3,), 3)
@@ -24,7 +23,12 @@ struct BiTuple{N1, N2, T1 <: NTuple{N1, Any}, T2 <: NTuple{N2, Any}}
     t2::T2
 end
 
-function BiTuple(t::NTuple{N, Any}, ::Val{N1}) where {N, N1}
+"""
+    bituple(t::Tuple, ::Val{N1}) -> BiTuple
+
+Split `t` into a [`BiTuple`](@ref) after its first `N1` entries.
+"""
+function bituple(t::NTuple{N, Any}, ::Val{N1}) where {N, N1}
     return BiTuple(ntuple(i -> t[i], Val(N1)), ntuple(i -> t[N1 + i], Val(N - N1)))
 end
 
@@ -49,7 +53,7 @@ Base.hash(bt::BiTuple, h::UInt) = hash(Tuple(bt), h)
 function Base.invperm(bt::BiTuple{N1}) where {N1}
     t = Tuple(bt)
     TupleTools.isperm(t) || throw(ArgumentError("argument is not a permutation"))
-    return BiTuple(TupleTools.invperm(t), Val(N1))
+    return bituple(TupleTools.invperm(t), Val(N1))
 end
 
 # Only single-argument `map` preserves the split, since with several operands the split to keep
@@ -73,7 +77,7 @@ the two index groups `group1` and `group2`, returning `p1 = t[group1...]` and
 `p2 = t[group2...]`.
 """
 function bipartition(t::Tuple, length1::Val)
-    bt = BiTuple(t, length1)
+    bt = bituple(t, length1)
     return bt.t1, bt.t2
 end
 function bipartition(t::Tuple, group1::Tuple, group2::Tuple)

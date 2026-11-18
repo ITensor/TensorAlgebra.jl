@@ -168,30 +168,41 @@ function Base.copyto!(dest::AbstractArray, src::Mul)
     return LA.mul!(dest, BC.materialize.(factors(src))...)
 end
 
-# permutedimsconjadd! for LinearBroadcasted subtypes.
-function permutedimsconjadd!(
-        dest, isconj::Bool, src::ScaledBroadcasted, perm, α::Number, β::Number
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ConjBroadcasted,
+        perm_codomain, perm_domain, α::Number, β::Number
+    )
+    return bipermutedimsconjadd!(
+        dest, !isconj, parent(src), perm_codomain, perm_domain, α, β
+    )
+end
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ScaledBroadcasted,
+        perm_codomain, perm_domain, α::Number, β::Number
     )
     c = isconj ? conj(coeff(src)) : coeff(src)
-    return permutedimsconjadd!(dest, isconj, unscaled(src), perm, c * α, β)
+    return bipermutedimsconjadd!(
+        dest, isconj, unscaled(src), perm_codomain, perm_domain, c * α, β
+    )
 end
-
-function permutedimsconjadd!(
-        dest, isconj::Bool, src::AddBroadcasted, perm, α::Number, β::Number
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::AddBroadcasted,
+        perm_codomain, perm_domain, α::Number, β::Number
     )
     args = addends(src)
-    permutedimsconjadd!(dest, isconj, first(args), perm, α, β)
+    bipermutedimsconjadd!(dest, isconj, first(args), perm_codomain, perm_domain, α, β)
     for a in Base.tail(args)
-        permutedimsconjadd!(dest, isconj, a, perm, α, true)
+        bipermutedimsconjadd!(dest, isconj, a, perm_codomain, perm_domain, α, true)
     end
     return dest
 end
-
-# TODO: Replace with contractconjadd! to avoid materializing the Mul intermediate.
-function permutedimsconjadd!(
-        dest, isconj::Bool, src::Mul, perm, α::Number, β::Number
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::Mul, perm_codomain, perm_domain, α::Number, β::Number
     )
-    return permutedimsconjadd!(dest, isconj, copy(src), perm, α, β)
+    # TODO: Replace with contractconjadd! to avoid materializing the Mul intermediate.
+    return bipermutedimsconjadd!(
+        dest, isconj, copy(src), perm_codomain, perm_domain, α, β
+    )
 end
 
 # ---------------------------------------------------------------------------- #

@@ -223,7 +223,7 @@ function TensorAlgebra.allocate_output(
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
     return TensorAlgebra.allocate_output(
-        TensorAlgebra.permutedimsconj, isconj, t, perm_codomain, perm_domain
+        TensorAlgebra.bipermutedimsconj, isconj, t, perm_codomain, perm_domain
     )
 end
 function TensorAlgebra.matricizeconj!(

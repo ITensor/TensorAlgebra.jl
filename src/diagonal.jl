@@ -22,7 +22,7 @@ end
 # The bipermutation of a square `Diagonal` is again a square `Diagonal`. This is decided from
 # `src` since the axes alone do not encode that the result is square.
 function allocate_output(
-        ::typeof(permutedimsconj), isconj::Bool, src::Diagonal, perm_codomain, perm_domain
+        ::typeof(bipermutedimsconj), isconj::Bool, src::Diagonal, perm_codomain, perm_domain
     )
     return Diagonal(similar(src.diag))
 end

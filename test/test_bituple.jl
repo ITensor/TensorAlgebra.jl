@@ -1,4 +1,4 @@
-using TensorAlgebra: BiTuple, bipartition, biperm, tuple_indexin
+using TensorAlgebra: BiTuple, bipartition, biperm, bituple, tuple_indexin
 using Test: @test, @test_throws, @testset
 using TestExtras: @constinferred
 
@@ -23,7 +23,7 @@ using TestExtras: @constinferred
     @test Tuple(bt0) == (1,)
 
     # Split constructor: split a flat tuple at the given codomain length.
-    @test (@constinferred BiTuple((3, 4, 5, 2, 1), Val(3))) == BiTuple((3, 4, 5), (2, 1))
+    @test (@constinferred bituple((3, 4, 5, 2, 1), Val(3))) == BiTuple((3, 4, 5), (2, 1))
 
     # Equality ignores the split, comparing the flattened contents: same flat entries compare equal
     # even under a different codomain/domain split, the way array equality ignores block partitioning.

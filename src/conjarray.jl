@@ -110,3 +110,23 @@ linearbroadcasted(::typeof(conj), a::ConjArray) = parent(a)
 
 _unwrap_conj(isconj::Bool, a) = (isconj, a)
 _unwrap_conj(isconj::Bool, a::ConjArray) = (!isconj, parent(a))
+
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::ConjArray,
+        perm_codomain, perm_domain, α::Number, β::Number
+    )
+    return bipermutedimsconjadd!(
+        dest, !isconj, parent(src), perm_codomain, perm_domain, α, β
+    )
+end
+function _bipermutedimsconj(isconj::Bool, src::ConjArray, perm_codomain, perm_domain)
+    return bipermutedimsconj(!isconj, parent(src), perm_codomain, perm_domain)
+end
+
+function _matricizeconj(isconj::Bool, a::ConjArray, perm_codomain, perm_domain)
+    return matricizeconj(!isconj, parent(a), perm_codomain, perm_domain)
+end
+
+function _matricizeconjcopy(isconj::Bool, a::ConjArray, perm_codomain, perm_domain)
+    return matricizeconjcopy(!isconj, parent(a), perm_codomain, perm_domain)
+end

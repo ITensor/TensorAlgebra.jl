@@ -231,4 +231,29 @@ end
             @test b′ ≈ b″
         end
     end
+    @testset "permutedims* split forms match the flat forms" begin
+        a = randn(ComplexF64, 2, 3, 4)
+        ref = permutedims(a, (3, 1, 2))
+        for β in (0, 3)
+            b = randn(ComplexF64, 4, 2, 3)
+            b′ = copy(b)
+            permutedimsadd!(b′, a, (3, 1), (2,), 2, β)
+            @test b′ ≈ β * b + 2 * ref
+            b′ = copy(b)
+            TensorAlgebra.bipermutedimsadd!(b′, a, (3, 1), (2,), 2, β)
+            @test b′ ≈ β * b + 2 * ref
+            b′ = copy(b)
+            permutedimsopadd!(b′, conj, a, (3, 1), (2,), 2, β)
+            @test b′ ≈ β * b + 2 * conj(ref)
+            b′ = copy(b)
+            TensorAlgebra.permutedimsconjadd!(b′, true, a, (3,), (1, 2), 2, β)
+            @test b′ ≈ β * b + 2 * conj(ref)
+        end
+        @test TensorAlgebra.permutedimsop(conj, a, (3, 1, 2)) == conj(ref)
+        @test TensorAlgebra.permutedimsop(conj, a, (3, 1), (2,)) == conj(ref)
+        @test TensorAlgebra.bipermutedimsop(conj, a, (3, 1), (2,)) == conj(ref)
+        @test TensorAlgebra.permutedimsconj(true, a, (3, 1, 2)) == conj(ref)
+        @test TensorAlgebra.permutedimsconj(false, a, (3,), (1, 2)) == ref
+        @test TensorAlgebra.bipermutedimsconj(false, a, (3,), (1, 2)) == ref
+    end
 end

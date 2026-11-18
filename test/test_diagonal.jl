@@ -16,6 +16,15 @@ using Test: @test, @test_throws, @testset
         @test b2 == d
     end
 
+    @testset "permutedims with a split permutation preserves Diagonal" begin
+        p1 = TensorAlgebra.permutedims(d, (1,), (2,))
+        @test p1 isa Diagonal
+        @test p1 == d
+        p2 = TensorAlgebra.permutedims(d, (2,), (1,))
+        @test p2 isa Diagonal
+        @test p2 == d
+    end
+
     @testset "permutedimsop applies the op to the data" begin
         dz = Diagonal(elt <: Complex ? elt[1 + 2im, 3 - im, 2im] : elt[1, 3, 2])
         p = TensorAlgebra.permutedimsop(conj, dz, (1,), (2,))
@@ -25,7 +34,7 @@ using Test: @test, @test_throws, @testset
 
     @testset "allocate_output returns a Diagonal of the same size" begin
         out = TensorAlgebra.allocate_output(
-            TensorAlgebra.permutedimsconj, false, d, (1,), (2,)
+            TensorAlgebra.bipermutedimsconj, false, d, (1,), (2,)
         )
         @test out isa Diagonal
         @test size(out) == size(d)

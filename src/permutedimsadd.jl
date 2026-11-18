@@ -70,33 +70,30 @@ conjugated when `isconj` is `true`. Array types overload this function to custom
 See also [`bipermutedimsopadd!`](@ref).
 """
 function bipermutedimsconjadd!(
-        dest, isconj::Bool, src,
-        perm_codomain, perm_domain,
-        α::Number, β::Number
+        dest, isconj::Bool, src, perm_codomain, perm_domain, α::Number, β::Number
     )
-    # Lazy wrappers are unwrapped here rather than in methods dispatching on them, so they never
-    # make an array type's own method ambiguous.
-    if src isa Union{ConjArray, ConjBroadcasted}
-        return bipermutedimsconjadd!(
-            dest, !isconj, parent(src), perm_codomain, perm_domain, α, β
-        )
-    elseif src isa Union{PermutedDimsArray, PermutedDims}
-        w = permuteddims_perm(src)
-        return bipermutedimsconjadd!(
-            dest, isconj, parent(src),
-            map(j -> w[j], perm_codomain), map(j -> w[j], perm_domain), α, β
-        )
-    end
-    return permutedimsconjadd_flat!(
-        dest,
-        isconj,
-        src,
-        (perm_codomain..., perm_domain...),
-        α,
-        β
-    )
+    return _bipermutedimsconjadd!(dest, isconj, src, perm_codomain, perm_domain, α, β)
 end
 
+# Lazy wrappers are unwrapped by dispatching on this internal function rather than on
+# `bipermutedimsconjadd!`, so they never make an array type's own method ambiguous.
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src, perm_codomain, perm_domain, α::Number, β::Number
+    )
+    return permutedimsconjadd_flat!(
+        dest, isconj, src, (perm_codomain..., perm_domain...), α, β
+    )
+end
+function _bipermutedimsconjadd!(
+        dest, isconj::Bool, src::Union{PermutedDimsArray, PermutedDims},
+        perm_codomain, perm_domain, α::Number, β::Number
+    )
+    w = permuteddims_perm(src)
+    return bipermutedimsconjadd!(
+        dest, isconj, parent(src),
+        map(j -> w[j], perm_codomain), map(j -> w[j], perm_domain), α, β
+    )
+end
 # The work only depends on the flat permutation, so this is kept out of line to compile once per
 # permutation rather than once per codomain/domain split of it.
 @noinline function permutedimsconjadd_flat!(
@@ -193,45 +190,70 @@ function _isconj(op)
     end
 end
 
+"""
+    bipermutedimsadd!(dest, src, perm_codomain, perm_domain, α, β) -> dest
+
+`dest = β * dest + α * permutedims(src, (perm_codomain..., perm_domain...))`.
+
+See also [`bipermutedimsconjadd!`](@ref).
+"""
+function bipermutedimsadd!(dest, src, perm_codomain, perm_domain, α::Number, β::Number)
+    return bipermutedimsconjadd!(dest, false, src, perm_codomain, perm_domain, α, β)
+end
+
 # ---------------------------------------------------------------------------- #
-# permutedimsopadd! — flat-permutation interface
+# permutedims*add! — flat or split permutation
 # ---------------------------------------------------------------------------- #
 
 """
     permutedimsopadd!(dest, op, src, perm, α, β) -> dest
+    permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β) -> dest
 
-`dest = β * dest + α * permutedims(op.(src), perm)`, where `op` is `identity` or `conj`.
-
-See also [`permutedimsconjadd!`](@ref).
+`dest = β * dest + α * permutedims(op.(src), perm)`, where `op` is `identity` or `conj`. The
+permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
+[`bipermutedimsopadd!`](@ref).
 """
 function permutedimsopadd!(dest, op, src, perm, α::Number, β::Number)
-    return permutedimsconjadd!(dest, _isconj(op), src, perm, α, β)
+    return bipermutedimsopadd!(dest, op, src, perm, (), α, β)
 end
+function permutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α::Number, β::Number)
+    return bipermutedimsopadd!(dest, op, src, perm_codomain, perm_domain, α, β)
+end
+
 """
     permutedimsconjadd!(dest, isconj::Bool, src, perm, α, β) -> dest
+    permutedimsconjadd!(dest, isconj::Bool, src, perm_codomain, perm_domain, α, β) -> dest
 
 `dest = β * dest + α * permutedims(src, perm)`, with `src` conjugated when `isconj` is `true`.
-
-See also [`permutedimsopadd!`](@ref).
+The permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
+[`bipermutedimsconjadd!`](@ref).
 """
 function permutedimsconjadd!(dest, isconj::Bool, src, perm, α::Number, β::Number)
     return bipermutedimsconjadd!(dest, isconj, src, perm, (), α, β)
+end
+function permutedimsconjadd!(
+        dest, isconj::Bool, src, perm_codomain, perm_domain, α::Number, β::Number
+    )
+    return bipermutedimsconjadd!(dest, isconj, src, perm_codomain, perm_domain, α, β)
+end
+
+"""
+    permutedimsadd!(dest, src, perm, α, β) -> dest
+    permutedimsadd!(dest, src, perm_codomain, perm_domain, α, β) -> dest
+
+`dest = β * dest + α * permutedims(src, perm)`. The permutation is either flat or split into
+`perm_codomain` and `perm_domain`, as in [`bipermutedimsadd!`](@ref).
+"""
+function permutedimsadd!(dest, src, perm, α::Number, β::Number)
+    return bipermutedimsadd!(dest, src, perm, (), α, β)
+end
+function permutedimsadd!(dest, src, perm_codomain, perm_domain, α::Number, β::Number)
+    return bipermutedimsadd!(dest, src, perm_codomain, perm_domain, α, β)
 end
 
 # ---------------------------------------------------------------------------- #
 # Convenience functions that lower to permutedimsconjadd!
 # ---------------------------------------------------------------------------- #
-
-"""
-    permutedimsadd!(dest, src, perm, α, β)
-
-`dest = β * dest + α * permutedims(src, perm)`.
-"""
-function permutedimsadd!(
-        dest, src, perm, α::Number, β::Number
-    )
-    return permutedimsconjadd!(dest, false, src, perm, α, β)
-end
 
 """
     scaleadd!(dest, src, α, β)
@@ -257,35 +279,22 @@ add!(dest, src) = scaleadd!(dest, src, true, true)
     permutedims!(dest, a, perm)
     permutedims!(dest, a, perm_codomain, perm_domain)
 
-In-place counterpart of [`permutedims`](@ref): write the permuted `a` into `dest`.
+In-place counterpart of [`permutedims`](@ref): write the permuted `a` into `dest`. The
+permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
+[`bipermutedims!`](@ref).
 """
-function permutedims!(dest, a, perm)
-    return bipermutedimsconjadd!(dest, false, a, perm, (), true, false)
-end
+permutedims!(dest, a, perm) = bipermutedims!(dest, a, perm, ())
 function permutedims!(dest, a, perm_codomain, perm_domain)
-    return bipermutedimsconjadd!(dest, false, a, perm_codomain, perm_domain, true, false)
+    return bipermutedims!(dest, a, perm_codomain, perm_domain)
 end
 
 """
     permutedims(a, perm)
     permutedims(a, perm_codomain, perm_domain)
 
-Out-of-place permutation of `a`. The single-permutation
-form reorders every dimension into `perm`, giving an all-codomain result. The
-two-permutation form additionally splits the dimensions into a codomain/domain
-bipartition, with `perm_codomain` selecting the codomain dimensions and `perm_domain`
-the domain ones.
-
-A dense operand ignores the bipartition and stores the result flat.
+Out-of-place permutation of `a`. A flat `perm` gives an all-codomain result, and a permutation
+split into `perm_codomain` and `perm_domain` also splits the result, as in
+[`bipermutedims`](@ref). A dense operand ignores the split and stores the result flat.
 """
-function permutedims(a, perm)
-    dest = similar_map(a, eltype(a), map(p -> axes(a, p), perm), ())
-    return permutedims!(dest, a, perm)
-end
-function permutedims(a, perm_codomain, perm_domain)
-    axes_codomain = map(p -> axes(a, p), perm_codomain)
-    # `similar_map` dualizes the domain axes it is given, so pass them pre-conjugated.
-    axes_domain = map(p -> conj(axes(a, p)), perm_domain)
-    dest = similar_map(a, eltype(a), axes_codomain, axes_domain)
-    return permutedims!(dest, a, perm_codomain, perm_domain)
-end
+permutedims(a, perm) = bipermutedims(a, perm, ())
+permutedims(a, perm_codomain, perm_domain) = bipermutedims(a, perm_codomain, perm_domain)

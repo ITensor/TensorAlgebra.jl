@@ -20,33 +20,60 @@ trivialrange(r::AbstractUnitRange, n::Integer) = trivialrange(typeof(r), n)
 trivialrange(::Type{<:AbstractUnitRange}, n::Integer) = Base.OneTo(n)
 
 """
-    permutedimsop(op, src, perm_codomain, perm_domain) -> dest
+    bipermutedimsop(op, src, perm_codomain, perm_domain) -> dest
 
 Return `op.(permutedims(src, (perm_codomain..., perm_domain...)))` in new storage, split into
 the codomain `perm_codomain` and the domain `perm_domain`. `op` is `identity` or `conj`.
 
-See also [`permutedimsconj`](@ref).
+See also [`bipermutedimsconj`](@ref).
 """
-function permutedimsop(op, src, perm_codomain, perm_domain)
-    return permutedimsconj(_isconj(op), src, perm_codomain, perm_domain)
+function bipermutedimsop(op, src, perm_codomain, perm_domain)
+    return bipermutedimsconj(_isconj(op), src, perm_codomain, perm_domain)
 end
 """
-    permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain) -> dest
+    bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain) -> dest
 
 Return `permutedims(src, (perm_codomain..., perm_domain...))` in new storage, split into the
 codomain `perm_codomain` and the domain `perm_domain`, with `src` conjugated when `isconj` is
-`true`.
+`true`. Array types customize the output by overloading
+`allocate_output(bipermutedimsconj, isconj, src, perm_codomain, perm_domain)`.
 
-See also [`permutedimsop`](@ref).
+See also [`bipermutedimsop`](@ref).
 """
-function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
-    src isa ConjArray &&
-        return permutedimsconj(!isconj, parent(src), perm_codomain, perm_domain)
+function bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
+    return _bipermutedimsconj(isconj, src, perm_codomain, perm_domain)
+end
+function _bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
     # `bipermutedimsconjadd!` checks against the destination built from the same permutation, so
     # it cannot catch an invalid one.
     check_biperm(src, perm_codomain, perm_domain)
-    dest = allocate_output(permutedimsconj, isconj, src, perm_codomain, perm_domain)
+    dest = allocate_output(bipermutedimsconj, isconj, src, perm_codomain, perm_domain)
     return bipermutedimsconjadd!(dest, isconj, src, perm_codomain, perm_domain, true, false)
+end
+
+"""
+    permutedimsop(op, src, perm) -> dest
+    permutedimsop(op, src, perm_codomain, perm_domain) -> dest
+
+Return `op.(permutedims(src, perm))` in new storage, where `op` is `identity` or `conj`. The
+permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
+[`bipermutedimsop`](@ref).
+"""
+permutedimsop(op, src, perm) = bipermutedimsop(op, src, perm, ())
+function permutedimsop(op, src, perm_codomain, perm_domain)
+    return bipermutedimsop(op, src, perm_codomain, perm_domain)
+end
+"""
+    permutedimsconj(isconj::Bool, src, perm) -> dest
+    permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain) -> dest
+
+Return `permutedims(src, perm)` in new storage, with `src` conjugated when `isconj` is `true`.
+The permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
+[`bipermutedimsconj`](@ref).
+"""
+permutedimsconj(isconj::Bool, src, perm) = bipermutedimsconj(isconj, src, perm, ())
+function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
+    return bipermutedimsconj(isconj, src, perm_codomain, perm_domain)
 end
 
 """
@@ -57,16 +84,31 @@ overload it to choose the type of the output.
 """
 function allocate_output end
 
-function allocate_output(::typeof(permutedimsconj), isconj::Bool, src, perm_co, perm_do)
+function allocate_output(::typeof(bipermutedimsconj), isconj::Bool, src, perm_co, perm_do)
     axes_co = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_co)
     axes_do = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_do)
     # `similar_map` takes the domain axes un-dualized.
     return similar_map(src, eltype(src), axes_co, conj.(axes_do))
 end
 
+"""
+    bipermutedims(a, perm_codomain, perm_domain)
+    bipermutedims(a, biperm::BiTuple)
+
+Return `permutedims(a, (perm_codomain..., perm_domain...))` in new storage, split into the
+codomain `perm_codomain` and the domain `perm_domain`.
+
+See also [`bipermutedimsconj`](@ref).
+"""
 function bipermutedims(a, perm1, perm2)
-    return permutedimsconj(false, a, perm1, perm2)
+    return bipermutedimsconj(false, a, perm1, perm2)
 end
+"""
+    bipermutedims!(dest, a, perm_codomain, perm_domain)
+    bipermutedims!(dest, a, biperm::BiTuple)
+
+In-place counterpart of [`bipermutedims`](@ref): write the permuted `a` into `dest`.
+"""
 function bipermutedims!(a_dest, a_src, perm1, perm2)
     return bipermutedimsconjadd!(a_dest, false, a_src, perm1, perm2, true, false)
 end
@@ -103,7 +145,9 @@ and `perm_domain` as columns.
 See also [`matricizeop`](@ref), [`matricizeconjview`](@ref), [`matricizeconj!`](@ref).
 """
 function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
-    a isa ConjArray && return matricizeconj(!isconj, parent(a), perm_codomain, perm_domain)
+    return _matricizeconj(isconj, a, perm_codomain, perm_domain)
+end
+function _matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
     check_biperm(a, perm_codomain, perm_domain)
     is_output_view(matricizeconj, isconj, a, perm_codomain, perm_domain) &&
         return matricizeconjview(isconj, a, perm_codomain, perm_domain)
@@ -145,8 +189,9 @@ Matricize `a`, conjugated when `isconj` is `true`, into new storage that the cal
 See also [`matricizeopcopy`](@ref).
 """
 function matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
-    a isa ConjArray &&
-        return matricizeconjcopy(!isconj, parent(a), perm_codomain, perm_domain)
+    return _matricizeconjcopy(isconj, a, perm_codomain, perm_domain)
+end
+function _matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
     check_biperm(a, perm_codomain, perm_domain)
     dest = allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain)
     return matricizeconj!(dest, isconj, a, perm_codomain, perm_domain)
