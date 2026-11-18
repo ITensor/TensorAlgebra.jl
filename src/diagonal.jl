@@ -55,6 +55,10 @@ function unmatricizeview(
     check_input(unmatricize, m, axes_codomain, axes_domain)
     return m
 end
+# `similar(::Diagonal, ...)` keeps the storage type only for one or two dimensions.
+function allocate_output(::typeof(unmatricize), m::Diagonal, axes_codomain, axes_domain)
+    return similar(m.diag, eltype(m), (axes_codomain..., conj.(axes_domain)...))
+end
 
 # Contracting two `Diagonal`s to a `{1,1}` destination gives a `Diagonal`. Other destination
 # shapes fall back to the generic dense allocation.
