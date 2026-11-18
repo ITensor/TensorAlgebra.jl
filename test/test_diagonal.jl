@@ -1,3 +1,4 @@
+using JLArrays: JLArray
 using LinearAlgebra: Diagonal, diag
 using TensorAlgebra: TensorAlgebra
 using Test: @test, @test_throws, @testset
@@ -186,4 +187,11 @@ using Test: @test, @test_throws, @testset
         @test eltype(cmix) === ComplexF64
         @test cmix ≈ d * dc
     end
+end
+
+@testset "unmatricize of a Diagonal keeps the storage type" begin
+    d = Diagonal(JLArray([1.0, 2.0, 3.0, 4.0]))
+    a = TensorAlgebra.unmatricize(d, (Base.OneTo(2), Base.OneTo(2)), (Base.OneTo(4),))
+    @test a isa JLArray{Float64, 3}
+    @test Array(a) == reshape(Array(Diagonal([1.0, 2.0, 3.0, 4.0])), 2, 2, 4)
 end
