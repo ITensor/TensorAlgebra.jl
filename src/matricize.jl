@@ -20,112 +20,125 @@ trivialrange(r::AbstractUnitRange, n::Integer) = trivialrange(typeof(r), n)
 trivialrange(::Type{<:AbstractUnitRange}, n::Integer) = Base.OneTo(n)
 
 """
-    bipermutedimsop(op, src, perm_codomain, perm_domain) -> dest
+    bipermutedimsop(op, src, perm_codomain, perm_domain; alg = nothing) -> dest
 
 Return `op.(permutedims(src, (perm_codomain..., perm_domain...)))` in new storage, split into
 the codomain `perm_codomain` and the domain `perm_domain`. `op` is `identity` or `conj`.
 
 See also [`bipermutedimsconj`](@ref).
 """
-function bipermutedimsop(op, src, perm_codomain, perm_domain)
-    return bipermutedimsconj(_isconj(op), src, perm_codomain, perm_domain)
+function bipermutedimsop(op, src, perm_codomain, perm_domain; kwargs...)
+    return bipermutedimsconj(_isconj(op), src, perm_codomain, perm_domain; kwargs...)
 end
 """
-    bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain) -> dest
+    bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain; alg = nothing,
+                      allocator = TensorAlgebra.DefaultAllocator()) -> dest
 
 Return `permutedims(src, (perm_codomain..., perm_domain...))` in new storage, split into the
 codomain `perm_codomain` and the domain `perm_domain`, with `src` conjugated when `isconj` is
-`true`. Array types customize the output by overloading
-`allocate_output(bipermutedimsconj, isconj, src, perm_codomain, perm_domain)`.
+`true`. `alg` is the [`PermuteAlgorithm`](@ref) and `allocator` provides the new storage. Array
+types customize the output by overloading
+`allocate_output(bipermutedimsconj, isconj, src, perm_codomain, perm_domain; allocator)`.
 
 See also [`bipermutedimsop`](@ref).
 """
-function bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
-    return _bipermutedimsconj(isconj, src, perm_codomain, perm_domain)
+function bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain; kwargs...)
+    return _bipermutedimsconj(isconj, src, perm_codomain, perm_domain; kwargs...)
 end
-function _bipermutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
+function _bipermutedimsconj(
+        isconj::Bool, src, perm_codomain, perm_domain;
+        allocator = DefaultAllocator(), kwargs...
+    )
     # `bipermutedimsconjadd!` checks against the destination built from the same permutation, so
     # it cannot catch an invalid one.
     check_biperm(src, perm_codomain, perm_domain)
-    dest = allocate_output(bipermutedimsconj, isconj, src, perm_codomain, perm_domain)
-    return bipermutedimsconjadd!(dest, isconj, src, perm_codomain, perm_domain, true, false)
+    dest = allocate_output(
+        bipermutedimsconj, isconj, src, perm_codomain, perm_domain; allocator
+    )
+    return bipermutedimsconjadd!(
+        dest, isconj, src, perm_codomain, perm_domain, true, false; kwargs...
+    )
 end
 
 """
-    permutedimsop(op, src, perm) -> dest
-    permutedimsop(op, src, perm_codomain, perm_domain) -> dest
+    permutedimsop(op, src, perm; alg = nothing) -> dest
+    permutedimsop(op, src, perm_codomain, perm_domain; alg = nothing) -> dest
 
 Return `op.(permutedims(src, perm))` in new storage, where `op` is `identity` or `conj`. The
 permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
 [`bipermutedimsop`](@ref).
 """
-permutedimsop(op, src, perm) = bipermutedimsop(op, src, perm, ())
-function permutedimsop(op, src, perm_codomain, perm_domain)
-    return bipermutedimsop(op, src, perm_codomain, perm_domain)
+permutedimsop(op, src, perm; kwargs...) = bipermutedimsop(op, src, perm, (); kwargs...)
+function permutedimsop(op, src, perm_codomain, perm_domain; kwargs...)
+    return bipermutedimsop(op, src, perm_codomain, perm_domain; kwargs...)
 end
 """
-    permutedimsconj(isconj::Bool, src, perm) -> dest
-    permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain) -> dest
+    permutedimsconj(isconj::Bool, src, perm; alg = nothing) -> dest
+    permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain; alg = nothing) -> dest
 
 Return `permutedims(src, perm)` in new storage, with `src` conjugated when `isconj` is `true`.
 The permutation is either flat or split into `perm_codomain` and `perm_domain`, as in
 [`bipermutedimsconj`](@ref).
 """
-permutedimsconj(isconj::Bool, src, perm) = bipermutedimsconj(isconj, src, perm, ())
-function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain)
-    return bipermutedimsconj(isconj, src, perm_codomain, perm_domain)
+function permutedimsconj(isconj::Bool, src, perm; kwargs...)
+    return bipermutedimsconj(isconj, src, perm, (); kwargs...)
+end
+function permutedimsconj(isconj::Bool, src, perm_codomain, perm_domain; kwargs...)
+    return bipermutedimsconj(isconj, src, perm_codomain, perm_domain; kwargs...)
 end
 
 """
-    allocate_output(f, args...)
+    allocate_output(f, args...; allocator = TensorAlgebra.DefaultAllocator())
 
-Allocate the destination that `f` writes its result into when called with `args`. Array types
-overload it to choose the type of the output.
+Allocate the destination that `f` writes its result into when called with `args`, with its
+storage from `allocator` through [`similar_map`](@ref). Array types overload it to choose the
+type of the output. Algorithms pass their [`TensorAlgebra.allocator`](@ref) for temporaries.
 """
 function allocate_output end
 
-function allocate_output(::typeof(bipermutedimsconj), isconj::Bool, src, perm_co, perm_do)
+function allocate_output(
+        ::typeof(bipermutedimsconj), isconj::Bool, src, perm_co, perm_do;
+        allocator = DefaultAllocator()
+    )
     axes_co = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_co)
     axes_do = map(i -> isconj ? conj(axes(src, i)) : axes(src, i), perm_do)
     # `similar_map` takes the domain axes un-dualized.
-    return similar_map(src, eltype(src), axes_co, conj.(axes_do))
+    return similar_map(allocator, src, eltype(src), axes_co, conj.(axes_do))
 end
 
 """
-    bipermutedims(a, perm_codomain, perm_domain)
-    bipermutedims(a, biperm::BiTuple)
+    bipermutedims(a, perm_codomain, perm_domain; alg = nothing)
+    bipermutedims(a, biperm::BiTuple; alg = nothing)
 
 Return `permutedims(a, (perm_codomain..., perm_domain...))` in new storage, split into the
 codomain `perm_codomain` and the domain `perm_domain`.
 
 See also [`bipermutedimsconj`](@ref).
 """
-function bipermutedims(a, perm1, perm2)
-    return bipermutedimsconj(false, a, perm1, perm2)
+function bipermutedims(a, perm1, perm2; kwargs...)
+    return bipermutedimsconj(false, a, perm1, perm2; kwargs...)
 end
 """
-    bipermutedims!(dest, a, perm_codomain, perm_domain)
-    bipermutedims!(dest, a, biperm::BiTuple)
+    bipermutedims!(dest, a, perm_codomain, perm_domain; alg = nothing)
+    bipermutedims!(dest, a, biperm::BiTuple; alg = nothing)
 
 In-place counterpart of [`bipermutedims`](@ref): write the permuted `a` into `dest`.
 """
-function bipermutedims!(a_dest, a_src, perm1, perm2)
-    return bipermutedimsconjadd!(a_dest, false, a_src, perm1, perm2, true, false)
+function bipermutedims!(a_dest, a_src, perm1, perm2; kwargs...)
+    return bipermutedimsconjadd!(a_dest, false, a_src, perm1, perm2, true, false; kwargs...)
 end
-function bipermutedims(a, biperm::BiTuple)
-    return bipermutedims(a, biperm.t1, biperm.t2)
+function bipermutedims(a, biperm::BiTuple; kwargs...)
+    return bipermutedims(a, biperm.t1, biperm.t2; kwargs...)
 end
-function bipermutedims!(
-        a_dest, a_src, biperm::BiTuple
-    )
-    return bipermutedims!(a_dest, a_src, biperm.t1, biperm.t2)
+function bipermutedims!(a_dest, a_src, biperm::BiTuple; kwargs...)
+    return bipermutedims!(a_dest, a_src, biperm.t1, biperm.t2; kwargs...)
 end
 
 # =====================================  matricize  ========================================
 
 """
-    matricizeop(op, a, perm_codomain, perm_domain) -> m
-    matricizeop(op, a, ndims_codomain::Val) -> m
+    matricizeop(op, a, perm_codomain, perm_domain; alg = nothing) -> m
+    matricizeop(op, a, ndims_codomain::Val; alg = nothing) -> m
 
 Matricize `op.(a)`, fusing the codomain dimensions `perm_codomain` into rows and the domain
 dimensions `perm_domain` into columns. `op` is `identity` or `conj`. The result may share
@@ -133,69 +146,75 @@ dimensions `perm_domain` into columns. `op` is `identity` or `conj`. The result 
 
 See also [`matricizeconj`](@ref) and [`unmatricize`](@ref).
 """
-function matricizeop(op, a, perm_codomain, perm_domain)
-    return matricizeconj(_isconj(op), a, perm_codomain, perm_domain)
+function matricizeop(op, a, perm_codomain, perm_domain; kwargs...)
+    return matricizeconj(_isconj(op), a, perm_codomain, perm_domain; kwargs...)
 end
 """
-    matricizeconj(isconj::Bool, a, perm_codomain, perm_domain) -> m
+    matricizeconj(isconj::Bool, a, perm_codomain, perm_domain; alg = nothing,
+                  allocator = TensorAlgebra.DefaultAllocator()) -> m
 
 Matricize `a`, conjugated when `isconj` is `true`, with the dimensions `perm_codomain` as rows
-and `perm_domain` as columns.
+and `perm_domain` as columns. When it copies, `alg` is the [`PermuteAlgorithm`](@ref) and
+`allocator` provides the new storage.
 
 See also [`matricizeop`](@ref), [`matricizeconjview`](@ref), [`matricizeconj!`](@ref).
 """
-function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
-    return _matricizeconj(isconj, a, perm_codomain, perm_domain)
+function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain; kwargs...)
+    return _matricizeconj(isconj, a, perm_codomain, perm_domain; kwargs...)
 end
-function _matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
+function _matricizeconj(isconj::Bool, a, perm_codomain, perm_domain; kwargs...)
     check_biperm(a, perm_codomain, perm_domain)
     isoutputview(matricizeconj, isconj, a, perm_codomain, perm_domain) &&
         return matricizeconjview(isconj, a, perm_codomain, perm_domain)
-    return matricizeconjcopy(isconj, a, perm_codomain, perm_domain)
+    return matricizeconjcopy(isconj, a, perm_codomain, perm_domain; kwargs...)
 end
 
 """
-    matricize(a, perm_codomain, perm_domain) -> m
-    matricize(a, ndims_codomain::Val) -> m
+    matricize(a, perm_codomain, perm_domain; alg = nothing) -> m
+    matricize(a, ndims_codomain::Val; alg = nothing) -> m
 
 [`matricizeop`](@ref) with `op = identity`.
 """
-function matricize(a, perm_codomain, perm_domain)
-    return matricizeconj(false, a, perm_codomain, perm_domain)
+function matricize(a, perm_codomain, perm_domain; kwargs...)
+    return matricizeconj(false, a, perm_codomain, perm_domain; kwargs...)
 end
 
-function matricize(a, ndims_codomain::Val)
-    return matricize(a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
+function matricize(a, ndims_codomain::Val; kwargs...)
+    return matricize(a, identitybiperm(ndims_codomain, Val(ndims(a)))...; kwargs...)
 end
-function matricizeop(op, a, ndims_codomain::Val)
-    return matricizeop(op, a, identitybiperm(ndims_codomain, Val(ndims(a)))...)
+function matricizeop(op, a, ndims_codomain::Val; kwargs...)
+    return matricizeop(op, a, identitybiperm(ndims_codomain, Val(ndims(a)))...; kwargs...)
 end
 
 """
-    matricizeopcopy(op, a, perm_codomain, perm_domain) -> m
+    matricizeopcopy(op, a, perm_codomain, perm_domain; alg = nothing) -> m
 
 Matricize `op.(a)` into new storage that the caller owns. `op` is `identity` or `conj`.
 
 See also [`matricizeconjcopy`](@ref).
 """
-function matricizeopcopy(op, a, perm_codomain, perm_domain)
-    return matricizeconjcopy(_isconj(op), a, perm_codomain, perm_domain)
+function matricizeopcopy(op, a, perm_codomain, perm_domain; kwargs...)
+    return matricizeconjcopy(_isconj(op), a, perm_codomain, perm_domain; kwargs...)
 end
 """
-    matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain) -> m
+    matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain; alg = nothing,
+                      allocator = TensorAlgebra.DefaultAllocator()) -> m
 
 Matricize `a`, conjugated when `isconj` is `true`, into new storage that the caller owns. Array
 types customize it through [`allocate_output`](@ref) and [`matricizeconj!`](@ref).
 
 See also [`matricizeopcopy`](@ref).
 """
-function matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
-    return _matricizeconjcopy(isconj, a, perm_codomain, perm_domain)
+function matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain; kwargs...)
+    return _matricizeconjcopy(isconj, a, perm_codomain, perm_domain; kwargs...)
 end
-function _matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain)
+function _matricizeconjcopy(
+        isconj::Bool, a, perm_codomain, perm_domain;
+        allocator = DefaultAllocator(), kwargs...
+    )
     check_biperm(a, perm_codomain, perm_domain)
-    dest = allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain)
-    return matricizeconj!(dest, isconj, a, perm_codomain, perm_domain)
+    dest = allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain; allocator)
+    return matricizeconj!(dest, isconj, a, perm_codomain, perm_domain; kwargs...)
 end
 
 """
@@ -221,30 +240,31 @@ function matricizeconjview(isconj::Bool, a, perm_codomain, perm_domain)
 end
 
 """
-    matricizeop!(dest, op, a, perm_codomain, perm_domain) -> dest
+    matricizeop!(dest, op, a, perm_codomain, perm_domain; alg = nothing) -> dest
 
 Write the matricization of `op.(a)` into the matrix `dest`. `op` is `identity` or `conj`.
 
 See also [`matricizeconj!`](@ref).
 """
-function matricizeop!(dest, op, a, perm_codomain, perm_domain)
-    return matricizeconj!(dest, _isconj(op), a, perm_codomain, perm_domain)
+function matricizeop!(dest, op, a, perm_codomain, perm_domain; kwargs...)
+    return matricizeconj!(dest, _isconj(op), a, perm_codomain, perm_domain; kwargs...)
 end
 """
-    matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain) -> dest
+    matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain; alg = nothing) -> dest
 
 Write the matricization of `a`, conjugated when `isconj` is `true`, into the matrix `dest`.
 Array types overload this together with
-`allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain)`, which allocates `dest`.
+`allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain; allocator)`, which
+allocates `dest`, and forward the keyword arguments to the permutation.
 
 See also [`matricizeop!`](@ref).
 """
-function matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain)
+function matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain; kwargs...)
     return throw(MethodError(matricizeconj!, (dest, isconj, a, perm_codomain, perm_domain)))
 end
 
 function allocate_output(
-        ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain
+        ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain; kwargs...
     )
     return throw(
         MethodError(
@@ -272,7 +292,7 @@ end
 # =====================================  unmatricize  ======================================
 
 """
-    unmatricize(m, axes_codomain, axes_domain) -> a
+    unmatricize(m, axes_codomain, axes_domain; alg = nothing) -> a
 
 Unfold the matrix `m` into an array with axes `(axes_codomain..., conj.(axes_domain)...)`,
 undoing [`matricize`](@ref) with the dimensions in order. The result may share `m`'s memory, so
@@ -280,22 +300,24 @@ treat it as read-only.
 
 See also [`unmatricizeview`](@ref), [`unmatricizecopy`](@ref), [`unmatricizeadd!`](@ref).
 """
-function unmatricize(m, axes_codomain, axes_domain)
+function unmatricize(m, axes_codomain, axes_domain; kwargs...)
     isoutputview(unmatricize, m, axes_codomain, axes_domain) &&
         return unmatricizeview(m, axes_codomain, axes_domain)
-    return unmatricizecopy(m, axes_codomain, axes_domain)
+    return unmatricizecopy(m, axes_codomain, axes_domain; kwargs...)
 end
 
 """
-    unmatricizecopy(m, axes_codomain, axes_domain) -> a
+    unmatricizecopy(m, axes_codomain, axes_domain; alg = nothing,
+                    allocator = TensorAlgebra.DefaultAllocator()) -> a
 
-Unfold the matrix `m` like [`unmatricize`](@ref), into new storage that the caller owns. Array
-types customize it through `allocate_output(unmatricize, m, axes_codomain, axes_domain)` and
-[`unmatricizeadd!`](@ref).
+Unfold the matrix `m` like [`unmatricize`](@ref), into new storage from `allocator`. Array
+types customize it through `allocate_output(unmatricize, m, axes_codomain, axes_domain; allocator)` and [`unmatricizeadd!`](@ref).
 """
-function unmatricizecopy(m, axes_codomain, axes_domain)
-    a = allocate_output(unmatricize, m, axes_codomain, axes_domain)
-    return unmatricize!(a, m, Val(length(axes_codomain)))
+function unmatricizecopy(
+        m, axes_codomain, axes_domain; allocator = DefaultAllocator(), kwargs...
+    )
+    a = allocate_output(unmatricize, m, axes_codomain, axes_domain; allocator)
+    return unmatricize!(a, m, Val(length(axes_codomain)); kwargs...)
 end
 
 """
@@ -326,16 +348,18 @@ function bipartition_axes(t::Tuple, split...)
 end
 
 """
-    unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, α, β) -> a_dest
+    unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, α, β; alg = nothing) -> a_dest
 
 `a_dest = β * a_dest + α * a`, where `a` is the array whose matricization with
 `(perm_codomain, perm_domain)` is `m`. Array types overload this together with
-`allocate_output(unmatricize, m, axes_codomain, axes_domain)`, which allocates `a_dest`.
+`allocate_output(unmatricize, m, axes_codomain, axes_domain; allocator)`, which allocates
+`a_dest`, and forward the keyword arguments to the permutation.
 """
 function unmatricizeadd!(
         a_dest, m,
         perm_codomain, perm_domain,
-        α::Number, β::Number
+        α::Number, β::Number;
+        kwargs...
     )
     biperm_src = BiTuple(perm_codomain, perm_domain)
     ndims(a_dest) == length(biperm_src) ||
@@ -350,24 +374,27 @@ function unmatricizeadd!(
         biperm_dest.t1,
         biperm_dest.t2,
         α,
-        β
+        β;
+        kwargs...
     )
 end
 
 """
-    unmatricize!(a_dest, m, perm_codomain, perm_domain) -> a_dest
-    unmatricize!(a_dest, m, ndims_codomain::Val) -> a_dest
+    unmatricize!(a_dest, m, perm_codomain, perm_domain; alg = nothing) -> a_dest
+    unmatricize!(a_dest, m, ndims_codomain::Val; alg = nothing) -> a_dest
 
 Overwrite `a_dest` with the array whose matricization with the same arguments is `m`.
 
 See also [`unmatricizeadd!`](@ref).
 """
-function unmatricize!(a_dest, m, perm_codomain, perm_domain)
-    return unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, true, false)
+function unmatricize!(a_dest, m, perm_codomain, perm_domain; kwargs...)
+    return unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, true, false; kwargs...)
 end
 
-function unmatricize!(a_dest, m, ndims_codomain::Val)
-    return unmatricize!(a_dest, m, identitybiperm(ndims_codomain, Val(ndims(a_dest)))...)
+function unmatricize!(a_dest, m, ndims_codomain::Val; kwargs...)
+    return unmatricize!(
+        a_dest, m, identitybiperm(ndims_codomain, Val(ndims(a_dest)))...; kwargs...
+    )
 end
 
 # ================================  dense (reshape) hooks  ===================================
@@ -389,18 +416,24 @@ function matricizeconjview(isconj::Bool, a::DenseArray, perm_codomain, perm_doma
     return isconj ? adjoint(m) : transpose(m)
 end
 function allocate_output(
-        ::typeof(matricizeconj), isconj::Bool, a::AbstractArray, perm_codomain, perm_domain
+        ::typeof(matricizeconj), isconj::Bool, a::AbstractArray, perm_codomain, perm_domain;
+        allocator = DefaultAllocator()
     )
-    size_codomain = map(i -> size(a, i), perm_codomain)
-    size_domain = map(i -> size(a, i), perm_domain)
-    return similar(a, eltype(a), (prod(size_codomain), prod(size_domain)))
+    length_codomain = prod(i -> size(a, i), perm_codomain; init = 1)
+    length_domain = prod(i -> size(a, i), perm_domain; init = 1)
+    return similar_map(
+        allocator, a, eltype(a), (Base.OneTo(length_codomain),),
+        (Base.OneTo(length_domain),)
+    )
 end
 function matricizeconj!(
-        dest, isconj::Bool, a::AbstractArray, perm_codomain, perm_domain
+        dest, isconj::Bool, a::AbstractArray, perm_codomain, perm_domain; kwargs...
     )
     perm = (perm_codomain..., perm_domain...)
     dest_tensor = reshape(dest, map(i -> size(a, i), perm))
-    bipermutedimsconjadd!(dest_tensor, isconj, a, perm_codomain, perm_domain, true, false)
+    bipermutedimsconjadd!(
+        dest_tensor, isconj, a, perm_codomain, perm_domain, true, false; kwargs...
+    )
     return dest
 end
 # `reshape` alone only checks the total length, so it would accept a wrong split.
@@ -421,7 +454,8 @@ function allocate_output(
         ::typeof(unmatricize),
         m::AbstractMatrix,
         axes_codomain,
-        axes_domain
+        axes_domain;
+        allocator = DefaultAllocator()
     )
-    return similar(m, eltype(m), (axes_codomain..., conj.(axes_domain)...))
+    return similar_map(allocator, m, eltype(m), axes_codomain, axes_domain)
 end

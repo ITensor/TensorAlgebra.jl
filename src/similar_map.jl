@@ -1,13 +1,18 @@
 using Random: Random, AbstractRNG
 
 """
-    similar_map(prototype, [T,] axes_codomain, axes_domain) -> M
+    similar_map([allocator,] prototype, [T,] axes_codomain, axes_domain) -> M
 
 Allocate an array shaped as a linear map from `axes_domain` to `axes_codomain`
 with element type `T` (defaulting to `eltype(prototype)`), using `prototype` to
-determine the array backend. The domain axes are given un-dualized and are stored
-dualized, so for an `AbstractArray` the result has axes
+determine the array backend and `allocator` (defaulting to
+[`TensorAlgebra.DefaultAllocator`](@ref)) to provide the memory. The domain axes are given
+un-dualized and are stored dualized, so for an `AbstractArray` the result has axes
 `(axes_codomain..., conj.(axes_domain)...)`.
+
+Array types overload the form with the allocator, for any allocator, and pass it on to the
+allocation of their dense storage. An allocator overloads it for the dense prototypes whose
+storage it provides.
 
 # Examples
 
@@ -22,8 +27,13 @@ julia> eltype(M), size(M)
 (Float32, (2, 3, 4, 5))
 ```
 """
-function similar_map(prototype, ::Type{T}, axes_codomain, axes_domain) where {T}
+function similar_map(
+        allocator, prototype, ::Type{T}, axes_codomain, axes_domain
+    ) where {T}
     return similar(prototype, T, (axes_codomain..., conj.(axes_domain)...))
+end
+function similar_map(prototype, ::Type{T}, axes_codomain, axes_domain) where {T}
+    return similar_map(DefaultAllocator(), prototype, T, axes_codomain, axes_domain)
 end
 function similar_map(prototype, axes_codomain, axes_domain)
     return similar_map(prototype, eltype(prototype), axes_codomain, axes_domain)

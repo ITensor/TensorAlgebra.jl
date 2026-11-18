@@ -490,16 +490,18 @@ module FactorizationMatricizeTestUtils
     end
     function TA.allocate_output(
             ::typeof(TA.matricizeconj), isconj::Bool, a::AliasingArray, perm_codomain,
-            perm_domain
+            perm_domain; kwargs...
         )
         return TA.allocate_output(
-            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain
+            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain; kwargs...
         )
     end
     function TA.matricizeconj!(
-            dest, isconj::Bool, a::AliasingArray, perm_codomain, perm_domain
+            dest, isconj::Bool, a::AliasingArray, perm_codomain, perm_domain; kwargs...
         )
-        return TA.matricizeconj!(dest, isconj, a.parent, perm_codomain, perm_domain)
+        return TA.matricizeconj!(
+            dest, isconj, a.parent, perm_codomain, perm_domain; kwargs...
+        )
     end
 end
 using .FactorizationMatricizeTestUtils: AliasingArray

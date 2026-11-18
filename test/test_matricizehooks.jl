@@ -16,19 +16,25 @@ module MatricizeHooksTestUtils
         return false
     end
     function TA.allocate_output(
-            ::typeof(TA.matricizeconj), isconj::Bool, a::MyArray, perm_codomain, perm_domain
+            ::typeof(TA.matricizeconj), isconj::Bool, a::MyArray, perm_codomain, perm_domain;
+            kwargs...
         )
         return TA.allocate_output(
-            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain
+            TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain; kwargs...
         )
     end
-    function TA.matricizeconj!(dest, isconj::Bool, a::MyArray, perm_codomain, perm_domain)
-        return TA.matricizeconj!(dest, isconj, a.parent, perm_codomain, perm_domain)
+    function TA.matricizeconj!(
+            dest, isconj::Bool, a::MyArray, perm_codomain, perm_domain; kwargs...
+        )
+        return TA.matricizeconj!(
+            dest, isconj, a.parent, perm_codomain, perm_domain; kwargs...
+        )
     end
     function TA.unmatricizeadd!(
-            a_dest::MyArray, m, perm_codomain, perm_domain, α::Number, β::Number
+            a_dest::MyArray, m, perm_codomain, perm_domain, α::Number, β::Number;
+            kwargs...
         )
-        TA.unmatricizeadd!(a_dest.parent, m, perm_codomain, perm_domain, α, β)
+        TA.unmatricizeadd!(a_dest.parent, m, perm_codomain, perm_domain, α, β; kwargs...)
         return a_dest
     end
 end

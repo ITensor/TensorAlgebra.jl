@@ -19,6 +19,23 @@ function TA.ContractAlgorithm(backend::TO.AbstractBackend, allocator)
     return TensorOperationsContract(; backend, allocator)
 end
 
+# TensorOperations' buffer allocator provides the storage of dense temporaries. Its buffer holds
+# raw bytes, so only `Array`s of bits types are served from it.
+function TA.similar_map(
+        allocator::TO.BufferAllocator, prototype::Array, ::Type{T},
+        axes_codomain::Tuple{Vararg{Base.OneTo}}, axes_domain::Tuple{Vararg{Base.OneTo}}
+    ) where {T}
+    isbitstype(T) || return TA.similar_map(prototype, T, axes_codomain, axes_domain)
+    dims = (map(length, axes_codomain)..., map(length, axes_domain)...)
+    return TO.tensoralloc(Array{T, length(dims)}, dims, Val(true), allocator)
+end
+function TA.allocator_checkpoint!(allocator::TO.BufferAllocator)
+    return TO.allocator_checkpoint!(allocator)
+end
+function TA.allocator_reset!(allocator::TO.BufferAllocator, checkpoint)
+    return TO.allocator_reset!(allocator, checkpoint)
+end
+
 # Using TensorOperations backends as TensorAlgebra implementations
 # ----------------------------------------------------------------
 

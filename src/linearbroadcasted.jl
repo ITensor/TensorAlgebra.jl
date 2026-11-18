@@ -169,39 +169,44 @@ function Base.copyto!(dest::AbstractArray, src::Mul)
 end
 
 function _bipermutedimsconjadd!(
-        dest, isconj::Bool, src::ConjBroadcasted,
+        algorithm, dest, isconj::Bool, src::ConjBroadcasted,
         perm_codomain, perm_domain, α::Number, β::Number
     )
     return bipermutedimsconjadd!(
-        dest, !isconj, parent(src), perm_codomain, perm_domain, α, β
+        algorithm, dest, !isconj, parent(src), perm_codomain, perm_domain, α, β
     )
 end
 function _bipermutedimsconjadd!(
-        dest, isconj::Bool, src::ScaledBroadcasted,
+        algorithm, dest, isconj::Bool, src::ScaledBroadcasted,
         perm_codomain, perm_domain, α::Number, β::Number
     )
     c = isconj ? conj(coeff(src)) : coeff(src)
     return bipermutedimsconjadd!(
-        dest, isconj, unscaled(src), perm_codomain, perm_domain, c * α, β
+        algorithm, dest, isconj, unscaled(src), perm_codomain, perm_domain, c * α, β
     )
 end
 function _bipermutedimsconjadd!(
-        dest, isconj::Bool, src::AddBroadcasted,
+        algorithm, dest, isconj::Bool, src::AddBroadcasted,
         perm_codomain, perm_domain, α::Number, β::Number
     )
     args = addends(src)
-    bipermutedimsconjadd!(dest, isconj, first(args), perm_codomain, perm_domain, α, β)
+    bipermutedimsconjadd!(
+        algorithm, dest, isconj, first(args), perm_codomain, perm_domain, α, β
+    )
     for a in Base.tail(args)
-        bipermutedimsconjadd!(dest, isconj, a, perm_codomain, perm_domain, α, true)
+        bipermutedimsconjadd!(
+            algorithm, dest, isconj, a, perm_codomain, perm_domain, α, true
+        )
     end
     return dest
 end
 function _bipermutedimsconjadd!(
-        dest, isconj::Bool, src::Mul, perm_codomain, perm_domain, α::Number, β::Number
+        algorithm, dest, isconj::Bool, src::Mul,
+        perm_codomain, perm_domain, α::Number, β::Number
     )
     # TODO: Replace with contractconjadd! to avoid materializing the Mul intermediate.
     return bipermutedimsconjadd!(
-        dest, isconj, copy(src), perm_codomain, perm_domain, α, β
+        algorithm, dest, isconj, copy(src), perm_codomain, perm_domain, α, β
     )
 end
 
