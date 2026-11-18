@@ -59,7 +59,8 @@ using Test: @test, @testset
                 :svd_trunc, :svd_vals, :TensorOperationsContract, :to_range, :tr,
                 :trivialrange, :tryflattenlinear, :tryproject, :tryproject_aux, :twist!,
                 :unchecked_project, :unchecked_project_aux, :ungrade, :unmatricize,
-                :unmatricize!, :unmatricize_factors, :unmatricizeadd!, :unproject,
+                :unmatricize!, :unmatricize_factors, :unmatricizeadd!, :unmatricizecopy,
+                :unmatricizeview, :unproject,
                 :unscaled, :zero!,
                 :zeros_map,
             ]

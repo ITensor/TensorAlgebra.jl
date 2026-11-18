@@ -164,3 +164,24 @@ end
     a .= a .+ 1
     @test m == snapshot
 end
+
+@testset "unmatricize view and copy" begin
+    rng = StableRNG(12)
+    axes_codomain = (Base.OneTo(2), Base.OneTo(3))
+    axes_domain = (Base.OneTo(4),)
+    m = randn(rng, 6, 4)
+    @test isoutputview(TensorAlgebra.unmatricize, m, axes_codomain, axes_domain)
+    a = TensorAlgebra.unmatricize(m, axes_codomain, axes_domain)
+    @test a == reshape(m, 2, 3, 4)
+    @test Base.mightalias(a, m)
+    a_copy = TensorAlgebra.unmatricizecopy(m, axes_codomain, axes_domain)
+    @test a_copy == a
+    @test !Base.mightalias(a_copy, m)
+
+    # A lazy wrapper is not reshaped into a view, so `unmatricize` copies it.
+    mt = transpose(randn(rng, 4, 6))
+    @test !isoutputview(TensorAlgebra.unmatricize, mt, axes_codomain, axes_domain)
+    at = TensorAlgebra.unmatricize(mt, axes_codomain, axes_domain)
+    @test at isa Array
+    @test at == reshape(Array(mt), 2, 3, 4)
+end

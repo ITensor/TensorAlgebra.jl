@@ -239,7 +239,12 @@ end
 # MatrixAlgebraKit, so the identity fill on a regrouped `TensorMap` goes through TensorKit.
 TensorAlgebra.MatrixAlgebra.one!(t::AbstractTensorMap) = TensorKit.one!(t)
 
-function TensorAlgebra.unmatricize(m::AbstractTensorMap, axes_codomain, axes_domain)
+function TensorAlgebra.isoutputview(
+        ::typeof(TensorAlgebra.unmatricize), m::AbstractTensorMap, axes_codomain, axes_domain
+    )
+    return true
+end
+function TensorAlgebra.unmatricizeview(m::AbstractTensorMap, axes_codomain, axes_domain)
     S = spacetype(m)
     dest = ProductSpace{S}(axes_codomain...) ← ProductSpace{S}(axes_domain...)
     space(m) == dest ||
