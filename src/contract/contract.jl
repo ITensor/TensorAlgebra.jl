@@ -108,7 +108,8 @@ function _contractconj(
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
     a_dest = allocate_output(
         contractpermconjalign, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2,
-        biperm2...
+        biperm2...;
+        allocator = output_allocator(allocator(get(kwargs, :alg, nothing)))
     )
     return contractpermconjadd!(
         a_dest, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2, biperm2..., true,
@@ -194,7 +195,8 @@ function contractpermconjalign(
         contractpermconjalign,
         perm_dest_codomain, perm_dest_domain,
         isconj1, a1, perm1_codomain, perm1_domain,
-        isconj2, a2, perm2_codomain, perm2_domain
+        isconj2, a2, perm2_codomain, perm2_domain;
+        allocator = output_allocator(allocator(get(kwargs, :alg, nothing)))
     )
     return contractpermconjadd!(
         a_dest, perm_dest_codomain, perm_dest_domain,

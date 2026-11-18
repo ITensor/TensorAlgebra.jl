@@ -49,7 +49,7 @@ using Test: @test, @testset
                 :matricizeop, :matricizeop!, :matricizeopcopy, :matricizeopview,
                 :MATRIX_FUNCTIONS,
                 :ndims, :ndims_codomain, :ndims_domain, :one, :ones_map, :operation,
-                :output_axes,
+                :output_allocator, :output_axes,
                 :PermuteAlgorithm, :PermutedDims, :permuteddims, :permutedims,
                 :permutedims!,
                 :permutedimsadd!, :permutedimsconj, :permutedimsconjadd!, :permutedimsop,

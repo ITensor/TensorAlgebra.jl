@@ -15,6 +15,15 @@ unless `alg` carries one.
 allocator(alg) = DefaultAllocator()
 
 """
+    TensorAlgebra.output_allocator(allocator)
+
+The allocator for the output of an operation whose temporaries come from `allocator`.
+[`TensorAlgebra.DefaultAllocator`](@ref) unless `allocator` overloads it, since an output
+outlives the call and must not use memory that [`TensorAlgebra.allocator_reset!`](@ref) reuses.
+"""
+output_allocator(allocator) = DefaultAllocator()
+
+"""
     TensorAlgebra.allocator_checkpoint!(allocator) -> checkpoint
     TensorAlgebra.allocator_reset!(allocator, checkpoint)
 

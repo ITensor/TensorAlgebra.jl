@@ -38,8 +38,22 @@ module AlgorithmsTestUtils
         allocator.depth -= 1
         return allocator
     end
+
+    # Serves temporaries from `temporaries` and outputs from `outputs`.
+    struct SplitAllocator
+        temporaries::CountingAllocator
+        outputs::CountingAllocator
+    end
+    SplitAllocator() = SplitAllocator(CountingAllocator(), CountingAllocator())
+    function TA.similar_map(
+            allocator::SplitAllocator, prototype::Array, ::Type{T}, axes_codomain, axes_domain
+        ) where {T}
+        return TA.similar_map(allocator.temporaries, prototype, T, axes_codomain, axes_domain)
+    end
+    TA.output_allocator(allocator::SplitAllocator) = allocator.outputs
 end
-using .AlgorithmsTestUtils: CountingAllocator, CountingPermute, UnimplementedPermute
+using .AlgorithmsTestUtils:
+    CountingAllocator, CountingPermute, SplitAllocator, UnimplementedPermute
 
 @testset "permute algorithm" begin
     a = randn(3, 4, 5)
@@ -93,6 +107,17 @@ end
     @test c2_alg ≈ permutedims(c2, (4, 1, 2, 3))
     @test allocator.count == 3
     @test allocator.depth == 0
+
+    # The output comes from `output_allocator`, the temporaries from the allocator itself.
+    @test TA.output_allocator(allocator) ≡ TA.DefaultAllocator()
+    split = SplitAllocator()
+    c2_alg = TA.contractalign(
+        (:m, :i, :k, :l), a, (:i, :j, :k), a2, (:l, :j, :m);
+        alg = MatricizeContract(; allocator = split)
+    )
+    @test c2_alg ≈ permutedims(c2, (4, 1, 2, 3))
+    @test split.temporaries.count == 3
+    @test split.outputs.count == 1
 
     buffer = BufferAllocator()
     alg = MatricizeContract(; allocator = buffer)
