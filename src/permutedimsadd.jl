@@ -127,7 +127,7 @@ end
 (f::ConjScale)(x) = f.α * (f.isconj ? conj(x) : x)
 
 # Its argument types depend only on the element types and the rank, so it compiles once per
-# element type and rank (see `precompile.jl`).
+# element type and rank.
 function permutedimsconjadd_strided!(
         dest::SV.StridedView{T, N}, isconj::Bool, src::SV.StridedView{<:Any, N},
         perm::NTuple{N, Int}, α::Number, β::Number
