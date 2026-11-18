@@ -4,8 +4,8 @@ using MatrixAlgebraKit: diagview
 using Random: AbstractRNG
 using TensorAlgebra: TensorAlgebra
 using TensorKit: TensorKit, AbstractTensorMap, DiagonalTensorMap, ElementarySpace,
-    ProductSpace, TensorMap, TensorMapWithStorage, blocks, codomain, dim, domain, dual,
-    fuse, numind, numout, permute, project_symmetric!, sectors, space, spacetype, ←
+    ProductSpace, TensorMap, blocks, codomain, dim, domain, dual, fuse, numin, numind,
+    numout, permute, project_symmetric!, sectors, space, spacetype, ←
 using TensorOperations: TensorOperations as TO
 using VectorInterface: VectorInterface
 
@@ -56,32 +56,43 @@ TensorAlgebra.sum(t::AbstractTensorMap; kwargs...) = Base.sum(convert(Array, t);
 # =====================================  similar_map  =======================================
 # `similar_map` takes the domain axes un-dualized, which matches TensorKit's
 # `similar(t, T, codomain, domain)`.
+# Only a `TensorMap` has a single storage vector for the allocator to provide.
 function TensorAlgebra.similar_map(
-        a::AbstractTensorMap, ::Type{T}, axes_codomain, axes_domain
+        allocator, a::AbstractTensorMap, ::Type{T}, axes_codomain, axes_domain
     ) where {T}
     S = spacetype(a)
     return similar(a, T, ProductSpace{S}(axes_codomain...), ProductSpace{S}(axes_domain...))
+end
+function TensorAlgebra.similar_map(
+        allocator, a::TensorMap, ::Type{T}, axes_codomain, axes_domain
+    ) where {T}
+    return similar_tensormap(
+        allocator, a.data, T, spacetype(a), axes_codomain, axes_domain
+    )
 end
 
 # A plain-array prototype with space axes builds a `TensorMap` whose block storage type follows
 # `raw`'s array type, so the storage stays on the same device, for example a GPU.
 function similar_tensormap(
-        raw::AbstractArray, ::Type{T}, ::Type{S}, axes_codomain, axes_domain
+        allocator, raw::AbstractArray, ::Type{T}, ::Type{S}, axes_codomain, axes_domain
     ) where {T, S <: ElementarySpace}
-    A = Base.promote_op(similar, typeof(raw), Type{T}, Int)
-    return TensorMapWithStorage{T, A}(undef, _map_homspace(S, axes_codomain, axes_domain))
+    V = _map_homspace(S, axes_codomain, axes_domain)
+    data = TensorAlgebra.similar_map(allocator, raw, T, (Base.OneTo(dim(V)),), ())
+    return TensorKit.tensormaptype(S, numout(V), numin(V), typeof(data))(
+        data, V
+    )
 end
 function TensorAlgebra.similar_map(
-        raw::AbstractArray, ::Type{T},
+        allocator, raw::AbstractArray, ::Type{T},
         axes_codomain::Tuple{S, Vararg{S}}, axes_domain::Tuple{Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    return similar_tensormap(raw, T, S, axes_codomain, axes_domain)
+    return similar_tensormap(allocator, raw, T, S, axes_codomain, axes_domain)
 end
 function TensorAlgebra.similar_map(
-        raw::AbstractArray, ::Type{T},
+        allocator, raw::AbstractArray, ::Type{T},
         axes_codomain::Tuple{}, axes_domain::Tuple{S, Vararg{S}}
     ) where {T, S <: ElementarySpace}
-    return similar_tensormap(raw, T, S, axes_codomain, axes_domain)
+    return similar_tensormap(allocator, raw, T, S, axes_codomain, axes_domain)
 end
 
 # ===============================  zeros_map / randn_map / rand_map  ========================
@@ -190,6 +201,7 @@ end
 # Delegate to TensorKit's TensorOperations interface: `tensoradd!` realizes the permutation, the
 # data conjugation (via `adjoint` internally), and the `α`/`β` scaling in one call.
 function TensorAlgebra.bipermutedimsconjadd!(
+        ::TensorAlgebra.DefaultPermute,
         dest::AbstractTensorMap, isconj::Bool, src::AbstractTensorMap,
         perm_codomain, perm_domain, α::Number, β::Number
     )
@@ -220,18 +232,18 @@ end
 # one, whose spaces are dualized under `isconj` as `tensoradd!` requires.
 function TensorAlgebra.allocate_output(
         ::typeof(TensorAlgebra.matricizeconj), isconj::Bool,
-        t::AbstractTensorMap, perm_codomain, perm_domain
+        t::AbstractTensorMap, perm_codomain, perm_domain; kwargs...
     )
     return TensorAlgebra.allocate_output(
-        TensorAlgebra.bipermutedimsconj, isconj, t, perm_codomain, perm_domain
+        TensorAlgebra.bipermutedimsconj, isconj, t, perm_codomain, perm_domain; kwargs...
     )
 end
 function TensorAlgebra.matricizeconj!(
         dest::AbstractTensorMap, isconj::Bool,
-        t::AbstractTensorMap, perm_codomain, perm_domain
+        t::AbstractTensorMap, perm_codomain, perm_domain; kwargs...
     )
     return TensorAlgebra.bipermutedimsconjadd!(
-        dest, isconj, t, perm_codomain, perm_domain, true, false
+        dest, isconj, t, perm_codomain, perm_domain, true, false; kwargs...
     )
 end
 

@@ -5,7 +5,7 @@ export contract, contract!, contractalign, dual, isdual, MatrixAlgebra
 if VERSION >= v"1.11.0-DEV.469"
     eval(
         Meta.parse(
-            "public AbstractAlgorithm, add!, AddBroadcasted, addends, allocate_output, allocate_project, arguments, axes, bipartition, bipartition_axes, biperm, bipermutedims, bipermutedims!, bipermutedimsadd!, bipermutedimsconj, bipermutedimsconjadd!, bipermutedimsop, bipermutedimsopadd!, BiTuple, bituple, cat_axis, cat_similar, check_input, concatenate, concatenate!, ConjArray, ConjBroadcasted, conjed, contractadd!, contractconjalign, contractconjadd!, ContractAlgorithm, contractopalign, contractopadd!, contractperm, contractperm!, contractpermadd!, contractpermalign, contractpermconjalign, contractpermconjadd!, contractpermopalign, contractpermopadd!, data, datatype, default_algorithm, dims2cat, directsum, dot, dotperm, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc, eigh_vals, fill_map, flattenlinear, hasbipartition, infer_aux_space, invsqrth_safe, isidentitybiperm, isoutputview, isprojected, left_null, left_orth, left_polar, LinearBroadcasted, linearbroadcasted, lq_compact, lq_full, matricize, MatricizeContract, matricizeconj, matricizeconj!, matricizeconjcopy, matricizeconjview, matricizeop, matricizeop!, matricizeopcopy, matricizeopview, MATRIX_FUNCTIONS, ndims, ndims_codomain, ndims_domain, one, ones_map, operation, output_axes, PermutedDims, permuteddims, permutedims, permutedims!, permutedimsadd!, permutedimsconj, permutedimsconjadd!, permutedimsop, permutedimsopadd!, project, project!, project_aux, project_hermitian, projectto!, qr_compact, qr_full, rand_map, randn_map, right_null, right_orth, right_polar, scalar, scale!, scaleadd!, ScaledBroadcasted, select_algorithm, similar_map, size, sqrth_invsqrth_safe, sqrth_safe, sum, svd_compact, svd_full, svd_trunc, svd_vals, TensorOperationsContract, to_range, tr, trivialrange, tryflattenlinear, tryproject, tryproject_aux, twist!, unchecked_project, unchecked_project_aux, ungrade, unmatricize, unmatricize!, unmatricize_factors, unmatricizeadd!, unmatricizecopy, unmatricizeview, unproject, unscaled, zero!, zeros_map"
+            "public AbstractAlgorithm, add!, AddBroadcasted, addends, allocate_output, allocate_project, allocator, allocator_checkpoint!, allocator_reset!, arguments, axes, bipartition, bipartition_axes, biperm, bipermutedims, bipermutedims!, bipermutedimsadd!, bipermutedimsconj, bipermutedimsconjadd!, bipermutedimsop, bipermutedimsopadd!, BiTuple, bituple, cat_axis, cat_similar, check_input, concatenate, concatenate!, ConjArray, ConjBroadcasted, conjed, contractadd!, contractconjalign, contractconjadd!, ContractAlgorithm, contractopalign, contractopadd!, contractperm, contractperm!, contractpermadd!, contractpermalign, contractpermconjalign, contractpermconjadd!, contractpermopalign, contractpermopadd!, data, datatype, default_algorithm, DefaultAllocator, DefaultPermute, dims2cat, directsum, dot, dotperm, eig_full, eig_trunc, eig_vals, eigh_full, eigh_trunc, eigh_vals, fill_map, flattenlinear, hasbipartition, infer_aux_space, invsqrth_safe, isidentitybiperm, isoutputview, isprojected, left_null, left_orth, left_polar, LinearBroadcasted, linearbroadcasted, lq_compact, lq_full, matricize, MatricizeContract, matricizeconj, matricizeconj!, matricizeconjcopy, matricizeconjview, matricizeop, matricizeop!, matricizeopcopy, matricizeopview, MATRIX_FUNCTIONS, ndims, ndims_codomain, ndims_domain, one, ones_map, operation, output_axes, PermuteAlgorithm, PermutedDims, permuteddims, permutedims, permutedims!, permutedimsadd!, permutedimsconj, permutedimsconjadd!, permutedimsop, permutedimsopadd!, project, project!, project_aux, project_hermitian, projectto!, qr_compact, qr_full, rand_map, randn_map, right_null, right_orth, right_polar, scalar, scale!, scaleadd!, ScaledBroadcasted, select_algorithm, similar_map, size, sqrth_invsqrth_safe, sqrth_safe, sum, svd_compact, svd_full, svd_trunc, svd_vals, TensorOperationsContract, to_range, tr, trivialrange, tryflattenlinear, tryproject, tryproject_aux, twist!, unchecked_project, unchecked_project_aux, ungrade, unmatricize, unmatricize!, unmatricize_factors, unmatricizeadd!, unmatricizecopy, unmatricizeview, unproject, unscaled, zero!, zeros_map"
         )
     )
 end
@@ -15,6 +15,8 @@ include("datatype.jl")
 include("inplace.jl")
 include("MatrixAlgebra.jl")
 include("bituple.jl")
+include("algorithm.jl")
+include("allocator.jl")
 include("permutedimsadd.jl")
 include("matricize.jl")
 include("dotperm.jl")
@@ -22,7 +24,6 @@ include("concatenate.jl")
 include("directsum.jl")
 include("dual.jl")
 include("to_range.jl")
-include("algorithm.jl")
 include("contract/contractalgorithm.jl")
 include("contract/contract.jl")
 include("contract/contract_labels.jl")

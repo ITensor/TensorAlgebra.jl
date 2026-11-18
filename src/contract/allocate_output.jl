@@ -1,3 +1,5 @@
+using LinearAlgebra: Adjoint, Transpose
+
 # Kept out of line so it compiles per array type, not per pair of operands.
 @noinline function check_biperm(a, perm_codomain, perm_domain)
     ndims(a) == length(perm_codomain) + length(perm_domain) ||
@@ -82,7 +84,8 @@ function allocate_output(
         ::typeof(contractpermconjalign),
         perm_dest_codomain, perm_dest_domain,
         isconj1::Bool, a1, perm1_codomain, perm1_domain,
-        isconj2::Bool, a2, perm2_codomain, perm2_domain
+        isconj2::Bool, a2, perm2_codomain, perm2_domain;
+        allocator = DefaultAllocator()
     )
     axes_codomain_dest, axes_domain_dest = @inline output_axes(
         contractpermconjalign,
@@ -91,5 +94,15 @@ function allocate_output(
         isconj2, axes(a2), perm2_codomain, perm2_domain
     )
     T = Base.promote_op(matprod, eltype(a1), eltype(a2))
-    return zero!(similar_map(a1, T, axes_codomain_dest, axes_domain_dest))
+    return zero!(similar_map(allocator, a1, T, axes_codomain_dest, axes_domain_dest))
+end
+
+# As `LinearAlgebra`'s generic `*` allocates its result. A transposed matrix allocates like its
+# parent, which is passed on so that an allocator for the parent's type can serve it.
+function allocate_output(
+        ::typeof(*), m1::AbstractMatrix, m2::AbstractMatrix; allocator = DefaultAllocator()
+    )
+    T = Base.promote_op(matprod, eltype(m1), eltype(m2))
+    prototype = m2 isa Union{Adjoint, Transpose} ? parent(m2) : m2
+    return similar_map(allocator, prototype, T, (axes(m1, 1),), (axes(m2, 2),))
 end

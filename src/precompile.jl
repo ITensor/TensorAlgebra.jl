@@ -16,7 +16,7 @@ using PrecompileTools: @compile_workload, @setup_workload
             m = ones(T, (2, 2))
             for m1 in (m, adjoint(m), transpose(m)), m2 in (m, adjoint(m), transpose(m))
                 mul!(similar(m), m1, m2, true, false)
-                m1 * m2
+                mul!(allocate_output(*, m1, m2), m1, m2)
             end
             perm1, perm2 = (2, 1), (4, 3)
             matricize(b, perm1, perm2)

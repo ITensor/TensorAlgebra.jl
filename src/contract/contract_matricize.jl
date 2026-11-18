@@ -3,7 +3,7 @@ using TupleTools: TupleTools
 
 # Matricize both operands, multiply, and write the product into the destination.
 function contractpermconjadd!(
-        ::MatricizeContract,
+        algorithm::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
         isconj1::Bool, a1::AbstractArray, biperm1_codomain, biperm1_domain,
         isconj2::Bool, a2::AbstractArray, biperm2_codomain, biperm2_domain,
@@ -26,21 +26,23 @@ function contractpermconjadd!(
         isconj2, a2, biperm2_codomain, biperm2_domain
     )
     contracted1, contracted2 = contracted
+    checkpoint = allocator_checkpoint!(allocator(algorithm))
     if swap
         _contractpermconjadd_matricized!(
-            a_dest, invperm_domain, invperm_codomain,
+            algorithm, a_dest, invperm_domain, invperm_codomain,
             isconj2, a2, biperm2_domain, contracted2,
             isconj1, a1, contracted1, biperm1_codomain,
             α, β
         )
     else
         _contractpermconjadd_matricized!(
-            a_dest, invperm_codomain, invperm_domain,
+            algorithm, a_dest, invperm_codomain, invperm_domain,
             isconj1, a1, biperm1_codomain, contracted1,
             isconj2, a2, contracted2, biperm2_domain,
             α, β
         )
     end
+    allocator_reset!(allocator(algorithm), checkpoint)
     return a_dest
 end
 
@@ -96,13 +98,14 @@ end
 # `a_dest = β * a_dest + α * m1 * m2` for the operands matricized as `m1` and `m2`, with the
 # product's rows and columns placed in `a_dest` by `(perm_dest_codomain, perm_dest_domain)`.
 function _contractpermconjadd_matricized!(
-        a_dest, perm_dest_codomain, perm_dest_domain,
+        algorithm, a_dest, perm_dest_codomain, perm_dest_domain,
         isconj1::Bool, a1, perm1_codomain, perm1_domain,
         isconj2::Bool, a2, perm2_codomain, perm2_domain,
         α::Number, β::Number
     )
-    a1_mat = matricizeconj(isconj1, a1, perm1_codomain, perm1_domain)
-    a2_mat = matricizeconj(isconj2, a2, perm2_codomain, perm2_domain)
+    kwargs = (; alg = algorithm.permute_alg, allocator = allocator(algorithm))
+    a1_mat = matricizeconj(isconj1, a1, perm1_codomain, perm1_domain; kwargs...)
+    a2_mat = matricizeconj(isconj2, a2, perm2_codomain, perm2_domain; kwargs...)
     if isidentitybiperm(perm_dest_codomain, perm_dest_domain) &&
             isoutputview(matricizeconj, false, a_dest, perm_dest_codomain, perm_dest_domain)
         a_dest_mat = matricizeconjview(false, a_dest, perm_dest_codomain, perm_dest_domain)
@@ -112,14 +115,17 @@ function _contractpermconjadd_matricized!(
         Base.inferencebarrier(mul!)(a_dest_mat, a1_mat, a2_mat, α, β)
     else
         Base.inferencebarrier(unmatricizemuladd!)(
-            a_dest, a1_mat, a2_mat, perm_dest_codomain, perm_dest_domain, α, β
+            algorithm, a_dest, a1_mat, a2_mat, perm_dest_codomain, perm_dest_domain, α, β
         )
     end
     return a_dest
 end
 
 # `a_dest = β * a_dest + α * unmatricize(m1 * m2)`.
-function unmatricizemuladd!(a_dest, m1, m2, perm_codomain, perm_domain, α, β)
-    unmatricizeadd!(a_dest, m1 * m2, perm_codomain, perm_domain, α, β)
+function unmatricizemuladd!(algorithm, a_dest, m1, m2, perm_codomain, perm_domain, α, β)
+    m = mul!(allocate_output(*, m1, m2; allocator = allocator(algorithm)), m1, m2)
+    unmatricizeadd!(
+        a_dest, m, perm_codomain, perm_domain, α, β; alg = algorithm.permute_alg
+    )
     return nothing
 end
