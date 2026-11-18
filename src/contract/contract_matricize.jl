@@ -73,7 +73,7 @@ end
     )
     n = length(a)
     copy_length(perm_codomain, perm_domain) =
-        is_output_view(matricizeconj, isconj, a, perm_codomain, perm_domain) ? 0 : n
+        isoutputview(matricizeconj, isconj, a, perm_codomain, perm_domain) ? 0 : n
     return (
         copy_length(perm_open, perm_contracted),
         copy_length(perm_open, perm_contracted_alt),
@@ -89,7 +89,7 @@ end
     n = length(a_dest)
     function copy_length(perm_codomain, perm_domain)
         isidentitybiperm(perm_codomain, perm_domain) &&
-            is_output_view(matricizeconj, false, a_dest, perm_codomain, perm_domain) &&
+            isoutputview(matricizeconj, false, a_dest, perm_codomain, perm_domain) &&
             return 0
         return n
     end
@@ -107,7 +107,7 @@ function _contractpermconjadd_matricized!(
     a1_mat = matricizeconj(isconj1, a1, perm1_codomain, perm1_domain)
     a2_mat = matricizeconj(isconj2, a2, perm2_codomain, perm2_domain)
     if isidentitybiperm(perm_dest_codomain, perm_dest_domain) &&
-            is_output_view(matricizeconj, false, a_dest, perm_dest_codomain, perm_dest_domain)
+            isoutputview(matricizeconj, false, a_dest, perm_dest_codomain, perm_dest_domain)
         a_dest_mat = matricizeconjview(false, a_dest, perm_dest_codomain, perm_dest_domain)
         # The matricizations are inferred as a `Union` of `Matrix`, `Transpose` and `Adjoint`, which
         # would make the compiler analyze the matrix product on that `Union`. Dispatching at run

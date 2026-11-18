@@ -1,11 +1,11 @@
-using TensorAlgebra: TensorAlgebra, has_bipartition, is_projected, ndims_codomain,
+using TensorAlgebra: TensorAlgebra, hasbipartition, isprojected, ndims_codomain,
     ndims_domain, project, project!, project_aux, projectto!, tryproject, tryproject_aux,
     unchecked_project, unchecked_project_aux, unproject
 using Test: @test, @test_throws, @testset
 
 const elts = (Float32, Float64, ComplexF32, ComplexF64)
 
-# A dense projection is exact, so it cannot itself trip the `is_projected` check. To
+# A dense projection is exact, so it cannot itself trip the `isprojected` check. To
 # exercise the checked verbs generically we wrap the source in a custom array type whose
 # `projectto!` method rounds to one decimal place, discarding information.
 struct Rounded{T, A <: AbstractArray{T}} <: AbstractArray{T, 2}
@@ -32,7 +32,7 @@ end
     @test dest1 == src
 
     # `project` projects into a `(cod..., conj.(dom)...)`-shaped destination (allocated by
-    # `allocate_project`, filled by `projectto!`) and verifies via `is_projected` that
+    # `allocate_project`, filled by `projectto!`) and verifies via `isprojected` that
     # nothing was discarded. A dense projection is exact, so it always accepts here; the
     # symmetry-rejection cases are exercised on the GradedArrays and TensorKit backends.
     raw = randn(T, 2, 3, 2, 3)
@@ -55,13 +55,13 @@ end
     @test unchecked_project(flat, (Base.OneTo(2), Base.OneTo(3))) == flat
 
     # A lossy `projectto!` (the `Rounded` fixture) flips the outcome of each verb:
-    # `unchecked_project` silently returns the truncated result, `is_projected` reports
+    # `unchecked_project` silently returns the truncated result, `isprojected` reports
     # the discard, `project` throws, and `tryproject` gives `nothing`.
     if T <: Real
         rough = Rounded(randn(T, 2, 3))
         lossy = unchecked_project(rough, (Base.OneTo(2), Base.OneTo(3)))
         @test lossy == round.(rough.data; digits = 1)
-        @test !is_projected(lossy, rough; atol = 0, rtol = 0)
+        @test !isprojected(lossy, rough; atol = 0, rtol = 0)
         @test_throws InexactError project(
             rough, (Base.OneTo(2), Base.OneTo(3)); atol = 0, rtol = 0
         )
@@ -88,7 +88,7 @@ end
     @test ndims_codomain(a) == 3
     @test ndims_domain(a) == 0
     # An array is all-codomain by fallback, not because it stores that split.
-    @test !has_bipartition(a)
+    @test !hasbipartition(a)
 end
 
 @testset "unproject (dense default) ($T)" for T in elts
@@ -98,7 +98,7 @@ end
     M = project(raw, cod, dom)
     @test unproject(M, Val(2)) == raw
     @test unproject(M, Val(0)) == raw   # split is irrelevant for a dense array
-    @test is_projected(M, raw, Val(2))
+    @test isprojected(M, raw, Val(2))
 end
 
 @testset "project pads trailing length-1 axes ($T)" for T in elts

@@ -149,7 +149,7 @@ function matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
 end
 function _matricizeconj(isconj::Bool, a, perm_codomain, perm_domain)
     check_biperm(a, perm_codomain, perm_domain)
-    is_output_view(matricizeconj, isconj, a, perm_codomain, perm_domain) &&
+    isoutputview(matricizeconj, isconj, a, perm_codomain, perm_domain) &&
         return matricizeconjview(isconj, a, perm_codomain, perm_domain)
     return matricizeconjcopy(isconj, a, perm_codomain, perm_domain)
 end
@@ -211,7 +211,7 @@ end
     matricizeconjview(isconj::Bool, a, perm_codomain, perm_domain) -> m
 
 Matricize `a`, conjugated when `isconj` is `true`, as a matrix sharing `a`'s memory. Array
-types overload this for the arguments where [`is_output_view`](@ref) returns `true`.
+types overload this for the arguments where [`isoutputview`](@ref) returns `true`.
 
 See also [`matricizeopview`](@ref).
 """
@@ -252,14 +252,14 @@ function allocate_output(
     )
 end
 
-# ==================================  is_output_view  ======================================
+# ==================================  isoutputview  ======================================
 """
-    is_output_view(matricizeconj, isconj::Bool, a, perm_codomain, perm_domain) -> Bool
+    isoutputview(matricizeconj, isconj::Bool, a, perm_codomain, perm_domain) -> Bool
 
 Whether `matricizeconj` returns a matrix sharing `a`'s memory for these arguments. Defaults to
 `false`. Array types overload it together with [`matricizeconjview`](@ref).
 """
-function is_output_view(
+function isoutputview(
         ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain
     )
     return false
@@ -333,7 +333,7 @@ end
 # Only a `DenseArray` declares a view, since reshaping any other array gives a wrapper that `mul!`
 # does not send to BLAS. The view is the reshape when the dimensions are already in order, and its
 # `transpose`, or `adjoint` when conjugating, at the swapped split.
-function is_output_view(
+function isoutputview(
         ::typeof(matricizeconj), isconj::Bool, a::DenseArray, perm_codomain, perm_domain
     )
     return !isconj && isidentitybiperm(perm_codomain, perm_domain) ||

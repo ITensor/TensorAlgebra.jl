@@ -10,7 +10,7 @@ module MatricizeHooksTestUtils
     # Minimal hooks so a round trip (`one!`) can run through the wrapper. All of them dispatch on
     # `MyArray`, so a path that dropped the wrapper and re-derived the hooks from the plain fused
     # matrix would miss them and error.
-    function TA.is_output_view(
+    function TA.isoutputview(
             ::typeof(TA.matricizeconj), isconj::Bool, a::MyArray, perm_codomain, perm_domain
         )
         return false

@@ -2,7 +2,7 @@ using Base.Broadcast: broadcasted
 using LinearAlgebra: LinearAlgebra, norm
 using StableRNGs: StableRNG
 using TensorAlgebra: TensorAlgebra, contract, contractalign, eig_full, eig_vals, eigh_full,
-    eigh_vals, has_bipartition, left_null, left_orth, left_polar, lq_compact, lq_full,
+    eigh_vals, hasbipartition, left_null, left_orth, left_polar, lq_compact, lq_full,
     matricize, project, project_aux, projectto!, qr_compact, qr_full, rand_map, randn_map,
     right_null, right_orth, right_polar, similar_map, svd_compact, svd_full, svd_vals,
     tryflattenlinear, tryproject, unchecked_project, unmatricize, zeros_map
@@ -383,7 +383,7 @@ using Test: @test, @test_throws, @testset
             # Regrouping a `TensorMap` is a permuted-add, so the matricization is the tensor
             # `permutedimsop` builds, spaces included. Under `conj` that dualizes every space.
             ref = TensorAlgebra.permutedimsop(op, t, pc, pd)
-            if TensorAlgebra.is_output_view(
+            if TensorAlgebra.isoutputview(
                     TensorAlgebra.matricizeconj,
                     op === conj,
                     t,
@@ -400,10 +400,10 @@ using Test: @test, @test_throws, @testset
             @test m_copy ≈ ref
         end
         # Only the split TensorKit already stores is a view. A regrouped one has to be built.
-        @test TensorAlgebra.is_output_view(
+        @test TensorAlgebra.isoutputview(
             TensorAlgebra.matricizeconj, false, t, (1, 2), (3,)
         )
-        @test !TensorAlgebra.is_output_view(
+        @test !TensorAlgebra.isoutputview(
             TensorAlgebra.matricizeconj, false, t, (1, 3), (2,)
         )
 
@@ -511,7 +511,7 @@ end
 @testset "the codomain/domain accessors on a TensorMap" begin
     W = Rep[U₁](0 => 1, 1 => 1)
     t = zeros_map(Float64, (W, W), (W,))
-    @test has_bipartition(t)
+    @test hasbipartition(t)
     @test TensorAlgebra.ndims_codomain(t) == 2
     @test TensorAlgebra.ndims_domain(t) == 1
 end

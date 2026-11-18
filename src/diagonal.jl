@@ -29,7 +29,7 @@ end
 
 # The `{1,1}` matricization of a `Diagonal` is `a` itself, which keeps it a `Diagonal`
 # downstream.
-function is_output_view(
+function isoutputview(
         ::typeof(matricizeconj), isconj::Bool, a::Diagonal, perm_codomain::Tuple{Int},
         perm_domain::Tuple{Int}
     )

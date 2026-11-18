@@ -88,7 +88,7 @@ using Test: @test, @test_throws, @testset
         dz = Diagonal(elt <: Complex ? elt[1 + 2im, 3 - im, 2im] : elt[1, 3, 2])
         for op in (identity, conj), (pc, pd) in (((1,), (2,)), ((2,), (1,)))
             ref = TensorAlgebra.matricizeop(op, dz, pc, pd)
-            if TensorAlgebra.is_output_view(
+            if TensorAlgebra.isoutputview(
                     TensorAlgebra.matricizeconj,
                     op === conj,
                     dz,
@@ -105,14 +105,14 @@ using Test: @test, @test_throws, @testset
         end
         # Only the identity op on the untransposed split aliases. `matricizeconjview` hands back
         # `dz` itself, so a declared share under `conj` would silently skip the conjugation.
-        @test TensorAlgebra.is_output_view(
+        @test TensorAlgebra.isoutputview(
             TensorAlgebra.matricizeconj,
             false,
             dz,
             (1,),
             (2,)
         )
-        @test !TensorAlgebra.is_output_view(
+        @test !TensorAlgebra.isoutputview(
             TensorAlgebra.matricizeconj,
             true,
             dz,

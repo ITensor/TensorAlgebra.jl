@@ -20,7 +20,7 @@ for f in (
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
             A_mat =
-            if is_output_view(matricizeconj, false, A, perm_codomain, perm_domain)
+            if isoutputview(matricizeconj, false, A, perm_codomain, perm_domain)
                 A_shared = matricizeconjview(false, A, perm_codomain, perm_domain)
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
@@ -658,7 +658,7 @@ function one end
 # Write the identity into `A`.
 function one!(A, ndims_codomain::Val)
     perm_codomain, perm_domain = identitybiperm(ndims_codomain, Val(ndims(A)))
-    if is_output_view(matricizeconj, false, A, perm_codomain, perm_domain)
+    if isoutputview(matricizeconj, false, A, perm_codomain, perm_domain)
         MatrixAlgebra.one!(matricizeconjview(false, A, perm_codomain, perm_domain))
         return A
     end

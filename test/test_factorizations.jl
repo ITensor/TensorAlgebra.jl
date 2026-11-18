@@ -475,11 +475,11 @@ module FactorizationMatricizeTestUtils
     end
     # Delegate every hook to the dense hooks on the unwrapped parent, so the matricization
     # aliases exactly where a plain `Array`'s would.
-    function TA.is_output_view(
+    function TA.isoutputview(
             ::typeof(TA.matricizeconj), isconj::Bool, a::AliasingArray, perm_codomain,
             perm_domain
         )
-        return TA.is_output_view(
+        return TA.isoutputview(
             TA.matricizeconj, isconj, a.parent, perm_codomain, perm_domain
         )
     end

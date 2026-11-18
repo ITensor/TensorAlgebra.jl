@@ -65,36 +65,36 @@ unchecked_project(raw, axes) = unchecked_project(raw, axes, ())
 
 The codomain and domain ranks of `a`'s intrinsic split, for a type that stores one. An array has
 no intrinsic split, so it is all codomain with an empty domain. A type that stores a split
-overloads `ndims_codomain` and [`has_bipartition`](@ref).
+overloads `ndims_codomain` and [`hasbipartition`](@ref).
 """
 ndims_codomain(a) = ndims(a)
 @doc (@doc ndims_codomain)
 ndims_domain(a) = ndims(a) - ndims_codomain(a)
 
 """
-    TensorAlgebra.has_bipartition(a) -> Bool
+    TensorAlgebra.hasbipartition(a) -> Bool
 
 Whether `a`'s type stores an intrinsic codomain/domain split, so that
 [`ndims_codomain`](@ref) reports a split `a` genuinely carries rather than the all-codomain
 fallback. A `TensorMap` returns `true` and an array returns `false`.
 """
-has_bipartition(a) = false
+hasbipartition(a) = false
 
 """
-    is_projected(dest, src, ndims_codomain::Val; kwargs...) -> Bool
-    is_projected(dest, src; kwargs...) -> Bool
+    isprojected(dest, src, ndims_codomain::Val; kwargs...) -> Bool
+    isprojected(dest, src; kwargs...) -> Bool
 
 Whether the projected `dest` still represents `src` within the `isapprox` tolerance, that is,
 whether the projection that produced `dest` discarded only a negligible component of `src`.
 `src` is compared against [`unproject`](@ref)`(dest, ndims_codomain)`, and keyword arguments are
 forwarded to `isapprox`. The two-argument form uses the codomain rank of `dest`.
 """
-function is_projected(dest, src, ndims_codomain::Val; kwargs...)
+function isprojected(dest, src, ndims_codomain::Val; kwargs...)
     check_project_size(size(src), size(dest))
     return isapprox(reshape(src, size(dest)), unproject(dest, ndims_codomain); kwargs...)
 end
-function is_projected(dest, src; kwargs...)
-    return is_projected(dest, src, Val(ndims_codomain(dest)); kwargs...)
+function isprojected(dest, src; kwargs...)
+    return isprojected(dest, src, Val(ndims_codomain(dest)); kwargs...)
 end
 
 """
@@ -118,7 +118,7 @@ tolerance check. See [`projectto!`](@ref) for the unchecked version and
 """
 function project!(dest, src; kwargs...)
     projectto!(dest, src)
-    is_projected(dest, src; kwargs...) ||
+    isprojected(dest, src; kwargs...) ||
         throw(InexactError(:project!, typeof(dest), src))
     return dest
 end
@@ -142,7 +142,7 @@ flat list of `axes` and is equivalent to an empty domain.
 """
 function project(raw, axes_codomain, axes_domain; kwargs...)
     dest = unchecked_project(raw, axes_codomain, axes_domain)
-    is_projected(dest, raw, Val(length(axes_codomain)); kwargs...) ||
+    isprojected(dest, raw, Val(length(axes_codomain)); kwargs...) ||
         throw(InexactError(:project, typeof(dest), raw))
     return dest
 end
@@ -164,7 +164,7 @@ Keyword arguments are forwarded to the `isapprox` tolerance check.
 """
 function tryproject(raw, axes_codomain, axes_domain; kwargs...)
     dest = unchecked_project(raw, axes_codomain, axes_domain)
-    return is_projected(dest, raw, Val(length(axes_codomain)); kwargs...) ? dest : nothing
+    return isprojected(dest, raw, Val(length(axes_codomain)); kwargs...) ? dest : nothing
 end
 tryproject(raw, axes; kwargs...) = tryproject(raw, axes, (); kwargs...)
 

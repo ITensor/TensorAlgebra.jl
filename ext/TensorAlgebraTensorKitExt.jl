@@ -19,7 +19,7 @@ TensorAlgebra.axes(t::AbstractTensorMap) = ntuple(i -> space(t, i), numind(t))
 TensorAlgebra.size(t::AbstractTensorMap, i::Int) = dim(space(t, i))
 TensorAlgebra.size(t::AbstractTensorMap) = ntuple(i -> dim(space(t, i)), numind(t))
 TensorAlgebra.ndims_codomain(t::AbstractTensorMap) = numout(t)
-TensorAlgebra.has_bipartition(::AbstractTensorMap) = true
+TensorAlgebra.hasbipartition(::AbstractTensorMap) = true
 
 # `t[]` on a rank-0 `TensorMap` requires a trivial sector type; `TensorKit.scalar` is the
 # general spelling.
@@ -203,7 +203,7 @@ end
 # `permute` at the tensor's own codomain/domain split is trivial and returns `t` itself, so that
 # split is the one memory-sharing matricization (TensorKit's own `has_shared_permute` notion). Any
 # other split, or a folded `conj`, regroups into a fresh `TensorMap`.
-function TensorAlgebra.is_output_view(
+function TensorAlgebra.isoutputview(
         ::typeof(TensorAlgebra.matricizeconj), isconj::Bool,
         t::AbstractTensorMap, perm_codomain, perm_domain
     )
