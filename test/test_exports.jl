@@ -36,7 +36,7 @@ using Test: @test, @testset
                 :contractpermconjadd!, :contractpermopalign,
                 :contractpermopadd!, :data,
                 :datatype,
-                :default_algorithm, :DefaultAllocator, :DefaultPermute, :dims2cat,
+                :default_algorithm, :DefaultAllocator, :DefaultPermuteAlgorithm, :dims2cat,
                 :directsum, :dot, :dotperm, :eig_full,
                 :eig_trunc,
                 :eig_vals, :eigh_full, :eigh_trunc, :eigh_vals, :fill_map,

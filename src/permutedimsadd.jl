@@ -71,16 +71,22 @@ as its first argument.
 abstract type PermuteAlgorithm <: AbstractAlgorithm end
 
 """
-    DefaultPermute()
+    DefaultPermuteAlgorithm()
 
-Permute with the array type's own implementation: a strided kernel for strided arrays and
-broadcasting otherwise, unless the array type overloads it. The default algorithm for all
-operands.
+Permute with the default algorithm for the operands, as chosen by
+[`TensorAlgebra.default_algorithm`](@ref). Unless an array type chooses another algorithm, that
+is `DefaultPermuteAlgorithm()` itself, meaning the array type's own implementation: a strided
+kernel for strided arrays and broadcasting otherwise, unless the array type overloads it.
 """
-struct DefaultPermute <: PermuteAlgorithm end
+struct DefaultPermuteAlgorithm <: PermuteAlgorithm end
 
 function default_algorithm(::typeof(bipermutedimsconjadd!), ::Type{<:Tuple{Any, Any}})
-    return DefaultPermute()
+    return DefaultPermuteAlgorithm()
+end
+function select_algorithm(
+        ::typeof(bipermutedimsconjadd!), ::DefaultPermuteAlgorithm, args::Tuple
+    )
+    return default_algorithm(bipermutedimsconjadd!, args)
 end
 
 """
@@ -119,7 +125,7 @@ end
 function _bipermutedimsconjadd!(
         algorithm, dest, isconj::Bool, src, perm_codomain, perm_domain, α::Number, β::Number
     )
-    algorithm isa DefaultPermute || throw(
+    algorithm isa DefaultPermuteAlgorithm || throw(
         MethodError(
             bipermutedimsconjadd!,
             (algorithm, dest, isconj, src, perm_codomain, perm_domain, α, β)

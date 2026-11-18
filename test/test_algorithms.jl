@@ -15,7 +15,7 @@ module AlgorithmsTestUtils
         )
         alg.count[] += 1
         return TA.bipermutedimsconjadd!(
-            TA.DefaultPermute(), dest, isconj, src, perm_codomain, perm_domain, α, β
+            TA.DefaultPermuteAlgorithm(), dest, isconj, src, perm_codomain, perm_domain, α, β
         )
     end
     struct UnimplementedPermute <: TA.PermuteAlgorithm end
@@ -43,7 +43,13 @@ using .AlgorithmsTestUtils: CountingAllocator, CountingPermute, UnimplementedPer
 
 @testset "permute algorithm" begin
     a = randn(3, 4, 5)
-    @test TA.default_algorithm(TA.bipermutedimsconjadd!, (a, a)) ≡ TA.DefaultPermute()
+    @test TA.default_algorithm(TA.bipermutedimsconjadd!, (a, a)) ≡
+        TA.DefaultPermuteAlgorithm()
+    @test TA.select_algorithm(
+        TA.bipermutedimsconjadd!, TA.DefaultPermuteAlgorithm(), (a, a)
+    ) ≡ TA.DefaultPermuteAlgorithm()
+    @test TA.permutedims(a, (3, 1, 2); alg = TA.DefaultPermuteAlgorithm()) ==
+        permutedims(a, (3, 1, 2))
 
     alg = CountingPermute()
     @test TA.permutedims(a, (3, 1, 2); alg) == permutedims(a, (3, 1, 2))
@@ -69,7 +75,7 @@ end
 
 @testset "allocator" begin
     @test TA.allocator(MatricizeContract()) ≡ TA.DefaultAllocator()
-    @test TA.allocator(TA.DefaultPermute()) ≡ TA.DefaultAllocator()
+    @test TA.allocator(TA.DefaultPermuteAlgorithm()) ≡ TA.DefaultAllocator()
 
     a = randn(3, 4, 5)
     b = randn(5, 2, 4)

@@ -11,17 +11,22 @@ ContractAlgorithm(algorithm::ContractAlgorithm) = algorithm
 struct DefaultContractAlgorithm <: ContractAlgorithm end
 
 """
-    MatricizeContract(; permute_alg = nothing, allocator = TensorAlgebra.DefaultAllocator())
+    MatricizeContract(;
+        permute_alg = TensorAlgebra.DefaultPermuteAlgorithm(),
+        allocator = TensorAlgebra.DefaultAllocator()
+    )
 
 Contract by matricizing both operands and multiplying the matrices. The default algorithm for
-`AbstractArray` operands. `permute_alg` is the [`PermuteAlgorithm`](@ref) of the matricizations
-(`nothing` selects the default), and `allocator` provides the temporary matrices.
+`AbstractArray` operands. `permute_alg` is the [`PermuteAlgorithm`](@ref) of the matricizations,
+and `allocator` provides the temporary matrices.
 """
 struct MatricizeContract{PermuteAlg, Allocator} <: ContractAlgorithm
     permute_alg::PermuteAlg
     allocator::Allocator
 end
-function MatricizeContract(; permute_alg = nothing, allocator = DefaultAllocator())
+function MatricizeContract(;
+        permute_alg = DefaultPermuteAlgorithm(), allocator = DefaultAllocator()
+    )
     return MatricizeContract(permute_alg, allocator)
 end
 allocator(algorithm::MatricizeContract) = algorithm.allocator

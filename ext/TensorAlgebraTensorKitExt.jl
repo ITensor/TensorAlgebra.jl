@@ -201,7 +201,7 @@ end
 # Delegate to TensorKit's TensorOperations interface: `tensoradd!` realizes the permutation, the
 # data conjugation (via `adjoint` internally), and the `α`/`β` scaling in one call.
 function TensorAlgebra.bipermutedimsconjadd!(
-        ::TensorAlgebra.DefaultPermute,
+        ::TensorAlgebra.DefaultPermuteAlgorithm,
         dest::AbstractTensorMap, isconj::Bool, src::AbstractTensorMap,
         perm_codomain, perm_domain, α::Number, β::Number
     )
