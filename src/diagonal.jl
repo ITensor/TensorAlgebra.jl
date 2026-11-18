@@ -40,18 +40,24 @@ function matricizeconjview(
     )
     return a
 end
-# A `{1,1}` unmatricize is the identity, so the result stays `Diagonal`.
-function unmatricize(
+# A `{1,1}` unmatricize is the identity, so the result stays `Diagonal`. Any other split is not
+# representable as a `Diagonal`, so it is copied into a dense array.
+function isoutputview(
+        ::typeof(unmatricize), m::Diagonal,
+        axes_codomain::Tuple{<:AbstractUnitRange}, axes_domain::Tuple{<:AbstractUnitRange}
+    )
+    return true
+end
+function unmatricizeview(
         m::Diagonal,
         axes_codomain::Tuple{<:AbstractUnitRange}, axes_domain::Tuple{<:AbstractUnitRange}
     )
     check_input(unmatricize, m, axes_codomain, axes_domain)
     return m
 end
-# Any other split is not representable as a `Diagonal`. `similar(m, axes(m))` densifies while
-# keeping `m`'s array backend, where a plain `Array` would force the result onto the CPU.
-function unmatricize(m::Diagonal, axes_codomain::Tuple, axes_domain::Tuple)
-    return unmatricize(copyto!(similar(m, axes(m)), m), axes_codomain, axes_domain)
+# `similar(::Diagonal, ...)` keeps the storage type only for one or two dimensions.
+function allocate_output(::typeof(unmatricize), m::Diagonal, axes_codomain, axes_domain)
+    return similar(m.diag, eltype(m), (axes_codomain..., conj.(axes_domain)...))
 end
 
 # Contracting two `Diagonal`s to a `{1,1}` destination gives a `Diagonal`. Other destination

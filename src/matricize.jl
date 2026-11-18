@@ -184,7 +184,8 @@ end
 """
     matricizeconjcopy(isconj::Bool, a, perm_codomain, perm_domain) -> m
 
-Matricize `a`, conjugated when `isconj` is `true`, into new storage that the caller owns.
+Matricize `a`, conjugated when `isconj` is `true`, into new storage that the caller owns. Array
+types customize it through [`allocate_output`](@ref) and [`matricizeconj!`](@ref).
 
 See also [`matricizeopcopy`](@ref).
 """
@@ -233,7 +234,8 @@ end
     matricizeconj!(dest, isconj::Bool, a, perm_codomain, perm_domain) -> dest
 
 Write the matricization of `a`, conjugated when `isconj` is `true`, into the matrix `dest`.
-Array types overload this together with [`allocate_output`](@ref), which allocates `dest`.
+Array types overload this together with
+`allocate_output(matricizeconj, isconj, a, perm_codomain, perm_domain)`, which allocates `dest`.
 
 See also [`matricizeop!`](@ref).
 """
@@ -255,9 +257,11 @@ end
 # ==================================  isoutputview  ======================================
 """
     isoutputview(matricizeconj, isconj::Bool, a, perm_codomain, perm_domain) -> Bool
+    isoutputview(unmatricize, m, axes_codomain, axes_domain) -> Bool
 
-Whether `matricizeconj` returns a matrix sharing `a`'s memory for these arguments. Defaults to
-`false`. Array types overload it together with [`matricizeconjview`](@ref).
+Whether `matricizeconj` (or `unmatricize`) returns an array sharing its input's memory for these
+arguments. Defaults to `false`. Array types overload it together with
+[`matricizeconjview`](@ref) (or [`unmatricizeview`](@ref)).
 """
 function isoutputview(
         ::typeof(matricizeconj), isconj::Bool, a, perm_codomain, perm_domain
@@ -265,13 +269,49 @@ function isoutputview(
     return false
 end
 
+# =====================================  unmatricize  ======================================
+
 """
     unmatricize(m, axes_codomain, axes_domain) -> a
 
 Unfold the matrix `m` into an array with axes `(axes_codomain..., conj.(axes_domain)...)`,
-undoing [`matricize`](@ref) with the dimensions in order. Array types overload this.
+undoing [`matricize`](@ref) with the dimensions in order. The result may share `m`'s memory, so
+treat it as read-only.
+
+See also [`unmatricizeview`](@ref), [`unmatricizecopy`](@ref), [`unmatricizeadd!`](@ref).
 """
-function unmatricize end
+function unmatricize(m, axes_codomain, axes_domain)
+    isoutputview(unmatricize, m, axes_codomain, axes_domain) &&
+        return unmatricizeview(m, axes_codomain, axes_domain)
+    return unmatricizecopy(m, axes_codomain, axes_domain)
+end
+
+"""
+    unmatricizecopy(m, axes_codomain, axes_domain) -> a
+
+Unfold the matrix `m` like [`unmatricize`](@ref), into new storage that the caller owns. Array
+types customize it through `allocate_output(unmatricize, m, axes_codomain, axes_domain)` and
+[`unmatricizeadd!`](@ref).
+"""
+function unmatricizecopy(m, axes_codomain, axes_domain)
+    a = allocate_output(unmatricize, m, axes_codomain, axes_domain)
+    return unmatricize!(a, m, Val(length(axes_codomain)))
+end
+
+"""
+    unmatricizeview(m, axes_codomain, axes_domain) -> a
+
+Unfold the matrix `m` like [`unmatricize`](@ref), as an array sharing `m`'s memory. Array types
+overload this for the arguments where [`isoutputview`](@ref) returns `true`, and
+[`unmatricizeadd!`](@ref) reads the matrix through it.
+"""
+function unmatricizeview(m, axes_codomain, axes_domain)
+    return throw(MethodError(unmatricizeview, (m, axes_codomain, axes_domain)))
+end
+
+function isoutputview(::typeof(unmatricize), m, axes_codomain, axes_domain)
+    return false
+end
 
 """
     bipartition_axes(t::Tuple, length1::Val) -> (axes_codomain, axes_domain)
@@ -289,7 +329,8 @@ end
     unmatricizeadd!(a_dest, m, perm_codomain, perm_domain, α, β) -> a_dest
 
 `a_dest = β * a_dest + α * a`, where `a` is the array whose matricization with
-`(perm_codomain, perm_domain)` is `m`.
+`(perm_codomain, perm_domain)` is `m`. Array types overload this together with
+`allocate_output(unmatricize, m, axes_codomain, axes_domain)`, which allocates `a_dest`.
 """
 function unmatricizeadd!(
         a_dest, m,
@@ -300,7 +341,7 @@ function unmatricizeadd!(
     ndims(a_dest) == length(biperm_src) ||
         throw(ArgumentError("destination does not match permutation"))
     axes_codomain, axes_domain = bipartition_axes(axes(a_dest), biperm_src)
-    a_perm = unmatricize(m, axes_codomain, axes_domain)
+    a_perm = unmatricizeview(m, axes_codomain, axes_domain)
     biperm_dest = invperm(biperm_src)
     return bipermutedimsconjadd!(
         a_dest,
@@ -331,8 +372,8 @@ end
 
 # ================================  dense (reshape) hooks  ===================================
 # Only a `DenseArray` declares a view, since reshaping any other array gives a wrapper that `mul!`
-# does not send to BLAS. The view is the reshape when the dimensions are already in order, and its
-# `transpose`, or `adjoint` when conjugating, at the swapped split.
+# does not send to BLAS, and that is slow to read. The view is the reshape when the dimensions are
+# already in order, and its `transpose`, or `adjoint` when conjugating, at the swapped split.
 function isoutputview(
         ::typeof(matricizeconj), isconj::Bool, a::DenseArray, perm_codomain, perm_domain
     )
@@ -371,7 +412,16 @@ function check_input(::typeof(unmatricize), m, axes_codomain, axes_domain)
     ) || throw(DimensionMismatch("`unmatricize` axes do not match the matrix size"))
     return nothing
 end
-function unmatricize(m::AbstractMatrix, axes_codomain, axes_domain)
+isoutputview(::typeof(unmatricize), m::DenseArray, axes_codomain, axes_domain) = true
+function unmatricizeview(m::AbstractMatrix, axes_codomain, axes_domain)
     check_input(unmatricize, m, axes_codomain, axes_domain)
     return reshape(m, (axes_codomain..., conj.(axes_domain)...))
+end
+function allocate_output(
+        ::typeof(unmatricize),
+        m::AbstractMatrix,
+        axes_codomain,
+        axes_domain
+    )
+    return similar(m, eltype(m), (axes_codomain..., conj.(axes_domain)...))
 end
