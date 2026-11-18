@@ -4,10 +4,12 @@ using MatrixAlgebraKit: MatrixAlgebraKit
 # The new bond axis is the last axis of a codomain factor and the first axis of a domain factor.
 # It is un-dualized with `conj` when it lands on the domain side, the `unmatricize` convention.
 
-# `unmatricize_factors(f, F, axes_codomain, axes_domain)` unfolds the matrix-level factors `F`
-# of `f` onto the split axes (in the `unmatricize` convention, domain axes un-dualized).
+# `unmatricize_factors(f, F, axes_codomain, axes_domain; alg)` unfolds the matrix-level factors
+# `F` of `f` onto the split axes (in the `unmatricize` convention, domain axes un-dualized).
 #
 # The matrix-level factorizations overwrite their input, so they are given an owned matricization.
+# It is released back to the allocator right after the factorization, which is safe since
+# MatrixAlgebraKit allocates fresh outputs for all of these except `project_hermitian!`.
 for f in (
         :qr_compact, :qr_full, :lq_compact, :lq_full,
         :left_polar, :right_polar, :left_orth, :right_orth,
@@ -16,15 +18,25 @@ for f in (
         :left_null, :right_null, :project_hermitian,
     )
     @eval begin
-        function $f(A, perm_codomain, perm_domain; kwargs...)
+        function $f(
+                A, perm_codomain, perm_domain;
+                permute_alg = DefaultPermuteAlgorithm(), allocator = DefaultAllocator(),
+                kwargs...
+            )
             ndims(A) == length(perm_codomain) + length(perm_domain) ||
                 throw(ArgumentError("Invalid bipermutation"))
+            # The input of `project_hermitian!` is its output, so it must outlive the reset.
+            $(f === :project_hermitian && :(allocator = DefaultAllocator()))
+            checkpoint = allocator_checkpoint!(allocator)
             A_mat =
             if isoutputview(matricizeconj, false, A, perm_codomain, perm_domain)
                 A_shared = matricizeconjview(false, A, perm_codomain, perm_domain)
                 MatrixAlgebraKit.copy_input(MatrixAlgebraKit.$f, A_shared)
             else
-                A_gather = matricizeconjcopy(false, A, perm_codomain, perm_domain)
+                A_gather = matricizeconjcopy(
+                    false, A, perm_codomain, perm_domain; alg = permute_alg,
+                    allocator
+                )
                 if eltype(A_gather) === float(eltype(A_gather))
                     A_gather
                 else
@@ -32,11 +44,12 @@ for f in (
                 end
             end
             F = MatrixAlgebraKit.$(Symbol(f, :!))(A_mat; kwargs...)
+            allocator_reset!(allocator, checkpoint)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
                 Val(length(perm_codomain))
             )
-            return unmatricize_factors($f, F, axes_codomain, axes_domain)
+            return unmatricize_factors($f, F, axes_codomain, axes_domain; alg = permute_alg)
         end
     end
 end
@@ -46,14 +59,20 @@ for f in (
         :sqrth_safe, :invsqrth_safe, :sqrth_invsqrth_safe,
     )
     @eval begin
-        function $f(A, perm_codomain, perm_domain; kwargs...)
-            A_mat = matricize(A, perm_codomain, perm_domain)
+        function $f(
+                A, perm_codomain, perm_domain;
+                permute_alg = DefaultPermuteAlgorithm(), allocator = DefaultAllocator(),
+                kwargs...
+            )
+            checkpoint = allocator_checkpoint!(allocator)
+            A_mat = matricize(A, perm_codomain, perm_domain; alg = permute_alg, allocator)
             F = MatrixAlgebra.$f(A_mat; kwargs...)
+            allocator_reset!(allocator, checkpoint)
             axes_codomain, axes_domain = bipartition_axes(
                 map(i -> axes(A, i), (perm_codomain..., perm_domain...)),
                 Val(length(perm_codomain))
             )
-            return unmatricize_factors($f, F, axes_codomain, axes_domain)
+            return unmatricize_factors($f, F, axes_codomain, axes_domain; alg = permute_alg)
         end
     end
 end
@@ -85,10 +104,10 @@ for f in (
         :left_polar, :right_polar, :left_orth, :right_orth,
     )
     @eval begin
-        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain)
+        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain; kwargs...)
             X, Y = F
-            return unmatricize(X, axes_codomain, (conj(axes(X, ndims(X))),)),
-                unmatricize(Y, (axes(Y, 1),), axes_domain)
+            return unmatricize(X, axes_codomain, (conj(axes(X, ndims(X))),); kwargs...),
+                unmatricize(Y, (axes(Y, 1),), axes_domain; kwargs...)
         end
     end
 end
@@ -141,6 +160,8 @@ partition is specified either via labels or directly through a bi-permutation.
 ## Keyword arguments
 
   - `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.qr_compact!`.
@@ -159,6 +180,8 @@ partition is specified either via labels or directly through a bi-permutation.
 ## Keyword arguments
 
   - `positive::Bool=false`: specify if the diagonal of `R` should be positive, leading to a unique decomposition.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.qr_full!`.
@@ -177,6 +200,8 @@ partition is specified either via labels or directly through a bi-permutation.
 ## Keyword arguments
 
   - `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.lq_compact!`.
@@ -195,6 +220,8 @@ partition is specified either via labels or directly through a bi-permutation.
 ## Keyword arguments
 
   - `positive::Bool=false`: specify if the diagonal of `L` should be positive, leading to a unique decomposition.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.lq_full!`.
@@ -212,7 +239,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.left_polar!`.
 """
@@ -229,7 +258,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.right_polar!`.
 """
@@ -246,7 +277,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.left_orth!`.
 """
@@ -263,7 +296,9 @@ their labels or directly through a bi-permutation.
 
 ## Keyword arguments
 
-  - Keyword arguments are passed on directly to MatrixAlgebraKit.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.right_orth!`.
 """
@@ -273,21 +308,21 @@ right_orth
 # rank × rank spectrum, and `Vᴴ` carries a leading rank axis plus the domain axes.
 for f in (:svd_compact, :svd_full)
     @eval begin
-        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain)
+        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain; kwargs...)
             U, S, Vᴴ = F
-            return unmatricize(U, axes_codomain, (conj(axes(U, ndims(U))),)),
+            return unmatricize(U, axes_codomain, (conj(axes(U, ndims(U))),); kwargs...),
                 S,
-                unmatricize(Vᴴ, (axes(Vᴴ, 1),), axes_domain)
+                unmatricize(Vᴴ, (axes(Vᴴ, 1),), axes_domain; kwargs...)
         end
     end
 end
 
 # Like the three-output SVD, plus the truncation error `ϵ`.
-function unmatricize_factors(::typeof(svd_trunc), F, axes_codomain, axes_domain)
+function unmatricize_factors(::typeof(svd_trunc), F, axes_codomain, axes_domain; kwargs...)
     U, S, Vᴴ, ϵ = F
-    return unmatricize(U, axes_codomain, (conj(axes(U, ndims(U))),)),
+    return unmatricize(U, axes_codomain, (conj(axes(U, ndims(U))),); kwargs...),
         S,
-        unmatricize(Vᴴ, (axes(Vᴴ, 1),), axes_domain),
+        unmatricize(Vᴴ, (axes(Vᴴ, 1),), axes_domain; kwargs...),
         ϵ
 end
 
@@ -295,9 +330,9 @@ end
 # axes plus a trailing rank axis.
 for f in (:eigh_full, :eig_full, :eigh_trunc, :eig_trunc)
     @eval begin
-        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain)
+        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain; kwargs...)
             D, V = F
-            return D, unmatricize(V, axes_codomain, (conj(axes(V, ndims(V))),))
+            return D, unmatricize(V, axes_codomain, (conj(axes(V, ndims(V))),); kwargs...)
         end
     end
 end
@@ -306,7 +341,7 @@ end
 # nothing to unfold.
 for f in (:svd_vals, :eigh_vals, :eig_vals)
     @eval begin
-        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain)
+        function unmatricize_factors(::typeof($f), F, axes_codomain, axes_domain; kwargs...)
             return F
         end
     end
@@ -321,6 +356,12 @@ Compute the compact (thin) SVD of a generic N-dimensional array, by interpreting
 linear map from the domain to the codomain dimensions, where `U` and `Vᴴ` are isometric.
 The partition is specified either via labels or directly through a bi-permutation.
 
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
 See also `MatrixAlgebraKit.svd_compact!`.
 """
 svd_compact
@@ -333,6 +374,12 @@ svd_compact
 Compute the full (thick) SVD of a generic N-dimensional array, by interpreting it as a
 linear map from the domain to the codomain dimensions, where `U` and `Vᴴ` are unitary.
 The partition is specified either via labels or directly through a bi-permutation.
+
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.svd_full!`.
 """
@@ -351,6 +398,8 @@ truncation error `ϵ`, the 2-norm of the discarded singular values.
 ## Keyword arguments
 
   - `trunc`: truncation strategy, passed on to `MatrixAlgebraKit.svd_trunc`.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
   - Other keywords are passed on directly to MatrixAlgebraKit.
 
 # Examples
@@ -384,6 +433,12 @@ Compute the singular values of a generic N-dimensional array, by interpreting it
 linear map from the domain to the codomain dimensions. The partition is specified either
 via labels or directly through a bi-permutation. The output is a vector of singular values.
 
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
 See also `MatrixAlgebraKit.svd_vals!`.
 """
 svd_vals
@@ -396,6 +451,12 @@ svd_vals
 Compute the eigenvalue decomposition of a generic N-dimensional array interpreted as a
 Hermitian linear map from the domain to the codomain dimensions. The partition is specified
 either via labels or directly through a bi-permutation.
+
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.eigh_full!`.
 """
@@ -411,6 +472,12 @@ general (non-Hermitian) linear map from the domain to the codomain dimensions. T
 `eltype` is always `<:Complex`. The partition is specified either via labels or directly
 through a bi-permutation.
 
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
 See also `MatrixAlgebraKit.eig_full!`.
 """
 eig_full
@@ -422,6 +489,12 @@ eig_full
 
 Truncated Hermitian eigenvalue decomposition, like [`eigh_full`](@ref) but keeping only the
 eigenvalues selected by the `trunc` strategy.
+
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.eigh_trunc!`.
 """
@@ -435,6 +508,12 @@ eigh_trunc
 Truncated general eigenvalue decomposition, like [`eig_full`](@ref) but keeping only the
 eigenvalues selected by the `trunc` strategy.
 
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
 See also `MatrixAlgebraKit.eig_trunc!`.
 """
 eig_trunc
@@ -446,6 +525,12 @@ eig_trunc
 
 Compute the eigenvalues of a generic N-dimensional array interpreted as a Hermitian linear
 map from the domain to the codomain dimensions. The output is a vector of eigenvalues.
+
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.eigh_vals!`.
 """
@@ -459,6 +544,12 @@ eigh_vals
 Compute the eigenvalues of a generic N-dimensional array interpreted as a general
 (non-Hermitian) linear map from the domain to the codomain dimensions. The output is a
 vector of eigenvalues with `<:Complex` `eltype`.
+
+## Keyword arguments
+
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
 
 See also `MatrixAlgebraKit.eig_vals!`.
 """
@@ -481,6 +572,8 @@ The output satisfies `N' * A ≈ 0` and `N' * N ≈ I`.
   - `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
     The options are `:qr`, `:qrpos` and `:svd`. The former two require `0 == atol == rtol`.
     The default is `:qrpos` if `atol == rtol == 0`, and `:svd` otherwise.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
 """
 left_null
 
@@ -491,8 +584,8 @@ function left_null!!(A, ndims_codomain::Val; kwargs...)
     return unmatricize(N, axes_codomain, (conj(axes(N, ndims(N))),))
 end
 
-function unmatricize_factors(::typeof(left_null), N, axes_codomain, axes_domain)
-    return unmatricize(N, axes_codomain, (conj(axes(N, ndims(N))),))
+function unmatricize_factors(::typeof(left_null), N, axes_codomain, axes_domain; kwargs...)
+    return unmatricize(N, axes_codomain, (conj(axes(N, ndims(N))),); kwargs...)
 end
 
 """
@@ -512,6 +605,8 @@ The output satisfies `A * Nᴴ' ≈ 0` and `Nᴴ * Nᴴ' ≈ I`.
   - `kind::Symbol`: specify the kind of decomposition used to compute the nullspace.
     The options are `:lq`, `:lqpos` and `:svd`. The former two require `0 == atol == rtol`.
     The default is `:lqpos` if `atol == rtol == 0`, and `:svd` otherwise.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
 """
 right_null
 
@@ -522,8 +617,14 @@ function right_null!!(A, ndims_codomain::Val; kwargs...)
     return unmatricize(Nᴴ, (axes(Nᴴ, 1),), axes_domain)
 end
 
-function unmatricize_factors(::typeof(right_null), Nᴴ, axes_codomain, axes_domain)
-    return unmatricize(Nᴴ, (axes(Nᴴ, 1),), axes_domain)
+function unmatricize_factors(
+        ::typeof(right_null),
+        Nᴴ,
+        axes_codomain,
+        axes_domain;
+        kwargs...
+    )
+    return unmatricize(Nᴴ, (axes(Nᴴ, 1),), axes_domain; kwargs...)
 end
 
 """
@@ -541,6 +642,8 @@ up to numerical noise.
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
@@ -564,6 +667,8 @@ first if it is Hermitian only up to numerical noise.
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
@@ -574,8 +679,14 @@ invsqrth_safe
 
 for f in (:sqrth_safe, :invsqrth_safe)
     @eval begin
-        function unmatricize_factors(::typeof($f), P_mat, axes_codomain, axes_domain)
-            return unmatricize(P_mat, axes_codomain, axes_domain)
+        function unmatricize_factors(
+                ::typeof($f),
+                P_mat,
+                axes_codomain,
+                axes_domain;
+                kwargs...
+            )
+            return unmatricize(P_mat, axes_codomain, axes_domain; kwargs...)
         end
     end
 end
@@ -589,12 +700,24 @@ Hermitian part `(M + M') / 2` of a generic N-dimensional array, interpreting
 it as a linear map `M` from the domain to the codomain dimensions. The result
 carries the same codomain and domain axes as `A`.
 
+## Keyword arguments
+
+  - `permute_alg`: the [`PermuteAlgorithm`](@ref) used to matricize `A`. An `allocator` is
+    accepted but not used, since the matricized copy of `A` is the result.
+  - Other keywords are passed on directly to MatrixAlgebraKit.
+
 See also `MatrixAlgebraKit.project_hermitian`.
 """
 project_hermitian
 
-function unmatricize_factors(::typeof(project_hermitian), H_mat, axes_codomain, axes_domain)
-    return unmatricize(H_mat, axes_codomain, axes_domain)
+function unmatricize_factors(
+        ::typeof(project_hermitian),
+        H_mat,
+        axes_codomain,
+        axes_domain;
+        kwargs...
+    )
+    return unmatricize(H_mat, axes_codomain, axes_domain; kwargs...)
 end
 
 """
@@ -610,6 +733,8 @@ domain axes as `A`.
 ## Keyword arguments
 
   - `alg`: forwarded to `MatrixAlgebraKit.eigh_full`.
+  - `permute_alg`, `allocator`: the [`PermuteAlgorithm`](@ref) and the allocator used to
+    matricize `A`.
 
 $(MatrixAlgebra._clamp_kwargs_doc("A"))
 
@@ -617,10 +742,16 @@ See also [`MatrixAlgebra.sqrth_invsqrth_safe`](@ref).
 """
 sqrth_invsqrth_safe
 
-function unmatricize_factors(::typeof(sqrth_invsqrth_safe), F, axes_codomain, axes_domain)
+function unmatricize_factors(
+        ::typeof(sqrth_invsqrth_safe),
+        F,
+        axes_codomain,
+        axes_domain;
+        kwargs...
+    )
     P_mat, Pinv_mat = F
-    return unmatricize(P_mat, axes_codomain, axes_domain),
-        unmatricize(Pinv_mat, axes_codomain, axes_domain)
+    return unmatricize(P_mat, axes_codomain, axes_domain; kwargs...),
+        unmatricize(Pinv_mat, axes_codomain, axes_domain; kwargs...)
 end
 
 """

@@ -1,3 +1,5 @@
+using LinearAlgebra: I
+using MatrixAlgebraKit: truncrank
 using TensorAlgebra: TensorAlgebra as TA, MatricizeContract
 using TensorOperations: BufferAllocator
 using Test: @test, @test_throws, @testset
@@ -111,4 +113,56 @@ end
     @test buffer.offset == sizeof(m)
     TA.allocator_reset!(buffer, checkpoint)
     @test buffer.offset == 0
+end
+
+@testset "factorizations with a permute algorithm and an allocator" begin
+    # A Hermitian positive definite map from dimensions `(3, 2)` to `(1, 4)`, so every
+    # factorization applies and the matricization permutes.
+    perm_codomain, perm_domain = (3, 2), (1, 4)
+    m = randn(6, 6)
+    m = m * m' + I
+    a = permutedims(reshape(m, 2, 3, 2, 3), invperm((perm_codomain..., perm_domain...)))
+    trunc = truncrank(3)
+    fs_kwargs = (
+        (TA.qr_compact, (;)), (TA.qr_full, (;)), (TA.lq_compact, (;)),
+        (TA.lq_full, (;)),
+        (TA.left_polar, (;)), (TA.right_polar, (;)),
+        (TA.left_orth, (;)), (TA.right_orth, (;)),
+        (TA.svd_compact, (;)), (TA.svd_full, (;)), (TA.svd_trunc, (; trunc)),
+        (TA.svd_vals, (;)),
+        (TA.eigh_full, (;)), (TA.eig_full, (;)), (TA.eigh_trunc, (; trunc)),
+        (TA.eig_trunc, (; trunc)), (TA.eigh_vals, (;)), (TA.eig_vals, (;)),
+        (TA.left_null, (;)), (TA.right_null, (;)), (TA.project_hermitian, (;)),
+        (TA.sqrth_safe, (;)), (TA.invsqrth_safe, (;)), (TA.sqrth_invsqrth_safe, (;)),
+    )
+    @testset "$f" for (f, kwargs) in fs_kwargs
+        F = f(a, perm_codomain, perm_domain; kwargs...)
+        F = F isa Tuple ? F : (F,)
+
+        permute_alg = CountingPermute()
+        F_alg = f(a, perm_codomain, perm_domain; permute_alg, kwargs...)
+        @test all(map(≈, F_alg isa Tuple ? F_alg : (F_alg,), F))
+        @test permute_alg.count[] == 1
+
+        buffer = BufferAllocator()
+        # The first call sizes the buffer, the second is served from it.
+        for _ in 1:2
+            F_buffer = f(a, perm_codomain, perm_domain; allocator = buffer, kwargs...)
+            F_buffer = F_buffer isa Tuple ? F_buffer : (F_buffer,)
+            @test all(map(≈, F_buffer, F))
+            @test buffer.offset == 0
+        end
+        # `project_hermitian` returns its input, so it does not take it from the allocator.
+        @test (buffer.max_offset > 0) == (f !== TA.project_hermitian)
+        F_buffer = f(a, perm_codomain, perm_domain; allocator = buffer, kwargs...)
+        F_buffer = F_buffer isa Tuple ? F_buffer : (F_buffer,)
+        # Overwrite the released matricized input: no factor may share memory with it.
+        checkpoint = TA.allocator_checkpoint!(buffer)
+        a_mat = TA.allocate_output(
+            TA.matricizeconj, false, a, perm_codomain, perm_domain; allocator = buffer
+        )
+        fill!(parent(a_mat), NaN)
+        TA.allocator_reset!(buffer, checkpoint)
+        @test all(map(≈, F_buffer, F))
+    end
 end
