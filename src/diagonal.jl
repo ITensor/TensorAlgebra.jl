@@ -57,13 +57,13 @@ end
 # Contracting two `Diagonal`s to a `{1,1}` destination gives a `Diagonal`. Other destination
 # shapes fall back to the generic dense allocation.
 function allocate_output(
-        ::typeof(contractpermconj),
+        ::typeof(contractpermconjalign),
         perm_dest_codomain::Tuple{Int}, perm_dest_domain::Tuple{Int},
         isconj1::Bool, a1::Diagonal, perm1_codomain, perm1_domain,
         isconj2::Bool, a2::Diagonal, perm2_codomain, perm2_domain
     )
     axes_codomain_dest, _ = output_axes(
-        contractpermconj,
+        contractpermconjalign,
         perm_dest_codomain, perm_dest_domain,
         isconj1, axes(a1), perm1_codomain, perm1_domain,
         isconj2, axes(a2), perm2_codomain, perm2_domain

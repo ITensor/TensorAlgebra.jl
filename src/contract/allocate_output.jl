@@ -49,16 +49,16 @@ end
 # TODO: Use `ArrayLayouts`-like `MulAdd` object,
 # i.e. `ContractAdd`?
 """
-    output_axes(contractpermconj, args...) -> (axes_codomain, axes_domain)
+    output_axes(contractpermconjalign, args...) -> (axes_codomain, axes_domain)
 
-The codomain and domain axes of the result of [`contractpermconj`](@ref) called with `args`.
+The codomain and domain axes of the result of [`contractpermconjalign`](@ref) called with `args`.
 """
 function output_axes end
 
 # Given only the axes and kept out of line, so it compiles per axis type rather than per pair of
 # operands.
 @noinline function output_axes(
-        ::typeof(contractpermconj),
+        ::typeof(contractpermconjalign),
         perm_dest_codomain, perm_dest_domain,
         isconj1::Bool, axes1::Tuple, perm1_codomain, perm1_domain,
         isconj2::Bool, axes2::Tuple, perm2_codomain, perm2_domain
@@ -79,13 +79,13 @@ end
 # i.e. `ContractAdd`?
 # Inputs are validated by the contraction itself.
 function allocate_output(
-        ::typeof(contractpermconj),
+        ::typeof(contractpermconjalign),
         perm_dest_codomain, perm_dest_domain,
         isconj1::Bool, a1, perm1_codomain, perm1_domain,
         isconj2::Bool, a2, perm2_codomain, perm2_domain
     )
     axes_codomain_dest, axes_domain_dest = @inline output_axes(
-        contractpermconj,
+        contractpermconjalign,
         perm_dest_codomain, perm_dest_domain,
         isconj1, axes(a1), perm1_codomain, perm1_domain,
         isconj2, axes(a2), perm2_codomain, perm2_domain

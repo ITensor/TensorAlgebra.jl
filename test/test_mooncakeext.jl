@@ -2,8 +2,8 @@ using Mooncake: Mooncake
 using Random: Random
 using TensorAlgebra: BiTuple, ContractAlgorithm, DefaultContractAlgorithm,
     MatricizeContract, allocate_output, biperm, biperms, contract, contract!,
-    contract_labels, contractadd!, contractpermadd!, contractpermconj, default_algorithm,
-    select_algorithm
+    contract_labels, contractadd!, contractpermadd!, contractpermconjalign,
+    default_algorithm, select_algorithm
 using Test: @test, @testset
 
 @testset "MooncakeExt" begin
@@ -30,7 +30,7 @@ using Test: @test, @testset
         labels2 = (:j, :k)
 
         Mooncake.TestUtils.test_rule(
-            rng, allocate_output, contractpermconj, biperm_dest.t1, biperm_dest.t2,
+            rng, allocate_output, contractpermconjalign, biperm_dest.t1, biperm_dest.t2,
             false, a1, biperm1.t1, biperm1.t2, false, a2, biperm2.t1, biperm2.t2;
             mode, is_primitive
         )

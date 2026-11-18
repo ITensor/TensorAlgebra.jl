@@ -28,7 +28,6 @@ true
 See also [`contractalign`](@ref) to name the output dimensions and get back just the array.
 """
 function contract(a1, labels1, a2, labels2; kwargs...)
-    # A no-op unless the label type opts in through `label_type`.
     l1, l2 = encode_contraction_labels(labels1, labels2)
     l_dest = contract_labels(l1, l2)
     a_dest = contractalign(l_dest, a1, l1, a2, l2; kwargs...)
@@ -54,36 +53,36 @@ true
 function contractalign(
         labels_dest, a1, labels1, a2, labels2; kwargs...
     )
-    return contractconj(labels_dest, false, a1, labels1, false, a2, labels2; kwargs...)
+    return contractconjalign(labels_dest, false, a1, labels1, false, a2, labels2; kwargs...)
 end
 
 # The `op` forms take each operand's operation as `identity` or `conj` and forward to the `conj`
 # forms, which take a conjugation flag and are the ones to overload.
 
-# contractop (labels, with operations on the operands)
+# contractopalign (labels, with operations on the operands)
 """
-    contractop(labels_dest, op1, a1, labels1, op2, a2, labels2; alg = nothing) -> a_dest
+    contractopalign(labels_dest, op1, a1, labels1, op2, a2, labels2; alg = nothing) -> a_dest
 
 Contract `op1(a1)` with `op2(a2)` over their shared labels, with the dimensions of the result
 ordered by `labels_dest`. Each `op` is `identity` or `conj`.
 
-See also [`contractconj`](@ref).
+See also [`contractconjalign`](@ref).
 """
-function contractop(labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...)
-    return contractconj(
+function contractopalign(labels_dest, op1, a1, labels1, op2, a2, labels2; kwargs...)
+    return contractconjalign(
         labels_dest, _isconj(op1), a1, labels1, _isconj(op2), a2, labels2; kwargs...
     )
 end
 """
-    contractconj(labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2;
+    contractconjalign(labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2;
                  alg = nothing) -> a_dest
 
 Contract `a1` with `a2` over their shared labels, with the dimensions of the result ordered
 by `labels_dest`, conjugating each operand whose flag is `true`.
 
-See also [`contractop`](@ref).
+See also [`contractopalign`](@ref).
 """
-function contractconj(
+function contractconjalign(
         labels_dest, isconj1::Bool, a1, labels1, isconj2::Bool, a2, labels2; kwargs...
     )
     isconj1, a1 = _unwrap_conj(isconj1, a1)
@@ -108,7 +107,7 @@ function _contractconj(
     biperm_dest, biperm1, biperm2 =
         biperms(contract, Val(K), labels_dest, labels1, labels2, contracted1)
     a_dest = allocate_output(
-        contractpermconj, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2,
+        contractpermconjalign, biperm_dest..., isconj1, a1, biperm1..., isconj2, a2,
         biperm2...
     )
     return contractpermconjadd!(
@@ -141,7 +140,7 @@ function contractpermalign(
         a2, perm2_codomain, perm2_domain;
         kwargs...
     )
-    return contractpermconj(
+    return contractpermconjalign(
         perm_dest_codomain, perm_dest_domain,
         false, a1, perm1_codomain, perm1_domain,
         false, a2, perm2_codomain, perm2_domain;
@@ -149,7 +148,7 @@ function contractpermalign(
     )
 end
 """
-    contractpermop(perm_dest_codomain, perm_dest_domain,
+    contractpermopalign(perm_dest_codomain, perm_dest_domain,
                    op1, a1, perm1_codomain, perm1_domain,
                    op2, a2, perm2_codomain, perm2_domain; alg = nothing) -> a_dest
 
@@ -157,15 +156,15 @@ Contract `op1(a1)` with `op2(a2)` over the dimensions `perm1_domain` of `a1` and
 `perm2_codomain` of `a2`, with the result's dimensions in the order given by the destination
 permutations. Each `op` is `identity` or `conj`.
 
-See also [`contractpermconj`](@ref).
+See also [`contractpermconjalign`](@ref).
 """
-function contractpermop(
+function contractpermopalign(
         perm_dest_codomain, perm_dest_domain,
         op1, a1, perm1_codomain, perm1_domain,
         op2, a2, perm2_codomain, perm2_domain;
         kwargs...
     )
-    return contractpermconj(
+    return contractpermconjalign(
         perm_dest_codomain, perm_dest_domain,
         _isconj(op1), a1, perm1_codomain, perm1_domain,
         _isconj(op2), a2, perm2_codomain, perm2_domain;
@@ -173,7 +172,7 @@ function contractpermop(
     )
 end
 """
-    contractpermconj(perm_dest_codomain, perm_dest_domain,
+    contractpermconjalign(perm_dest_codomain, perm_dest_domain,
                      isconj1::Bool, a1, perm1_codomain, perm1_domain,
                      isconj2::Bool, a2, perm2_codomain, perm2_domain; alg = nothing) -> a_dest
 
@@ -181,9 +180,9 @@ Contract `a1` with `a2` over the dimensions `perm1_domain` of `a1` and `perm2_co
 `a2`, conjugating each operand whose flag is `true`, with the result's dimensions in the order
 given by the destination permutations.
 
-See also [`contractpermop`](@ref).
+See also [`contractpermopalign`](@ref).
 """
-function contractpermconj(
+function contractpermconjalign(
         perm_dest_codomain, perm_dest_domain,
         isconj1::Bool, a1, perm1_codomain, perm1_domain,
         isconj2::Bool, a2, perm2_codomain, perm2_domain;
@@ -192,7 +191,7 @@ function contractpermconj(
     isconj1, a1 = _unwrap_conj(isconj1, a1)
     isconj2, a2 = _unwrap_conj(isconj2, a2)
     a_dest = allocate_output(
-        contractpermconj,
+        contractpermconjalign,
         perm_dest_codomain, perm_dest_domain,
         isconj1, a1, perm1_codomain, perm1_domain,
         isconj2, a2, perm2_codomain, perm2_domain
@@ -344,7 +343,7 @@ end
                        op2, a2, perm2_codomain, perm2_domain, α, β; alg = nothing) -> a_dest
 
 `a_dest = β * a_dest + α * c`, where `c` is the contraction of `op1(a1)` and `op2(a2)` as in
-[`contractpermop`](@ref).
+[`contractpermopalign`](@ref).
 
 See also [`contractpermconjadd!`](@ref).
 """
@@ -372,7 +371,7 @@ end
                          isconj2::Bool, a2, perm2_codomain, perm2_domain, α, β) -> a_dest
 
 `a_dest = β * a_dest + α * c`, where `c` is the contraction of `a1` and `a2` as in
-[`contractpermconj`](@ref). Array types and contraction backends overload the second form,
+[`contractpermconjalign`](@ref). Array types and contraction backends overload the second form,
 which takes the [`ContractAlgorithm`](@ref) first.
 
 See also [`contractpermopadd!`](@ref).
