@@ -1,9 +1,7 @@
 using LinearAlgebra: mul!
 using TupleTools: TupleTools
 
-# Matricize both operands, multiply, and write the product into the destination. There are four
-# layouts: the contracted legs in `a1`'s or in `a2`'s order, times `a1 * a2` or the transposed
-# `a2 * a1`. The one that copies the fewest elements is used.
+# Matricize both operands, multiply, and write the product into the destination.
 function contractpermconjadd!(
         ::MatricizeContract,
         a_dest::AbstractArray, biperm_dest_codomain, biperm_dest_domain,
@@ -22,78 +20,77 @@ function contractpermconjadd!(
         isconj1, a1, biperm1_codomain, biperm1_domain,
         isconj2, a2, biperm2_codomain, biperm2_domain
     )
-    # The contracted legs reordered to `a2`'s storage order.
-    p = TupleTools.sortperm(biperm2_codomain)
-    biperm1_domain_alt = map(i -> biperm1_domain[i], p)
-    biperm2_codomain_alt = map(i -> biperm2_codomain[i], p)
-    l1 = matricize_copy_lengths(
-        isconj1, a1, biperm1_codomain, biperm1_domain, biperm1_domain_alt
+    (; swap, contracted) = matricized_layout(
+        a_dest, invperm_codomain, invperm_domain,
+        isconj1, a1, biperm1_codomain, biperm1_domain,
+        isconj2, a2, biperm2_codomain, biperm2_domain
     )
-    l2 = matricize_copy_lengths(
-        isconj2, a2, biperm2_domain, biperm2_codomain, biperm2_codomain_alt
-    )
-    l_dest, l_dest_swapped = dest_copy_lengths(a_dest, invperm_codomain, invperm_domain)
-    costs = (
-        l_dest + l1[1] + l2[3],
-        l_dest + l1[2] + l2[4],
-        l_dest_swapped + l2[1] + l1[3],
-        l_dest_swapped + l2[2] + l1[4],
-    )
-    i = argmin(costs)
-    biperm1_contracted, biperm2_contracted = if isodd(i)
-        (biperm1_domain, biperm2_codomain)
-    else
-        (biperm1_domain_alt, biperm2_codomain_alt)
-    end
-    if i ≤ 2
+    contracted1, contracted2 = contracted
+    if swap
         _contractpermconjadd_matricized!(
-            a_dest, invperm_codomain, invperm_domain,
-            isconj1, a1, biperm1_codomain, biperm1_contracted,
-            isconj2, a2, biperm2_contracted, biperm2_domain,
+            a_dest, invperm_domain, invperm_codomain,
+            isconj2, a2, biperm2_domain, contracted2,
+            isconj1, a1, contracted1, biperm1_codomain,
             α, β
         )
     else
         _contractpermconjadd_matricized!(
-            a_dest, invperm_domain, invperm_codomain,
-            isconj2, a2, biperm2_domain, biperm2_contracted,
-            isconj1, a1, biperm1_contracted, biperm1_codomain,
+            a_dest, invperm_codomain, invperm_domain,
+            isconj1, a1, biperm1_codomain, contracted1,
+            isconj2, a2, contracted2, biperm2_domain,
             α, β
         )
     end
     return a_dest
 end
 
-# The scoring helpers each see one array and are kept out of line, so they compile per array type
-# rather than per pair of operands.
-
-# The number of elements copied to matricize `a` as the left factor `(open | contracted)` and as
-# the right factor `(contracted | open)`, for both orders of the contracted legs.
-@noinline function matricize_copy_lengths(
-        isconj::Bool, a, perm_open, perm_contracted, perm_contracted_alt
+# The layout of a matricized contraction that copies the fewest elements, to matricize the
+# operands and to write the destination. The product is `a1 * a2`, or with `swap` the transposed
+# `a2 * a1`, and the contracted legs are in `a1`'s or in `a2`'s storage order. Inlined, since the
+# call alone measurably slows down small contractions.
+@inline function matricized_layout(
+        a_dest, perm_dest_codomain, perm_dest_domain,
+        isconj1, a1, open1, contracted1,
+        isconj2, a2, contracted2, open2
     )
-    n = length(a)
-    copy_length(perm_codomain, perm_domain) =
-        isoutputview(matricizeconj, isconj, a, perm_codomain, perm_domain) ? 0 : n
-    return (
-        copy_length(perm_open, perm_contracted),
-        copy_length(perm_open, perm_contracted_alt),
-        copy_length(perm_contracted, perm_open),
-        copy_length(perm_contracted_alt, perm_open),
+    p = TupleTools.sortperm(contracted2)
+    contracted1_alt = map(i -> contracted1[i], p)
+    contracted2_alt = map(i -> contracted2[i], p)
+    # `a1 * a2` with the contracted legs in `a1`'s and then in `a2`'s order, followed by `a2 * a1`
+    # likewise.
+    splits1 = (
+        (open1, contracted1), (open1, contracted1_alt),
+        (contracted1, open1), (contracted1_alt, open1),
     )
+    splits2 = (
+        (contracted2, open2), (contracted2_alt, open2),
+        (open2, contracted2), (open2, contracted2_alt),
+    )
+    split_dest = (perm_dest_codomain, perm_dest_domain)
+    split_dest_swapped = (perm_dest_domain, perm_dest_codomain)
+    splits_dest = (split_dest, split_dest, split_dest_swapped, split_dest_swapped)
+    costs = map(splits1, splits2, splits_dest) do split1, split2, split_dest
+        return cost(matricizeconj, isconj1, a1, split1...) +
+            cost(matricizeconj, isconj2, a2, split2...) +
+            cost(unmatricizeadd!, a_dest, split_dest...)
+    end
+    i = argmin(costs)
+    contracted = isodd(i) ? (contracted1, contracted2) : (contracted1_alt, contracted2_alt)
+    return (; swap = i > 2, contracted)
 end
 
-# The number of elements copied to write the destination through its direct and its swapped split.
+# The number of elements copied to matricize `a`, or to write the destination, through one split.
+# Each sees one array and is kept out of line, so it compiles per array type rather than per pair
+# of operands.
+@noinline cost(::typeof(matricizeconj), isconj, a, perm_codomain, perm_domain) =
+    isoutputview(matricizeconj, isconj, a, perm_codomain, perm_domain) ? 0 : length(a)
 # Only a plain (not transposed) view is written through, since `mul!` into a lazy `transpose` does
 # not use BLAS.
-@noinline function dest_copy_lengths(a_dest, perm_codomain, perm_domain)
-    n = length(a_dest)
-    function copy_length(perm_codomain, perm_domain)
-        isidentitybiperm(perm_codomain, perm_domain) &&
-            isoutputview(matricizeconj, false, a_dest, perm_codomain, perm_domain) &&
-            return 0
-        return n
-    end
-    return copy_length(perm_codomain, perm_domain), copy_length(perm_domain, perm_codomain)
+@noinline function cost(::typeof(unmatricizeadd!), a_dest, perm_codomain, perm_domain)
+    isidentitybiperm(perm_codomain, perm_domain) &&
+        isoutputview(matricizeconj, false, a_dest, perm_codomain, perm_domain) &&
+        return 0
+    return length(a_dest)
 end
 
 # `a_dest = β * a_dest + α * m1 * m2` for the operands matricized as `m1` and `m2`, with the
